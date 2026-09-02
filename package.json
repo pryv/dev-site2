@@ -1,0 +1,26 @@
+{
+  "name": "dev-site2",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pryv API reference, recommendations, guides, etc.",
+  "homepage": "https://pryv.github.io",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.0",
+    "astro": "^7.2.10",
+    "sharp": "^0.35.3"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}

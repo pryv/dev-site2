@@ -1,0 +1,32 @@
+/*
+ * Pryv brand tokens, extracted from the legacy pryv/style Stylus theme
+ * (variables.styl) so this repo carries no git-dependency theme.
+ * First pass: brand palette + Starlight accent mapping for light and dark.
+ * Typography (Roboto / Roboto Condensed) and full grey-scale tuning are a
+ * follow-up refinement (self-hosted webfont, no external fetch).
+ */
+:root {
+	/* Core visual identity (pryv/style variables.styl) */
+	--pryv-red: #bd1026;
+	--pryv-green: #719726;
+	--pryv-blue: #2d68ac;
+	--pryv-black: #1a1a1a;
+	--pryv-dark-gray: #4a4a4a;
+	--pryv-light-gray: #c8c8c8;
+}
+
+/* Dark theme (Starlight default; overridden accent) */
+:root[data-theme='dark'] {
+	--sl-color-accent-low: #13243a;
+	--sl-color-accent: #4f8bd4;
+	--sl-color-accent-high: #cddff0;
+	--sl-color-text-accent: #6fa3dd;
+}
+
+/* Light theme */
+:root[data-theme='light'] {
+	--sl-color-accent-low: #d6e2f2;
+	--sl-color-accent: #2d68ac;
+	--sl-color-accent-high: #1b3f68;
+	--sl-color-text-accent: #2d68ac;
+}

@@ -1,0 +1,8 @@
+# www.robotstxt.org/
+# http://code.google.com/web/controlcrawlindex/
+
+User-agent: *
+Allow: /
+Disallow:
+
+Sitemap: https://pryv.github.io/sitemap-index.xml
