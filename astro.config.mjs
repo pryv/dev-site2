@@ -118,6 +118,14 @@ export default defineConfig({
 					items: [{ slug: 'external-resources' }],
 				},
 				{
+					label: 'For agents',
+					items: [
+						{ slug: 'agents' },
+						{ label: 'llms.txt', link: '/llms.txt' },
+						{ label: 'llms-full.txt', link: '/llms-full.txt' },
+					],
+				},
+				{
 					label: 'Project',
 					// tests results page joins here.
 					items: [{ slug: 'roadmap' }],
