@@ -13,7 +13,15 @@ import type { Section, Property, ResultObject, ReferenceFlavor } from './types';
 const md = new MarkdownIt({ typographer: true, html: true });
 const renderMd = (s?: string): string => (s ? md.render(s) : '');
 const stripTags = (h: string): string => h.replace(/<[^>]*>/g, '');
-const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Emit an example code block tagged with its language and carrying the raw source as
+// base64 in a data attribute. A build-time pass (highlight.ts) replaces these with
+// syntax-highlighted markup. Base64 keeps the raw source intact even when it contains
+// the `api-*` environment-marker <span>s (the cURL panes), which the highlighter
+// restores after tokenizing so the runtime environment switcher keeps working.
+function codeBlock (raw: string, lang: string): string {
+	const b64 = Buffer.from(raw, 'utf8').toString('base64');
+	return `<pre><code data-lang="${lang}" data-raw="${b64}"></code></pre>`;
+}
 
 // The "strip the wrapping <p>...</p>\n" hack the legacy mixins use for inline fragments.
 function stripParagraph (html: string): string {
@@ -109,7 +117,7 @@ function tag (cls: string, onclick: string, labelTitle: string, labelText: strin
 function exampleContent (content: unknown): string {
 	if (!content) return '';
 	if (typeof content === 'string') return renderMd(content);
-	return `<pre><code>${escapeHtml(printJSON(content))}</code></pre>`;
+	return codeBlock(printJSON(content), 'json');
 }
 
 function resultHttpStatus (ex: { resultHTTP?: string }, settings: Section): string {
@@ -120,9 +128,10 @@ function resultHttpStatus (ex: { resultHTTP?: string }, settings: Section): stri
 }
 
 function responseBlock (ex: { result?: unknown; resultHTTP?: string }, settings: Section): string {
-	return `<div class="step-marker">⬇</div><pre><code>HTTP/1.1 ${resultHttpStatus(ex, settings)}\n` +
+	const body = `HTTP/1.1 ${resultHttpStatus(ex, settings)}\n` +
 		`Content-Type: application/json; charset=utf-8\nAPI-Version: ${version}\n\n` +
-		`${escapeHtml(printJSON(ex.result))}</code></pre>`;
+		printJSON(ex.result);
+	return '<div class="step-marker">⬇</div>' + codeBlock(body, 'http');
 }
 
 function renderExamples (examples: Section['examples'], settings: Section): string {
@@ -135,11 +144,11 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 			if (ex.result) block += '<div class="step-marker">⬇</div>' + exampleContent(ex.result);
 		} else if (ex.params) {
 			const p = ex.params as Record<string, unknown>;
-			let panes = `<div class="tab-pane json active"><pre><code>${escapeHtml(getRestCall(p, settings.http as string))}</code></pre>`;
-			if (ex.result) panes += `<div class="step-marker">⬇</div><pre><code>${escapeHtml(printJSON(ex.result))}</code></pre>`;
+			let panes = `<div class="tab-pane json active">${codeBlock(getRestCall(p, settings.http as string), 'json')}`;
+			if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
 			panes += '</div>';
 			if (settings.http) {
-				panes += `<div class="tab-pane http"><pre><code>${getCurlCall(p, settings.http, settings.server, false)}</code></pre>`;
+				panes += `<div class="tab-pane http">${codeBlock(getCurlCall(p, settings.http, settings.server, false), 'bash')}`;
 				if (ex.result) panes += responseBlock(ex, settings);
 				panes += '</div>';
 			}
@@ -147,8 +156,8 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				panes += '<div class="tab-pane sockets">';
 				if (settings.httpOnly) panes += `<pre>${httpOnlyMsg()}</pre>`;
 				else {
-					panes += `<pre><code>socket.emit('${settings.id}', ${escapeHtml(getWebsocketCall(p))}, callback);</code></pre>`;
-					if (ex.result) panes += `<div class="step-marker">⬇</div><pre><code>${escapeHtml(printJSON(ex.result))}</code></pre>`;
+					panes += codeBlock(`socket.emit('${settings.id}', ${getWebsocketCall(p)}, callback);`, 'javascript');
+					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
 				}
 				panes += '</div>';
 			}
@@ -157,13 +166,13 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				if (settings.httpOnly) panes += `<pre>${httpOnlyMsg()}</pre>`;
 				else {
 					if (settings.id === 'callBatch') panes += renderMd('Yes it works! Calling a method `callBatch` within a **call batch** would make no sense. Look at Rest or Socket.io calls.');
-					panes += `<pre><code>${escapeHtml(getBatchBlock(settings.id as string, p))}</code></pre>`;
-					if (ex.result) panes += `<div class="step-marker">⬇</div><pre><code>${escapeHtml(printJSON(ex.result))}</code></pre>`;
+					panes += codeBlock(getBatchBlock(settings.id as string, p), 'json');
+					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
 				}
 				panes += '</div>';
 			}
 			if (settings.http) {
-				panes += `<div class="tab-pane httpAuth"><pre><code>${getCurlCall(p, settings.http, settings.server, true)}</code></pre>`;
+				panes += `<div class="tab-pane httpAuth">${codeBlock(getCurlCall(p, settings.http, settings.server, true), 'bash')}`;
 				if (ex.result) panes += responseBlock(ex, settings);
 				panes += '</div>';
 			}

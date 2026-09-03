@@ -1,6 +1,7 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { renderReference } from '../reference-data/render';
+import { highlightExamples } from '../reference-data/highlight';
 import type { Section, ReferenceFlavor } from '../reference-data/types';
 import '../styles/reference.css';
 
@@ -11,8 +12,9 @@ interface Props {
 }
 
 const { title, rootSections, flavor } = Astro.props;
-const html = renderReference(rootSections, flavor);
-const hasExamples = html.includes('tab-pane');
+const rendered = renderReference(rootSections, flavor);
+const hasExamples = rendered.includes('tab-pane');
+const html = await highlightExamples(rendered);
 
 // Sub-nav so System & Admin references are reachable from the main API page.
 const navItems = [

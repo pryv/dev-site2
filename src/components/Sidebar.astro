@@ -48,25 +48,6 @@ function outline (roots: Section[]): Entry[] {
 ---
 
 {sections
-	? (
-		<div class="api-sidebar">
-			<a href="/" class="sidebar-back">&larr; Documentation</a>
-			<SidebarSublist sublist={outline(sections)} />
-		</div>
-	)
+	? <SidebarSublist sublist={outline(sections)} />
 	: <Default><slot /></Default>
 }
-
-<style>
-	.sidebar-back {
-		display: block;
-		padding: 0.4rem 0.5rem;
-		margin-bottom: 0.5rem;
-		font-weight: 600;
-		font-size: var(--sl-text-sm);
-		color: var(--sl-color-text-accent);
-		text-decoration: none;
-		border-bottom: 1px solid var(--sl-color-hairline);
-	}
-	.sidebar-back:hover { color: var(--sl-color-white); }
-</style>
