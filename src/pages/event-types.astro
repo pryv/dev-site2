@@ -1,0 +1,11 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { renderEventTypes } from '../reference-data/renderEventTypes';
+import eventTypes from '../data/event-types.json';
+import '../styles/reference.css';
+
+const html = renderEventTypes(eventTypes as any);
+---
+<StarlightPage frontmatter={{ title: 'Event types reference', description: 'The standard Pryv.io event types: numerical and complex classes with their JSON-schema content definitions.', tableOfContents: false }}>
+	<div class="reference" set:html={html} />
+</StarlightPage>

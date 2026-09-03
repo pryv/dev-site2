@@ -29,10 +29,16 @@ function heading (level: number, title: string, raw = false): string {
 // Post-pass reproducing metalsmith-headings-identifier: assign an id to EVERY heading in
 // document order (structural headings and headings embedded in description markdown alike),
 // with per-page dedup, so in-page anchors match the previous site.
-function assignHeadingIds (html: string): string {
+function decodeEntities (s: string): string {
+	return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+}
+
+export function assignHeadingIds (html: string): string {
 	const slug = createSlugger();
 	return html.replace(/<(h[1-6])([^>]*)>([\s\S]*?)<\/\1>/g, (_m, tag, attrs, inner) => {
-		const id = slug(stripTags(inner));
+		// Match the legacy cheerio .text() (which decodes entities) before slugging.
+		const id = slug(decodeEntities(stripTags(inner)));
 		const cleaned = String(attrs).replace(/\s+id="[^"]*"/, '');
 		return `<${tag}${cleaned} id="${id}">${inner}</${tag}>`;
 	});

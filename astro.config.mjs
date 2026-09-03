@@ -79,6 +79,8 @@ export default defineConfig({
 						{ label: 'API reference (light)', link: '/reference-light/' },
 						{ label: 'System API', link: '/reference-system/' },
 						{ label: 'Admin API', link: '/reference-admin/' },
+						{ label: 'Event types', link: '/event-types/' },
+						{ slug: 'open-api' },
 						{ slug: 'change-log' },
 					],
 				},
