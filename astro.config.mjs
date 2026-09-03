@@ -9,6 +9,8 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
 	site: 'https://pryv.github.io',
 	build: { format: 'directory' },
+	// Legacy /reference-full/ was itself a redirect to the reference; preserve it.
+	redirects: { '/reference-full': '/reference' },
 	integrations: [
 		starlight({
 			title: 'Pryv API',
@@ -114,8 +116,11 @@ export default defineConfig({
 				},
 				{
 					label: 'Ecosystem',
-					// lib-js and app-web-user-account overview pages join here.
-					items: [{ slug: 'external-resources' }],
+					items: [
+						{ slug: 'external-resources' },
+						{ slug: 'libraries/lib-js' },
+						{ slug: 'apps/app-web-user-account' },
+					],
 				},
 				{
 					label: 'For agents',
