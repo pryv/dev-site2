@@ -81,6 +81,7 @@ export default defineConfig({
 						{ label: 'Admin API', link: '/reference-admin/' },
 						{ label: 'Event types', link: '/event-types/' },
 						{ slug: 'open-api' },
+						{ label: 'Functional specifications', link: '/functional-specifications/' },
 						{ slug: 'change-log' },
 					],
 				},

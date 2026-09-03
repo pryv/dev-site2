@@ -1,0 +1,471 @@
+{
+  "sections": [
+    {
+      "id": "introduction",
+      "title": "Introduction",
+      "description": "|                          |                          |\n| ------------------------ | ------------------------ |\n| Date                     | 1st February 2024       |\n| Documents Version        | 1.3                      |\n| API-Version              | 1.8.x - 1.9.x            |\n\n This document describes the functional specifications for the Pryv.io\nmiddleware system: the capabilities and functions that the\nsystem must be capable of performing.\n\nThis document applies only to Pryv.io distributed under Enterprise and Open Pryv.io releases."
+    },
+    {
+      "id": "terms",
+      "title": "Terms and acryonyms",
+      "sections": [],
+      "properties": [
+        {
+          "key": "Access",
+          "description": "A set of permissions relative to a user account resources. The access is identified\nby an Access Id and presented to the API as an Access token.\nSee [Accesses concept](/concepts/#accesses)."
+        },
+        {
+          "key": "Access Token",
+          "description": "A string of characters used for transacation that require Authorization. An acces token\nis linked to one Access Token, the content of a token must remain a secret and is set along with each request. Access Tokens are the primary identifier for the AUTHOR of an API call."
+        },
+        {
+          "key": "Data Subject",
+          "description": "As part of personal data reglementations and policies such as GDPR or HIPAA, refers to any individual who can be identified directly or indirectly by a subset of data, either identifier or factors specific to a person’s identity. By extension, the person whose data is collected, held or processed.\n\nOn Pryv.io, each individual's data is held on a per Data Subject **User Account**. Data Subject is also refered as **User**."
+        }
+      ]
+    },
+    {
+      "id": "functional-requirements",
+      "title": "Functional Requirements",
+      "description": "This section describes the functional requirements associated with a specific \nfeature. Each functional requirement specifies functions that a system or \ncomponent must be able to perform and that must be present for the user \nto be able to use the services provided by the feature.\n",
+      "sections": [
+        {
+          "id": "overall-description",
+          "title": "Overall Description",
+          "description": "Pryv.io is a middleware which aims to provide personal data management.  \n\nAs a middleware, Pryv.io does not provide User Interfaces (UI), nor physical storage or infrastructure.\nThe system is composed of several components being:\n\n  1. One or multiple core components: responsible for the core functionalities such as data storage and access control.\n\n  2. One or multiple register components: responsible for linking a data subject’s storage to the corresponding core component responsible for its data management.\n"
+        },
+        {
+          "id": "connectivity-and-interfaces",
+          "reqid": "CON",
+          "title": "Connectivity and interfaces",
+          "requirements": [
+            {
+              "reqid": "HTTP",
+              "title": "The system shall be accessible through an HTTP API",
+              "description": "Access to the system is done using a Web API.\n",
+              "refs": [
+                {
+                  "url": "https://pryv.github.io/",
+                  "description": "The Pryv.io HTTP API is described online at https://pryv.github.io/"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "data-types",
+          "reqid": "DATA",
+          "title": "Data Types",
+          "requirements": [
+            {
+              "reqid": "DEFTYPE",
+              "title": "The system shall provide default data types validation",
+              "description": "Default data types are available in the system for which content is validated.\n"
+            },
+            {
+              "reqid": "CUSTTYPE",
+              "title": "The system shall accept custom data types",
+              "description": "It is possible to define custom data types.\n"
+            },
+            {
+              "reqid": "CUSTVAL",
+              "title": "The system shall allow to define custom type validation",
+              "description": "It is possible to define validation rules for custom-defined types.\n"
+            }
+          ]
+        },
+        {
+          "id": "streams",
+          "reqid": "STREAM",
+          "title": "Streams",
+          "description": "See: [Streams concept](/concepts/#streams)",
+          "requirements": [
+            {
+              "reqid": "BASE",
+              "title": "The system shall permit Streams management through the specified actions",
+              "description": "The following actions are provided by the system to manage Streams:\n  - Create \n  - Read \n  - Edit \n  - Delete \n  - Share\n"
+            }
+          ]
+        },
+        {
+          "id": "events",
+          "reqid": "EVENT",
+          "title": "Events",
+          "description": "See: [Events concept](/concepts/#events)",
+          "requirements": [
+            {
+              "reqid": "BASE",
+              "title": "The system shall permit Events management through the specified actions",
+              "description": "The following actions are provided by the system to manage Events: \n  - Create\n  - Read\n  - Edit\n  - Delete\n  - Share\n"
+            },
+            {
+              "reqid": "ATTACHMENTS",
+              "title": "The system shall permit to Add, Update and Delete files on Events",
+              "descriptions": "Files are linked to events as attachments.\nAn Event with Attachments shall present the following properties for each attachment\n  - **Filename**\n  - **Size** in bytes\n  - File **Type** in MIME format\n  - An **Integrity** hash if the corresponding setting is activated\n"
+            }
+          ]
+        },
+        {
+          "id": "dlc",
+          "reqid": "DLC",
+          "title": "Data life cycle management",
+          "description": "Each part of the life cycle is further described.\n",
+          "requirements": [
+            {
+              "reqid": "BASE",
+              "title": "The system shall manage all data life cycle parts as described here",
+              "description": "The following actions are provided by the system to manage the data life cycle:\n  1.\tCollect and aggregate\n  2.\tStore \n  3.\tUse and aggregate\n  4.\tShare\n  6.\tDisposal\n"
+            }
+          ],
+          "sections": [
+            {
+              "id": "collect",
+              "title": "Collect",
+              "requirements": [
+                {
+                  "reqid": "COLLECT",
+                  "title": "The system shall allow data input through multiple sources",
+                  "description": "The system ensures that data can be collected from multiple sources through its HTTP API.  \n\nData Sources can be:  \n  -\tWeb services\n  -\tIoT and other mobile devices\n  - Electronic records\n"
+                }
+              ]
+            },
+            {
+              "id": "store",
+              "title": "Store",
+              "requirements": [
+                {
+                  "reqid": "STORE",
+                  "title": "The system shall ensure data storage",
+                  "description": "The system stores collected data records and associated information on physical storage.\n"
+                },
+                {
+                  "reqid": "INTEGRITY",
+                  "title": "The system shall add data integrity hash on attachments, events and accesses.",
+                  "description": "If the corresponding setting is activated, the system will compute a content hash integrity \nhash on attachments, events and accesses.\nThis hash shall be used:\n- to check the integrity of data when Adding it to the system\n- to check the integrity of data when Reading it from the system \n"
+                }
+              ]
+            },
+            {
+              "id": "use",
+              "title": "Use and aggregate",
+              "requirements": [
+                {
+                  "reqid": "USE",
+                  "title": "The system shall provide data retrieval and aggregation from different sources",
+                  "description": "The system provides retrieval of data independently from the source with a  \n**Selection by**:\n  - Time \n  - Stream\n  - Tag\n  - Type\n  - Deletion state\n  - Modification date\n"
+                },
+                {
+                  "reqid": "AGG",
+                  "title": "The system shall provide methods to aggregate data from multiple subjects",
+                  "description": "The model of Streams and Events is designed to easily merge data from multiple subjects.\n"
+                }
+              ]
+            },
+            {
+              "id": "share",
+              "title": "Share",
+              "requirements": [
+                {
+                  "reqid": "SHARE",
+                  "title": "The system shall provide data sharing with external actors",
+                  "description": "The system provides a sharing mechanism that allows external actors to access data.\n"
+                },
+                {
+                  "reqid": "EXPORT",
+                  "title": "The system shall provide the possibility to export all the subject's data out of the system    (extra-system migration)",
+                  "description": "The system provides export capability and tools to export all data of a subject. The exported format facilitates interoperability.\n"
+                }
+              ]
+            },
+            {
+              "id": "disposal",
+              "title": "Disposal",
+              "requirements": [
+                {
+                  "reqid": "DEL",
+                  "title": "The system shall ensure deletion of data",
+                  "description": "The system provides the following information to check the existence of an item:\n  - Deleted state\n  - Complete deletion\n  - Track of deleted items for synchronization\n"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "access",
+          "reqid": "ACC",
+          "title": "Access Control",
+          "requirements": [
+            {
+              "reqid": "SELECT",
+              "title": "The system shall provide granular access per data subject",
+              "description": "The system provides the following parameters to define the permissions of Accesses:  \n  - Streams list\n  - Tag list \n  - Expiration date\n\nRead and Write levels are provided at Stream and Tag levels\n"
+            },
+            {
+              "reqid": "CONTRACT",
+              "title": "The system shall provide storage of contractual terms relative to an Access",
+              "description": "The system provides extra properties for each Access to store contractual terms. These terms should be relative to the permissions of an Access.  \n\nIf terms are displayed to a user during an Access request flow and accepted, the contractual terms are stored as a proof of Consent.\n"
+            },
+            {
+              "reqid": "ENFORCE",
+              "title": "The system shall enforce access control",
+              "description": "The system:\n  - denies invalid or expired Accesses\n  - authorizes valid Accesses based on their permissions property\n"
+            },
+            {
+              "reqid": "BASE",
+              "title": "The system shall permit accesses management through the specified actions",
+              "description": "The following actions are provided by the system to manage Accesses:\n  - Create\n  - List\n  - Update\n  - Delete\n"
+            },
+            {
+              "reqid": "REQUEST",
+              "title": "The system shall allow the external services (Apps) to request access to data by means of access control",
+              "description": "Access request and enforcement flow involves the following actors with specific actions: \n- **App**: Request, Obtain\n- **Data Subject**: Accept, Deny\n- **System**: Authenticate, Enforce\n"
+            },
+            {
+              "reqid": "TYPE",
+              "title": "The system shall provide Personal, App and Shared type of Accesses",
+              "description": "The system provides Personal, Apps and Shared Accesses.\n",
+              "refs": [
+                {
+                  "url": "https://pryv.github.io/concepts/#accesses",
+                  "description": "Accesses concept description"
+                }
+              ]
+            },
+            {
+              "reqid": "DELEGATE",
+              "title": "The system shall provide delegation of access control",
+              "description": "- **Personal** \n  - can manage App and Shared Accesses\n- **App** \n  - can create Shared Accesses within their scope\n  - can manage Shared Accesses it created\n"
+            },
+            {
+              "reqid": "REGISTER",
+              "title": "The system shall provide management for received Accesses at a user level",
+              "description": "The system provides **Followed Slices** to manage received Accesses with the following actions:  \n  - Create\n  - Update \n  - Delete\n  - List\n",
+              "refs": [
+                {
+                  "url": "https://pryv.github.io/reference/#followed-slices",
+                  "description": "Followed Slices API documentation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "notifications",
+          "reqid": "NOTIF",
+          "title": "Notifications",
+          "requirements": [
+            {
+              "reqid": "EVENT",
+              "title": "The system shall provide notification capabilities for changes at Event level",
+              "description": "The system provides an **Event change** notification when the following occurs at Event level:   \n  - Creation\n  - Modification\n  - Deletion \n"
+            },
+            {
+              "reqid": "STREAM",
+              "title": "The system shall provide notification capabilities for changes at Stream level",
+              "description": "The system provides a **Structure change** notification when the following occurs at Stream level:\n  - Creation\n  - Modification\n  - Deletion \n"
+            },
+            {
+              "reqid": "LISTEN",
+              "title": "The system shall provide listener registration capabilities",
+              "description": "The system provides Websockets and Webhooks based implementations to register a listener. \n"
+            }
+          ]
+        },
+        {
+          "id": "user",
+          "reqid": "USER",
+          "title": "User management",
+          "requirements": [
+            {
+              "reqid": "BASE",
+              "title": "The system shall permit user management through the specified actions",
+              "description": "The following actions are provided by the system to manage Users:  \n  - Creation\n  - Deletion \n"
+            },
+            {
+              "reqid": "LOGIN",
+              "title": "The system shall provide authentication of a user upon login",
+              "description": "The system provides authentication on login with a userId/password pair.\n"
+            },
+            {
+              "reqid": "LOGOUT",
+              "title": "The system shall provide logout",
+              "description": "The system provides invalidation of authorization.\n"
+            },
+            {
+              "reqid": "EMAIL",
+              "title": "The system shall provide email property management",
+              "description": "The system provides email property management at a User level: \n  - at the creation of a user\n  - using an API call to change the email property of a user\n"
+            },
+            {
+              "reqid": "EMAILID",
+              "title": "The system shall provide retrieval of userId provided a email address",
+              "description": "The system provides discovery of userId by email.\n"
+            },
+            {
+              "reqid": "LIST",
+              "title": "The system shall provide a list of Users (Data Subjects)",
+              "description": "The system provides a list of users registered on the platform with the following properties:\n  - registration date\n  - invitation token used for registration\n"
+            }
+          ],
+          "sections": [
+            {
+              "id": "invitations",
+              "reqid": "INV",
+              "title": "Invitations",
+              "requirements": [
+                {
+                  "reqid": "BASE",
+                  "ignore": true,
+                  "title": "The system shall provide limitations to register to the platform",
+                  "description": "The system provides a use-once invitation tokens\n"
+                },
+                {
+                  "reqid": "LIST",
+                  "ignore": true,
+                  "title": "The system shall provide a list of invitation tokens",
+                  "description": "The system provides a list of invitation tokens and their validity\n"
+                },
+                {
+                  "reqid": "GEN",
+                  "ignore": true,
+                  "title": "The system shall provide a generation of new invitations tokens",
+                  "description": "The system provides a generation of new invitations tokens with a title\n"
+                },
+                {
+                  "reqid": "MANY",
+                  "title": "The system shall provide multiple usage invitation tokens",
+                  "description": "The system can be provided a list of invitation tokens that can be used multiple times.\n"
+                }
+              ]
+            },
+            {
+              "id": "profile",
+              "reqid": "PROFILE",
+              "title": "Profile",
+              "requirements": [
+                {
+                  "reqid": "PRIVATE",
+                  "title": "The system shall provide a storage of properties at a private user level",
+                  "description": "The system provides storage of key/value pairs at user account level only available for Personal Accesses.\n"
+                },
+                {
+                  "reqid": "PUBLIC",
+                  "title": "The system shall provide a storage of properties at a public user level",
+                  "description": "The system provides storage of key/value pairs at user account level available publicly. \n"
+                },
+                {
+                  "reqid": "APP",
+                  "title": "The system shall provide a storage of properties at an App access user level",
+                  "description": "The system provides storage of key/value pairs at app level only available by App Access.\n"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "system",
+          "reqid": "SYSTEM",
+          "title": "System requirements",
+          "sections": [
+            {
+              "id": "hardware",
+              "reqid": "HWRE",
+              "title": "Hardware",
+              "requirements": [
+                {
+                  "reqid": "OS",
+                  "title": "The system shall run on a UNIX operating system",
+                  "description": "The following UNIX operating systems are supported:  \n  - Ubuntu Server 18.04 LTS to Ubuntu Server 22.04 LTS. On Unbuntu 20.04 and 22.04 the local dns must be deactivated (systemd-resolved)\n"
+                },
+                {
+                  "reqid": "CONTAINER",
+                  "title": "The system should be packaged in a container for delivery and deployment",
+                  "description": "The system is delivered packaged in **Docker** containers\n",
+                  "refs": [
+                    {
+                      "url": "https://www.docker.com/",
+                      "description": "Docker.com web site"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "non-functional",
+          "title": "Non-Functional Requirements",
+          "sections": [
+            {
+              "id": "security",
+              "reqid": "SEC",
+              "title": "Security",
+              "requirements": [
+                {
+                  "reqid": "NOAUTH",
+                  "title": "The system shall store in log files unauthorized API calls",
+                  "description": "Unauthorized API calls are logged on the host operating system using syslog.\n"
+                },
+                {
+                  "reqid": "PASS",
+                  "title": "The system shall support password policy rules",
+                  "description": "Rules for password complexity (length, character categories), age (minimum, maximum i.e. expiration) and reuse (i.e. history) can be enabled in the platform settings.\n"
+                },
+                {
+                  "reqid": "AUTH",
+                  "title": "The system shall store in a log file authorized API calls",
+                  "description": "Authorized API calls are logged on the host operating system using syslog with mechanisms to identify the Access token that was used.\n"
+                },
+                {
+                  "reqid": "COM",
+                  "title": "The system shall provide encryption for all inboud communications",
+                  "description": "The system is provided with a component ensuring SSL termination. This component can be replaced by the customer. \n"
+                },
+                {
+                  "reqid": "ENC",
+                  "title": "The system shall provide mechanisms for client-side encryption",
+                  "description": "The data model supports client-side encryption by encapsulating encrypted data into the `encrypted/*` data type.\n",
+                  "refs": [
+                    {
+                      "url": "https://pryv.github.io/event-types/#encrypted",
+                      "description": "Encrypted data-type reference"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "audit",
+              "reqid": "AUDIT",
+              "title": "Auditability",
+              "requirements": [
+                {
+                  "reqid": "AUTHOR",
+                  "title": "The system shall provide auditability of data edition",
+                  "description": "Events, Streams and Accesses expose the date of modification and used Access token.  \n\nThe goal is to be able to answer the what and when questions, provided a specific who.\n"
+                },
+                {
+                  "reqid": "CALLS",
+                  "title": "The system shall provide auditability of all API calls per Access token",
+                  "description": "All HTTP calls POST, PUT, GET, DELETE are logged on the host operating system using syslog with mechanisms to identify the used Access token.  \n\nThe goal is to be able to answer the what and when questions, provided a specific who.\n"
+                }
+              ]
+            },
+            {
+              "id": "recoverability",
+              "reqid": "BCKP",
+              "title": "Recoverability",
+              "requirements": [
+                {
+                  "reqid": "BASE",
+                  "title": "The system shall be fully recoverable using the latest backup available",
+                  "description": "The system's data shall be recoverable from backup files.\n"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

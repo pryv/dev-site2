@@ -1,0 +1,11 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { renderFunctionalSpecs } from '../reference-data/renderFunctionalSpecs';
+import fspec from '../data/functional-specifications.json';
+import '../styles/reference.css';
+
+const html = renderFunctionalSpecs(fspec.sections as any);
+---
+<StarlightPage frontmatter={{ title: 'Functional specifications', description: 'The functional requirements of Pryv.io, with stable REQ_ identifiers for each requirement.', tableOfContents: false }}>
+	<div class="reference" set:html={html} />
+</StarlightPage>
