@@ -13,9 +13,28 @@ interface Props {
 const { title, rootSections, flavor } = Astro.props;
 const html = renderReference(rootSections, flavor);
 const hasExamples = html.includes('tab-pane');
+
+// Sub-nav so System & Admin references are reachable from the main API page.
+const navItems = [
+	{ label: 'API', href: '/reference/' },
+	{ label: 'System API', href: '/reference-system/' },
+	{ label: 'Admin API', href: '/reference-admin/' },
+];
+const current = Astro.url.pathname.replace(/\/$/, '');
+const isCurrent = (href: string): boolean => {
+	// The plain API reference plus its light/preview flavors all map to the "API" tab.
+	if (href === '/reference/') return ['/reference', '/reference-light', '/reference-preview'].includes(current);
+	return current === href.replace(/\/$/, '');
+};
 ---
 
 <StarlightPage frontmatter={{ title, tableOfContents: false }}>
+	<nav class="ref-nav" aria-label="API reference sections">
+		{navItems.map((item) => (
+			<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
+		))}
+	</nav>
+
 	<div class="ref-toolbar" style={hasExamples ? undefined : 'display:none'}>
 		<div>
 			<label for="examples-api">API:</label>

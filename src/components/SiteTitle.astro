@@ -1,0 +1,32 @@
+---
+// Header override: keep Starlight's default site title (logo), then add a primary
+// "API" entry point in the top bar so the reference is reachable as its own
+// destination, not only from the sidebar.
+import Default from '@astrojs/starlight/components/SiteTitle.astro';
+---
+
+<Default><slot /></Default>
+<a class="api-topnav" href="/reference/">API</a>
+
+<style>
+	.api-topnav {
+		align-self: center;
+		margin-inline-start: 1rem;
+		padding: 0.3rem 0.8rem;
+		font-size: var(--sl-text-sm);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: #fff;
+		background: var(--pryv-blue, #266c9c);
+		border-radius: 0.25rem;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.api-topnav:hover { filter: brightness(1.1); }
+	/* Hide on narrow viewports where the title-wrapper clips; the sidebar and the
+	   reference sub-nav still expose the reference there. */
+	@media (max-width: 30rem) {
+		.api-topnav { display: none; }
+	}
+</style>

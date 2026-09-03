@@ -32,6 +32,13 @@ export default defineConfig({
 				],
 			})],
 			title: 'Pryv API',
+			components: {
+				// Adds a primary "API" entry point in the top bar (see the component).
+				SiteTitle: './src/components/SiteTitle.astro',
+				// The reference pages get their own left-hand navigation (the API outline);
+				// the rest of the site keeps the default sidebar.
+				Sidebar: './src/components/Sidebar.astro',
+			},
 			logo: {
 				light: './src/assets/logo-256-black.png',
 				dark: './src/assets/logo-256-white.png',

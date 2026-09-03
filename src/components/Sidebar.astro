@@ -1,0 +1,72 @@
+---
+// Sidebar override: the API reference is its own section with its own left-hand
+// navigation (the reference outline), separate from the rest of the docs which keep
+// the default site sidebar. On reference routes we render the current page's outline
+// (level-1 sections as groups, level-2 sections as in-page links); everywhere else we
+// defer to Starlight's default sidebar.
+import Default from '@astrojs/starlight/components/Sidebar.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+import { userSections, systemSection } from '../reference-data';
+import { adminSections } from '../reference-data/admin';
+import { headingSlug } from '../reference-data/slug';
+import type { Section } from '../reference-data/types';
+
+const path = Astro.url.pathname.replace(/\/$/, '');
+const REF: Record<string, Section[]> = {
+	'/reference': userSections,
+	'/reference-light': userSections,
+	'/reference-preview': userSections,
+	'/reference-system': systemSection.sections ?? [],
+	'/reference-admin': adminSections,
+};
+const sections = REF[path];
+
+type Entry =
+	| { type: 'link'; href: string; label: string; isCurrent: boolean; attrs: Record<string, unknown> }
+	| { type: 'group'; label: string; collapsed: boolean; entries: Entry[] };
+
+// Level-1 sections become groups; their level-2 children become in-page anchor links.
+// Anchors use the same text-based slug as the rendered heading ids so they resolve.
+function outline (roots: Section[]): Entry[] {
+	return roots
+		.filter((l1) => l1.title)
+		.map((l1) => ({
+			type: 'group' as const,
+			label: l1.title as string,
+			collapsed: false,
+			entries: (l1.sections ?? [])
+				.filter((l2) => l2.title)
+				.map((l2) => ({
+					type: 'link' as const,
+					href: '#' + headingSlug(l2.title as string),
+					label: l2.title as string,
+					isCurrent: false,
+					attrs: {},
+				})),
+		}));
+}
+---
+
+{sections
+	? (
+		<div class="api-sidebar">
+			<a href="/" class="sidebar-back">&larr; Documentation</a>
+			<SidebarSublist sublist={outline(sections)} />
+		</div>
+	)
+	: <Default><slot /></Default>
+}
+
+<style>
+	.sidebar-back {
+		display: block;
+		padding: 0.4rem 0.5rem;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-text-accent);
+		text-decoration: none;
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+	.sidebar-back:hover { color: var(--sl-color-white); }
+</style>
