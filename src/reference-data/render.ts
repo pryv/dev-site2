@@ -8,25 +8,34 @@ import {
 } from './helpers';
 import { createSlugger } from './slug';
 import { version } from './index';
-import type { Section, Property, ReferenceFlavor } from './types';
+import type { Section, Property, ResultObject, ReferenceFlavor } from './types';
 
 const md = new MarkdownIt({ typographer: true, html: true });
 const renderMd = (s?: string): string => (s ? md.render(s) : '');
 const stripTags = (h: string): string => h.replace(/<[^>]*>/g, '');
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-type Slug = (text: string) => string;
-
 // The "strip the wrapping <p>...</p>\n" hack the legacy mixins use for inline fragments.
 function stripParagraph (html: string): string {
 	return html.indexOf('<p>') === 0 ? html.substr(3, html.length - 8) : html;
 }
 
-function heading (level: number, title: string, slug: Slug, raw = false): string {
+function heading (level: number, title: string, raw = false): string {
 	if (!title) return '';
 	const display = raw ? title : md.renderInline(title);
-	const id = slug(stripTags(display));
-	return `<h${level} id="${id}">${display}</h${level}>`;
+	return `<h${level}>${display}</h${level}>`;
+}
+
+// Post-pass reproducing metalsmith-headings-identifier: assign an id to EVERY heading in
+// document order (structural headings and headings embedded in description markdown alike),
+// with per-page dedup, so in-page anchors match the previous site.
+function assignHeadingIds (html: string): string {
+	const slug = createSlugger();
+	return html.replace(/<(h[1-6])([^>]*)>([\s\S]*?)<\/\1>/g, (_m, tag, attrs, inner) => {
+		const id = slug(stripTags(inner));
+		const cleaned = String(attrs).replace(/\s+id="[^"]*"/, '');
+		return `<${tag}${cleaned} id="${id}">${inner}</${tag}>`;
+	});
 }
 
 function renderHttp (http?: Section['http'] | Property['http'], httpOnlyFlag?: boolean, server?: string): string {
@@ -77,9 +86,9 @@ function renderProperties (properties?: Property[]): string {
 	return `<table class="definitions">${rows}</table>`;
 }
 
-function renderResult (result: NonNullable<Section['result']> extends Array<infer R> ? R : never, slug: Slug): string {
+function renderResult (result: ResultObject): string {
 	if (!result) return '';
-	return heading(4, result.title || 'Result', slug) +
+	return heading(4, result.title || 'Result') +
 		renderHttp(result.http) +
 		renderMd(result.description) +
 		renderProperties(result.properties);
@@ -165,14 +174,13 @@ function isVisible (section: Section, flavor: ReferenceFlavor): boolean {
 		!!flavor.showPreviewOnlyContent;
 }
 
-function renderSection (section: Section, parentDocId: string, level: number, parent: Section | undefined, flavor: ReferenceFlavor, slug: Slug): string {
+function renderSection (section: Section, parentDocId: string, level: number, parent: Section | undefined, flavor: ReferenceFlavor): string {
 	if (!isVisible(section, flavor)) return '';
 	const isMethod = section.type === 'method';
 	const docId = getDocId(parentDocId, section.id);
 	const cls = section.type || '';
 
-	// Title heading FIRST (slugger order = document order).
-	const titleHeading = heading(level, section.title || '', slug, true);
+	const titleHeading = heading(level, section.title || '', true);
 
 	let meta = '';
 	if (isMethod) {
@@ -190,16 +198,16 @@ function renderSection (section: Section, parentDocId: string, level: number, pa
 	content += section.description ? `<div class="intro">${renderMd(section.description)}</div>` : '';
 	content += renderProperties(section.properties);
 	if (section.params) {
-		content += heading(4, section.params.title || 'Parameters', slug);
+		content += heading(4, section.params.title || 'Parameters');
 		content += renderMd(section.params.description);
 		content += renderProperties(section.params.properties);
 	}
 	if (section.result) {
 		const results = Array.isArray(section.result) ? section.result : [section.result];
-		for (const r of results) content += renderResult(r, slug);
+		for (const r of results) content += renderResult(r);
 	}
 	if (section.errors && section.errors.length) {
-		content += heading(4, 'Specific errors', slug);
+		content += heading(4, 'Specific errors');
 		content += renderProperties(section.errors);
 	}
 
@@ -208,23 +216,24 @@ function renderSection (section: Section, parentDocId: string, level: number, pa
 	html += `<div class="content">${content}</div>`;
 	html += renderExamples(section.examples, section);
 	if (section.sections) {
-		for (const sub of section.sections) html += renderSection(sub, docId, level + 1, section, flavor, slug);
+		for (const sub of section.sections) html += renderSection(sub, docId, level + 1, section, flavor);
 	}
 	return html + '</section>';
 }
 
 /** Render one reference page from a top-level sections array. */
 export function renderReference (rootSections: Section[], flavor: ReferenceFlavor): string {
-	const slug = createSlugger();
 	let html = '';
 	for (const level1 of rootSections) {
 		html += `<section id="${getDocId(level1.id)}">`;
-		html += heading(1, level1.title || '', slug);
+		html += heading(1, level1.title || '');
 		html += level1.description ? `<div class="intro">${renderMd(level1.description)}</div>` : '';
 		if (level1.sections) {
-			for (const l2 of level1.sections) html += renderSection(l2, level1.id, 2, level1, flavor, slug);
+			for (const l2 of level1.sections) html += renderSection(l2, level1.id, 2, level1, flavor);
 		}
 		html += '</section>';
 	}
-	return html;
+	// Assign heading ids over the whole page (structural + description headings), matching
+	// the legacy post-render pass.
+	return assignHeadingIds(html);
 }
