@@ -19,6 +19,17 @@
 	--pryv-font-headings: 'Roboto Condensed', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/*
+ * Legacy content diagrams (SVG/PNG line art) are drawn for a light background and become
+ * unreadable on the dark page. Give content images a light backing in dark mode so they
+ * render as intended. Screenshots only gain a thin frame, which is harmless.
+ */
+:root[data-theme='dark'] .sl-markdown-content img {
+	background: #fff;
+	border-radius: 6px;
+	padding: 0.5rem;
+}
+
 /* Headings use the condensed face, as on the legacy reference site */
 :is(h1, h2, h3, h4, h5, h6),
 .sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
