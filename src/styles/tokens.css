@@ -13,6 +13,18 @@
 	--pryv-black: #1a1a1a;
 	--pryv-dark-gray: #4a4a4a;
 	--pryv-light-gray: #c8c8c8;
+
+	/* Typography matching the legacy site: Roboto body, Roboto Condensed headings */
+	--sl-font: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--pryv-font-headings: 'Roboto Condensed', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Headings use the condensed face, as on the legacy reference site */
+:is(h1, h2, h3, h4, h5, h6),
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
+.hero h1,
+.site-title {
+	font-family: var(--pryv-font-headings);
 }
 
 /* Dark theme (Starlight default; overridden accent) */

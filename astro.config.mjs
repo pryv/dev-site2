@@ -12,7 +12,31 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Pryv API',
-			customCss: ['./src/styles/tokens.css'],
+			logo: {
+				light: './src/assets/logo-256-black.png',
+				dark: './src/assets/logo-256-white.png',
+				replacesTitle: true,
+			},
+			favicon: '/assets/images/favicon-black.ico',
+			head: [
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/assets/images/apple-touch-icon-180x180-black.png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '152x152', href: '/assets/images/apple-touch-icon-152x152-black.png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '120x120', href: '/assets/images/apple-touch-icon-120x120-black.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: '/assets/images/logo-256.png' } },
+			],
+			customCss: [
+				// Self-hosted Roboto (body) + Roboto Condensed (headings), matching the
+				// legacy site typography. Weights mirror the legacy Google Fonts request.
+				'@fontsource/roboto/300.css',
+				'@fontsource/roboto/400.css',
+				'@fontsource/roboto/400-italic.css',
+				'@fontsource/roboto/500.css',
+				'@fontsource/roboto/700.css',
+				'@fontsource/roboto-condensed/300.css',
+				'@fontsource/roboto-condensed/400.css',
+				'@fontsource/roboto-condensed/700.css',
+				'./src/styles/tokens.css',
+			],
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/pryv' },
 			],
