@@ -12,10 +12,11 @@ interface Props {
 
 const { title, rootSections, flavor } = Astro.props;
 const html = renderReference(rootSections, flavor);
+const hasExamples = html.includes('tab-pane');
 ---
 
 <StarlightPage frontmatter={{ title, tableOfContents: false }}>
-	<div class="ref-toolbar">
+	<div class="ref-toolbar" style={hasExamples ? undefined : 'display:none'}>
 		<div>
 			<label for="examples-api">API:</label>
 			<select id="examples-api">
