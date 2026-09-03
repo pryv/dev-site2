@@ -1,0 +1,65 @@
+/* Styles for the generated API reference (classes emitted by render.ts). */
+
+.ref-toolbar {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	display: flex;
+	gap: 1rem;
+	flex-wrap: wrap;
+	align-items: center;
+	padding: 0.5rem 0;
+	margin-bottom: 1rem;
+	background: var(--sl-color-bg);
+	border-bottom: 1px solid var(--sl-color-hairline);
+}
+.ref-toolbar label { font-weight: 600; font-size: var(--sl-text-sm); }
+.ref-toolbar select {
+	font: inherit;
+	padding: 0.25rem 0.5rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.25rem;
+	background: var(--sl-color-bg);
+	color: var(--sl-color-text);
+}
+
+/* Example format panes: only the active one shows. */
+.reference .example .tab-pane { display: none; }
+.reference .example .tab-pane.active { display: block; }
+.reference .example { margin: 0.5rem 0 1.5rem; }
+.reference .step-marker { text-align: center; font-size: 1.2rem; opacity: 0.6; margin: 0.15rem 0; }
+
+/* Property tables. */
+.reference table.definitions { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
+.reference table.definitions th,
+.reference table.definitions td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.4rem 0.6rem;
+	border-top: 1px solid var(--sl-color-hairline);
+}
+.reference table.definitions th { width: 12rem; white-space: nowrap; }
+.reference table.definitions .header { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; margin-bottom: 0.2rem; }
+.reference .type { color: var(--sl-color-text-accent); }
+.reference table.definitions .description > :first-child { margin-top: 0; }
+.reference table.definitions table.definitions { margin-top: 0.5rem; } /* nested */
+
+/* Labels + badges. */
+.reference .label { font-size: var(--sl-text-xs); padding: 0 0.35rem; border-radius: 0.25rem; }
+.reference .label.label-default { background: var(--sl-color-gray-6); color: var(--sl-color-text); }
+.reference .label.unique { background: color-mix(in srgb, var(--pryv-blue) 25%, transparent); }
+.reference .label.optional { opacity: 0.7; }
+.reference .label.read-only { font-style: italic; }
+.reference .meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.25rem 0 0.5rem; }
+.reference .http { display: inline-flex; gap: 0.3rem; align-items: baseline; }
+.reference .http .label { background: var(--pryv-green); color: #fff; }
+.reference .method-id .label,
+.reference .trusted-tag .label,
+.reference .admin-tag .label,
+.reference .v2-tag .label { background: var(--sl-color-gray-5); cursor: pointer; }
+.reference .v2-tag .label { background: var(--pryv-blue); color: #fff; }
+.reference .label.trusted-only,
+.reference .label.admin-only { background: color-mix(in srgb, var(--pryv-red) 20%, transparent); }
+
+/* Method sections get a light separator. */
+.reference section.method { padding-top: 0.5rem; border-top: 2px solid var(--sl-color-hairline); margin-top: 1.5rem; }

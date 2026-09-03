@@ -19,7 +19,9 @@
     "@astrojs/starlight": "^0.42.0",
     "@fontsource/roboto": "^5.3.0",
     "@fontsource/roboto-condensed": "^5.3.0",
+    "@types/markdown-it": "^14.2.0",
     "astro": "^7.2.10",
+    "markdown-it": "^15.0.1",
     "sharp": "^0.35.3"
   },
   "allowScripts": {

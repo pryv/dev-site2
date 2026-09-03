@@ -1,0 +1,5 @@
+---
+import ReferencePage from '../components/ReferencePage.astro';
+import { userSections } from '../reference-data';
+---
+<ReferencePage title="API reference (preview)" rootSections={userSections} flavor={{ source: 'default', showTrustedOnlyContent: true, showPreviewOnlyContent: true }} />

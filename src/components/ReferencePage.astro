@@ -1,0 +1,80 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { renderReference } from '../reference-data/render';
+import type { Section, ReferenceFlavor } from '../reference-data/types';
+import '../styles/reference.css';
+
+interface Props {
+	title: string;
+	rootSections: Section[];
+	flavor: ReferenceFlavor;
+}
+
+const { title, rootSections, flavor } = Astro.props;
+const html = renderReference(rootSections, flavor);
+---
+
+<StarlightPage frontmatter={{ title, tableOfContents: false }}>
+	<div class="ref-toolbar">
+		<div>
+			<label for="examples-api">API:</label>
+			<select id="examples-api">
+				<option value="pryv.me" selected>{'Pryv Lab: ${username}.pryv.me'}</option>
+				<option value="DNS-less">{'DNS-less: ${hostname}/${username}'}</option>
+				<option value="Own">{'Own domain: ${username}.${domain}'}</option>
+			</select>
+		</div>
+		<div>
+			<label for="examples-format">Format:</label>
+			<select id="examples-format">
+				<option value="json" selected>REST payload</option>
+				<option value="batch">Batch block</option>
+				<option value="http">cURL</option>
+				<option value="httpAuth">cURL auth</option>
+				<option value="sockets">Socket.IO</option>
+			</select>
+		</div>
+	</div>
+
+	<div class="reference" set:html={html} />
+</StarlightPage>
+
+<script>
+	// Environment + format switch for the reference examples. Targets the api-* marker
+	// spans directly by class (the renderer emits them), and toggles the active pane.
+	const ENV: Record<string, Record<string, string>> = {
+		'pryv.me': {
+			'api-user': '', 'api-host': '{username}.pryv.me', 'api-reg': 'reg.pryv.me',
+			'api-reg-curl': 'reg.pryv.me', api: '{username}.pryv.me', 'api-curl': '${username}.pryv.me',
+			'core-reg-curl': '${core-subdomain}.pryv.me', 'api-admin': 'lead.pryv.me', 'api-admin-curl': 'lead.pryv.me',
+		},
+		'DNS-less': {
+			'api-user': '{username}', 'api-host': '{hostname}', 'api-reg': '{hostname}/reg',
+			'api-reg-curl': '${hostname}/reg', api: '{hostname}/{username}', 'api-curl': '${hostname}/${username}',
+			'core-reg-curl': '${core-hostname}',
+		},
+		Own: {
+			'api-user': '', 'api-host': '{username}.{domain}', 'api-reg': 'reg.{domain}',
+			'api-reg-curl': 'reg.${domain}', api: '{username}.{domain}', 'api-curl': '${username}.${domain}',
+			'core-reg-curl': '${core-subdomain}.${domain}', 'api-admin': 'lead.{domain}', 'api-admin-curl': 'lead.${domain}',
+		},
+	};
+
+	function setEnv (value: string): void {
+		const map = ENV[value] || ENV['pryv.me'];
+		for (const cls of Object.keys(map)) {
+			document.querySelectorAll<HTMLElement>('.' + cls).forEach((el) => { el.textContent = map[cls]; });
+		}
+	}
+
+	function setFormat (format: string): void {
+		document.querySelectorAll<HTMLElement>('.reference .example .tab-pane').forEach((pane) => {
+			pane.classList.toggle('active', pane.classList.contains(format));
+		});
+	}
+
+	const apiSel = document.getElementById('examples-api') as HTMLSelectElement | null;
+	const fmtSel = document.getElementById('examples-format') as HTMLSelectElement | null;
+	if (fmtSel) { setFormat(fmtSel.value); fmtSel.addEventListener('change', () => setFormat(fmtSel.value)); }
+	if (apiSel) { setEnv(apiSel.value); apiSel.addEventListener('change', () => setEnv(apiSel.value)); }
+</script>

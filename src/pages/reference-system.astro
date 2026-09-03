@@ -1,0 +1,5 @@
+---
+import ReferencePage from '../components/ReferencePage.astro';
+import { systemSection } from '../reference-data';
+---
+<ReferencePage title="System API" rootSections={systemSection.sections ?? []} flavor={{ source: 'system', showTrustedOnlyContent: true }} />

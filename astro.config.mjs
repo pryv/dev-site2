@@ -73,8 +73,14 @@ export default defineConfig({
 				},
 				{
 					label: 'Reference',
-					// API / admin / system reference, event-types, OpenAPI and specs join here.
-					items: [{ slug: 'change-log' }],
+					// event-types, OpenAPI and specs join here as they are ported.
+					items: [
+						{ label: 'API reference', link: '/reference/' },
+						{ label: 'API reference (light)', link: '/reference-light/' },
+						{ label: 'System API', link: '/reference-system/' },
+						{ label: 'Admin API', link: '/reference-admin/' },
+						{ slug: 'change-log' },
+					],
 				},
 				{
 					label: 'Setup & operate',

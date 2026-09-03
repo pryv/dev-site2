@@ -1,0 +1,5 @@
+---
+import ReferencePage from '../components/ReferencePage.astro';
+import { adminSection } from '../reference-data';
+---
+<ReferencePage title="Admin API" rootSections={adminSection.sections ?? []} flavor={{ source: 'admin' }} />
