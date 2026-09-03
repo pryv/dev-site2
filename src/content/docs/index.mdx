@@ -1,40 +1,39 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: Pryv.io developer documentation
+description: API reference, guides and setup documentation for Pryv.io, the middleware for personal and health data.
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
-  image:
-    file: ../../assets/houston.webp
+  tagline: The middleware for privacy-compliant personal and health data. Build on a clear API, host it yourself, keep users in control.
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: Get started
+      link: /getting-started/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+    - text: API reference
+      link: /reference/
+      icon: open-book
+      variant: minimal
+    - text: Pryv on GitHub
+      link: https://github.com/pryv
       icon: external
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
-
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+	<Card title="Understand the model" icon="information">
+		[Concepts](/concepts/), [data in Pryv](/data-in-pryv/) and [data modelling](/guides/data-modelling/):
+		streams, events, accesses and how they fit together.
 	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
+	<Card title="Build an app" icon="laptop">
+		Developer [guides](/guides/app-guidelines/) for auth, webhooks, consent,
+		audit logs and cross-account messaging.
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="Run a platform" icon="setting">
+		[Setup and operations](/customer-resources/) documentation: install, DNS, TLS,
+		email, MFA, backups, observability and migrations.
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="For machines" icon="seti:todo">
+		Agent-friendly entry point, OpenAPI definitions and event-type schemas.
 	</Card>
 </CardGrid>
