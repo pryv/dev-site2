@@ -1,5 +1,6 @@
 ---
 title: 'Privacy by design and by default with Pryv.io'
+description: "How Pryv.io supports privacy by design and by default: its architecture, the platform defaults that protect personal data, and the developer's role."
 ---
 
 

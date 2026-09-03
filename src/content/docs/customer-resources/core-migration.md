@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io core migration'
+description: "How to migrate a Pryv.io v2 core to a new machine: copy config and data, start the core on the destination host, and cut over DNS without downtime."
 ---
 
 

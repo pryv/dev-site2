@@ -1,5 +1,6 @@
 ---
 title: 'Apps & libs'
+description: Official Pryv.io libraries, SDK add-ons and example applications to help you build and integrate your own apps against the Pryv.io API.
 ---
 
 

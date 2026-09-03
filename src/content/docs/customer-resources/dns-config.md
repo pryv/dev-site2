@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io DNS zone configuration'
+description: How to declare DNS records for Pryv.io's embedded DNS server, covering static YAML entries and runtime records managed via CLI and admin endpoints.
 ---
 
 

@@ -1,5 +1,6 @@
 ---
 title: 'Data Modelling'
+description: A practical manual for designing your own Pryv.io data model, from declaring stream structures and event types to defining accesses and delegations.
 ---
 
 

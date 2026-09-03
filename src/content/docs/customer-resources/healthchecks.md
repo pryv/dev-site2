@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io Healthchecks'
+description: How to run regular healthcheck API calls against a Pryv.io deployment to monitor its status remotely, including setting up a dedicated healthcheck user.
 ---
 
 

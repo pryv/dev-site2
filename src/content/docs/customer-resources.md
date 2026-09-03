@@ -1,5 +1,6 @@
 ---
 title: 'Setup'
+description: Documents, files and guides for installing and operating Open Pryv.io v2, the single-binary API server, including upgrading from v1 deployments.
 ---
 
 

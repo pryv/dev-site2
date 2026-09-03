@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io OAuth2 app authorization'
+description: How Pryv.io apps obtain access to a user account, comparing the native access-request polling flow with the built-in OAuth2 authorization-code flow.
 ---
 
 

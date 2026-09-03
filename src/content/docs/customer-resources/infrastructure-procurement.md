@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io infrastructure procurement'
+description: How system administrators provision the virtual machines and resources to run a Pryv.io platform, covering topology, sizing, firewalling and OS support.
 ---
 
 

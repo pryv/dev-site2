@@ -1,5 +1,6 @@
 ---
 title: 'Audit logs'
+description: "A developer guide to Pryv.io audit logs: what they are, why they matter for compliance, and how to retrieve and filter them to track data activity."
 ---
 
 

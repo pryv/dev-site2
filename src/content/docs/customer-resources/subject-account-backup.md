@@ -1,5 +1,6 @@
 ---
 title: 'Subject Account Backup (DSAR / Portability)'
+description: The subject-facing backup tools for GDPR right-of-access and portability requests, available as a CLI and a web app that export a portable account dump.
 ---
 
 

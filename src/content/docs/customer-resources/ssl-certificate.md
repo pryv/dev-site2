@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io SSL Certificate'
+description: How to obtain and install the SSL certificate for a Pryv.io deployment, comparing built-in auto-renewal, reverse-proxy ACME and manual certbot strategies.
 ---
 
 

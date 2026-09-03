@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io roadmap'
+description: "The Pryv.io roadmap: upcoming releases and a history of shipped versions, including the v2 single-binary release under the BSD-3-Clause license."
 ---
 
 

@@ -1,5 +1,6 @@
 ---
 title: 'Consent implementation with Pryv.io'
+description: How to implement user consent with Pryv.io to meet data-protection requirements, covering the consent request flow and a hands-on example.
 ---
 
 

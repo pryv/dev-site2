@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io audit configuration'
+description: "How to configure the Pryv.io v2 audit feature through the unified config: outputs, filtering rules, syslog templating and performance tuning."
 ---
 
 

@@ -1,5 +1,6 @@
 ---
 title: 'App guidelines'
+description: General guidelines for building platform-agnostic Pryv.io applications and libraries, including auto-configuration from the service information endpoint.
 ---
 
 

@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io system streams'
+description: How to set up Pryv.io system streams through the unified config, covering account and other streams, their properties, and adding custom definitions.
 ---
 
 

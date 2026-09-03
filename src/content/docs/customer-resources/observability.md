@@ -1,5 +1,6 @@
 ---
 title: 'Observability'
+description: How to enable Open Pryv.io's optional observability layer, reporting anonymous per-method usage metrics and server-side error reports over OTLP.
 ---
 
 

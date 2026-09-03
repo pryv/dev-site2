@@ -1,5 +1,6 @@
 ---
 title: 'Data In Pryv'
+description: "White paper on how Pryv.io manages data: its privacy-first, decentralised architecture and the event-based data model at the heart of the platform."
 ---
 
 

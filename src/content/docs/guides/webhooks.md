@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io Webhooks'
+description: How to implement notified systems with Pryv.io webhooks, why to use them, and a walkthrough of a common integration use case.
 ---
 
 

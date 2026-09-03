@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io platform setup guide'
+description: A step-by-step guide for IT operators to set up a Pryv.io platform from scratch, from provisioning and domains to certificates, install and customization.
 slug: customer-resources/pryv.io-setup
 ---
 

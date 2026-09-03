@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io Backup'
+description: How an operator backs up and restores a Pryv.io platform with the built-in bin/backup.js tool, including encrypted, incremental and raw-dump options.
 ---
 
 

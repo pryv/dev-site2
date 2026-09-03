@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io — single-core to multi-core upgrade'
+description: How to upgrade a single-core Pryv.io deployment to multi-core with a config-only change, issuing bootstrap bundles so new cores join the cluster over TLS.
 ---
 
 

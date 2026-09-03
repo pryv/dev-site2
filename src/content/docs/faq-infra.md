@@ -1,5 +1,6 @@
 ---
 title: 'FAQ - infrastructure'
+description: "Answers to common questions about the Pryv.io platform infrastructure: prerequisites, domain and SSL setup, page customization and administration."
 ---
 
 

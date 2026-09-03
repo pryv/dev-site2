@@ -1,5 +1,6 @@
 ---
 title: 'FAQ - API'
+description: Answers to common questions about the Pryv.io API, covering personal data, streams, event types, authentication, access sharing and notifications.
 ---
 
 

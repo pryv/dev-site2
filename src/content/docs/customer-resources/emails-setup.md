@@ -1,5 +1,6 @@
 ---
 title: 'Open Pryv.io email configuration'
+description: How to configure transactional welcome and password-reset emails in Open Pryv.io, comparing the in-process and legacy microservice delivery paths.
 ---
 
 

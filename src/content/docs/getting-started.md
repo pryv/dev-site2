@@ -1,5 +1,6 @@
 ---
 title: 'Get started with Pryv.io API'
+description: "A hands-on tutorial for the Pryv.io API: create a user, obtain an access token, model data with streams and events, and manage accesses."
 ---
 
 

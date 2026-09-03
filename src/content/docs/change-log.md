@@ -1,5 +1,6 @@
 ---
 title: API change log
+description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
 ## 2.0.0-rc.3

@@ -1,5 +1,6 @@
 ---
 title: 'Custom Authentication'
+description: How to add a custom authentication step to your Pryv.io platform to validate API requests against extra information or an external service.
 ---
 
 

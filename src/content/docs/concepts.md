@@ -1,5 +1,6 @@
 ---
 title: API concepts
+description: "Core concepts behind the Pryv.io API: events, streams, accesses, user accounts and servers, and how they model personal and health data."
 ---
 
 

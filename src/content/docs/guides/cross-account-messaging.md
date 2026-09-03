@@ -1,5 +1,6 @@
 ---
 title: 'Cross-account Messaging & Consent (CMC)'
+description: How to use CMC, Pryv.io's protocol for federated cross-account consent, chat and system notifications between two user accounts on any platform.
 ---
 
 

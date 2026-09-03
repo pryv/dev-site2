@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io register migration (v1 only)'
+description: The historical procedure for migrating the Pryv.io v1 register service to a new machine, preserved for operators still on the pre-v2 multi-service setup.
 ---
 
 

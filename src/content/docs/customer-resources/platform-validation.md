@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io platform validation guide'
+description: A checklist to validate that a Pryv.io platform is up and running after install or upgrade, covering process, public URL, storage, DNS and cluster checks.
 ---
 
 

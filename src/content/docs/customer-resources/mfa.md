@@ -1,5 +1,6 @@
 ---
 title: 'Pryv.io Multi-Factor Authentication configuration'
+description: How to configure Multi-Factor Authentication for Pryv.io login, covering the default in-process TOTP authenticator app and SMS-based verification.
 ---
 
 

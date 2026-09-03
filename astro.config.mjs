@@ -22,7 +22,10 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Get started',
-					items: [{ slug: 'getting-started' }],
+					items: [
+						{ slug: 'getting-started' },
+						{ slug: 'customer-resources/quickstart-docker' },
+					],
 				},
 				{
 					label: 'Understand',
