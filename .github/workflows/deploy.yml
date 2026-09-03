@@ -1,0 +1,67 @@
+name: Build and deploy
+
+# Build on every push / PR (validates the site + links). Deploy only on manual dispatch,
+# and only once the PAGES_DEPLOY_KEY secret is provisioned (a deploy key with write access
+# to the pryv.github.io repository). Until then the deploy job is a no-op guarded by the
+# secret check, so enabling Actions on this repo is safe.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist
+          retention-days: 7
+
+  deploy:
+    # Manual only, and skipped unless the deploy key is configured.
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Check deploy key is present
+        id: guard
+        run: |
+          if [ -n "${{ secrets.PAGES_DEPLOY_KEY }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PAGES_DEPLOY_KEY not set - skipping deploy (configure it to enable cutover)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy to the org pages repository
+        if: steps.guard.outputs.ready == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: pryv/pryv.github.io
+          publish_branch: master
+          publish_dir: ./dist
+          # Keep repo-root files the pages repo needs that are not produced by the build
+          # (e.g. CNAME); the byte-exact GSC verification file IS produced from public/.
+          keep_files: true
+          full_commit_message: 'Deploy developer documentation'
