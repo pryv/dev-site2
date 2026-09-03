@@ -36,7 +36,7 @@ If you are migrating a v1 register service, the historical [register migration g
 
   Functional specifications for the Pryv.io middleware system: the capabilities and functions that the system must be capable of performing.
 
-- Tests Results: [tests](/tests)
+- Tests Results: [tests](/tests/)
 
   Result of tests suite on `open-pryv.io` for the latest Open Pryv.io version.
 

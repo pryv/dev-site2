@@ -20,8 +20,8 @@ export default defineConfig({
 			plugins: [starlightLinksValidator({
 				errorOnRelativeLinks: false,
 				exclude: [
-					// /tests (test results) is not built yet; it needs the external results repo.
-					'/tests', '/tests/',
+					// Custom (non-collection) routes: anchors validated by the anchor-parity check.
+					'/tests/**', '/tests/',
 					'/reference/**', '/reference/',
 					'/reference-light/**', '/reference-light/',
 					'/reference-preview/**', '/reference-preview/',
@@ -150,8 +150,10 @@ export default defineConfig({
 				},
 				{
 					label: 'Project',
-					// tests results page joins here.
-					items: [{ slug: 'roadmap' }],
+					items: [
+						{ slug: 'roadmap' },
+						{ label: 'Test results', link: '/tests/' },
+					],
 				},
 			],
 		}),

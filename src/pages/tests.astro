@@ -1,0 +1,11 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { renderTests } from '../reference-data/renderTests';
+import testResults from '../data/test-results.json';
+import '../styles/reference.css';
+
+const html = renderTests(testResults.sections as any);
+---
+<StarlightPage frontmatter={{ title: 'Test results', description: 'Automated test results for Open Pryv.io, aggregated per component with pass, pending and failure counts.', tableOfContents: false }}>
+	<div class="reference" set:html={html} />
+</StarlightPage>
