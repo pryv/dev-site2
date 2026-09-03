@@ -27,7 +27,7 @@ If you prefer storing this data in a separate account, keep in mind that the use
 
 The stream structure is independent from one user account to another. It is declared and managed by apps: the stream structure can be created by the app when the user logs in for the first time for example.
 
-We advise you to maintain a list of streams as explained in our [data modelling guide](/guides/data-modelling/#implementation).
+We advise you to maintain a list of streams as explained in our [data modelling guide](/guides/data-modelling/).
 
 ### Is there a limit in the number of child streams that a stream can have ?
 
@@ -40,7 +40,7 @@ For example, if you want to enter data measurements for different types of aller
 
 ### How can I define custom event types?
 
-You can define any custom type as long as it follows [this structure](/event-types/#basics). See [How to customize event types](/customer-resources/pryv.io-setup/#customize-event-types-validation) for more information.
+You can define any custom type as long as it follows [this structure](/event-types/#basics). See [How to customize event types](/customer-resources/pryv.io-setup/#customize-event-type-validation) for more information.
 
 ### Can I limit the number of event types to be used in a stream ?
 
@@ -146,7 +146,7 @@ You can check how to authenticate your app [here](/reference/#authenticate-your-
 
 We deliver our Pryv.io platform with "default" web apps for registration, login, password-reset and auth request. The code is available [here](https://github.com/pryv/app-web-user-account) (formerly app-web-auth3).
 
-We advise our customers to customize it, and we provide some [guidelines](/customer-resources/pryv.io-setup/#customize-authentication-registration-and-reset-password-apps) for the customization.
+We advise our customers to customize it, and we provide some [guidelines](/customer-resources/pryv.io-setup/#customize-authentication--registration--password-reset-pages) for the customization.
 
 ### I'm getting the "invalid credentials" error on the auth.login call although my fields are correct.
 
@@ -197,7 +197,7 @@ Using a token previously obtained, you can generate a new one using the [accesse
 
 Once you have obtained an access token to a user's account, for example for a doctor to access particular streams of his patients' data, we advise you to store it in a dedicated stream.
 
-You can find an example in the [data modelling guide](/guides/data-modelling/#consent-aggregation) of how to do consent aggregation with Pryv.io and store access tokens to user accounts.
+You can find an example in the [data modelling guide](/guides/data-modelling/) of how to do consent aggregation with Pryv.io and store access tokens to user accounts.
 
 ### How can I request access to someone's data ?
 

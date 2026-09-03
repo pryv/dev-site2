@@ -24,7 +24,7 @@ The general introduction describes Pryv.io data modelling conventions to help yo
 - 7 [Reference events](#reference-events) 
 - 8 [Store technical data from devices](#store-technical-data-from-devices)
 - 9 [Define accesses to the streams](#define-accesses-to-the-streams)
-- 10 [Perform an access delegation](#performe-an-access-delegation)
+- 10 [Perform an access delegation](#perform-an-access-delegation)
 - 11 [Store data accesses](#store-data-accesses)
   
 

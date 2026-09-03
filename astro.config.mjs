@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightLinksValidator from 'starlight-links-validator';
 
 // Canonical publish target is the org page (served at the domain root, no base path).
 // `build.format: 'directory'` reproduces the legacy trailing-slash directory URLs so
@@ -13,6 +14,23 @@ export default defineConfig({
 	redirects: { '/reference-full': '/reference' },
 	integrations: [
 		starlight({
+			// The reference / event-types / functional-specs pages are custom (non-collection)
+			// routes, so their in-page anchors cannot be introspected here; they are covered
+			// by a dedicated anchor-parity check instead. Exclude them from link validation.
+			plugins: [starlightLinksValidator({
+				errorOnRelativeLinks: false,
+				exclude: [
+					// /tests (test results) is not built yet; it needs the external results repo.
+					'/tests', '/tests/',
+					'/reference/**', '/reference/',
+					'/reference-light/**', '/reference-light/',
+					'/reference-preview/**', '/reference-preview/',
+					'/reference-system/**', '/reference-system/',
+					'/reference-admin/**', '/reference-admin/',
+					'/event-types/**', '/event-types/',
+					'/functional-specifications/**', '/functional-specifications/',
+				],
+			})],
 			title: 'Pryv API',
 			logo: {
 				light: './src/assets/logo-256-black.png',

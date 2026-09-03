@@ -11,11 +11,11 @@ It describes what Audit Logs are, why to use them and how they were designed on 
 
 1. [Introduction](#introduction)
 2. [Audit Logs](#audit-logs)
-  1. [What are Audit Logs?](#what-are-audit-logs-)
-  2. [Who is allowed to audit what?](#who-is-allowed-to-audit-what-) 
-  3. [How to filter audit queries?](#how-to-filter-audit-queries-)
-  4. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryv-io-)
-3. [Why using Audit Logs on Pryv.io](#why-using-audit-logs-on-pryv-io)
+  1. [What are Audit Logs?](#what-are-audit-logs)
+  2. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
+  3. [How to filter audit queries?](#how-to-filter-audit-queries)
+  4. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
+3. [Why using Audit Logs on Pryv.io](#why-using-audit-logs-on-pryvio)
 
 ## Introduction
 

@@ -161,7 +161,7 @@ The payload looks as following:
 }
 ```
 
-- **4** He will send the request to Alice through a mobile or web app such as [this one](/guides/consent/request/).
+- **4** He will send the request to Alice through a mobile or web app such as [this one](/guides/consent/request.html).
 
 | Before sign in and consent request     |   After sign-in and accepting consent request                                                  |
 | ------------------------------------------------------------ |------------------------------------------------------------ |

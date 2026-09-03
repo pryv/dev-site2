@@ -71,7 +71,7 @@ New MFA release:
 
 ## 11.01.2021 - Complete admin and system API
 
-[Admin](/reference-admin/) and [system](/reference-system/) API references are now complete and available through [Open API definitions](/open-api/#definition-file).
+[Admin](/reference-admin/) and [system](/reference-system/) API references are now complete and available through [Open API definitions](/open-api/#definition-files).
 
 ## 15.12.2020 - Stream queries
 

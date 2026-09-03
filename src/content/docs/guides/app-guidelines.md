@@ -7,7 +7,7 @@ description: General guidelines for building platform-agnostic Pryv.io applicati
 General guidelines for writing applications and libraries for Pryv.io platforms.
 
 Web applications should be implemented to be platform agnostic, so they can be run on your production environment as well as your staging one.  
-Our [example applications](/external-resources/#web-application-examples) can be run on our [Pryv Lab platform](https://pryv.com/pryvlab/) as well as your own.
+Our [example applications](/external-resources/#example-web-apps) can be run on our [Pryv Lab platform](https://pryv.com/pryvlab/) as well as your own.
 
 # Auto-configuration
 
