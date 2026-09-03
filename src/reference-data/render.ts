@@ -23,6 +23,18 @@ function codeBlock (raw: string, lang: string): string {
 	return `<pre><code data-lang="${lang}" data-raw="${b64}"></code></pre>`;
 }
 
+// Wrap the endpoint-host PLACEHOLDERS in sample responses with the same `api-*` marker
+// spans the environment switcher rewrites, so responses follow the selected API pattern
+// (Pryv Lab / DNS-less / Own) like the requests do. Only the `{username}.pryv.me` and
+// `reg.pryv.me` placeholders are templated; concrete example hosts (e.g. chuangzi.pryv.me)
+// are literal sample data and left untouched. Must NOT run on the cURL blocks (already
+// carry their own spans) — apply only to JSON/response bodies.
+function templateEndpoints (json: string): string {
+	return json
+		.replace(/\{username\}\.pryv\.me/g, '<span class="api">{username}.pryv.me</span>')
+		.replace(/reg\.pryv\.me/g, '<span class="api-reg">reg.pryv.me</span>');
+}
+
 // The "strip the wrapping <p>...</p>\n" hack the legacy mixins use for inline fragments.
 function stripParagraph (html: string): string {
 	return html.indexOf('<p>') === 0 ? html.substr(3, html.length - 8) : html;
@@ -117,7 +129,7 @@ function tag (cls: string, onclick: string, labelTitle: string, labelText: strin
 function exampleContent (content: unknown): string {
 	if (!content) return '';
 	if (typeof content === 'string') return renderMd(content);
-	return codeBlock(printJSON(content), 'json');
+	return codeBlock(templateEndpoints(printJSON(content)), 'json');
 }
 
 function resultHttpStatus (ex: { resultHTTP?: string }, settings: Section): string {
@@ -131,7 +143,7 @@ function responseBlock (ex: { result?: unknown; resultHTTP?: string }, settings:
 	const body = `HTTP/1.1 ${resultHttpStatus(ex, settings)}\n` +
 		`Content-Type: application/json; charset=utf-8\nAPI-Version: ${version}\n\n` +
 		printJSON(ex.result);
-	return '<div class="step-marker">⬇</div>' + codeBlock(body, 'http');
+	return '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(body), 'http');
 }
 
 function renderExamples (examples: Section['examples'], settings: Section): string {
@@ -145,7 +157,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 		} else if (ex.params) {
 			const p = ex.params as Record<string, unknown>;
 			let panes = `<div class="tab-pane json active">${codeBlock(getRestCall(p, settings.http as string), 'json')}`;
-			if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
+			if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 			panes += '</div>';
 			if (settings.http) {
 				panes += `<div class="tab-pane http">${codeBlock(getCurlCall(p, settings.http, settings.server, false), 'bash')}`;
@@ -157,7 +169,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				if (settings.httpOnly) panes += `<pre>${httpOnlyMsg()}</pre>`;
 				else {
 					panes += codeBlock(`socket.emit('${settings.id}', ${getWebsocketCall(p)}, callback);`, 'javascript');
-					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
+					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 				}
 				panes += '</div>';
 			}
@@ -167,7 +179,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				else {
 					if (settings.id === 'callBatch') panes += renderMd('Yes it works! Calling a method `callBatch` within a **call batch** would make no sense. Look at Rest or Socket.io calls.');
 					panes += codeBlock(getBatchBlock(settings.id as string, p), 'json');
-					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(printJSON(ex.result), 'json');
+					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 				}
 				panes += '</div>';
 			}
