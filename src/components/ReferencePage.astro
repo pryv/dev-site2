@@ -22,7 +22,9 @@ const navItems = [
 	{ label: 'System API', href: '/reference-system/' },
 	{ label: 'Admin API', href: '/reference-admin/' },
 ];
-const current = Astro.url.pathname.replace(/\/$/, '');
+const refBase = import.meta.env.BASE_URL.replace(/\/$/, '');
+let current = Astro.url.pathname.replace(/\/$/, '');
+if (refBase && current.startsWith(refBase)) current = current.slice(refBase.length);
 const isCurrent = (href: string): boolean => {
 	// The plain API reference plus its light/preview flavors all map to the "API" tab.
 	if (href === '/reference/') return ['/reference', '/reference-light', '/reference-preview'].includes(current);

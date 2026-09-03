@@ -11,7 +11,11 @@ import { adminSections } from '../reference-data/admin';
 import { headingSlug } from '../reference-data/slug';
 import type { Section } from '../reference-data/types';
 
-const path = Astro.url.pathname.replace(/\/$/, '');
+// Strip the deploy base (e.g. /dev-site2) so route matching works at root AND under a
+// project-pages subpath.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+let path = Astro.url.pathname.replace(/\/$/, '');
+if (base && path.startsWith(base)) path = path.slice(base.length);
 const REF: Record<string, Section[]> = {
 	'/reference': userSections,
 	'/reference-light': userSections,
