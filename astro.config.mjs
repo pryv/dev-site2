@@ -1,7 +1,47 @@
 // @ts-check
+import { readFile, writeFile, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
+
+// Staging/preview builds (project-pages subpath, e.g. pryv.github.io/dev-site2) set
+// SITE_BASE=/dev-site2. Astro's `base` prefixes assets and Starlight-managed links, but
+// NOT absolute links authored in content markdown or in the custom components. This
+// integration prefixes those remaining root-absolute links post-build, and makes the
+// preview noindex (own robots.txt) so it never competes with the live site's SEO.
+const SITE_BASE = process.env.SITE_BASE ? process.env.SITE_BASE.replace(/\/$/, '') : '';
+
+function stagingSubpath () {
+	const baseName = SITE_BASE.replace(/^\//, '');
+	return {
+		name: 'staging-subpath-rewrite',
+		hooks: {
+			'astro:build:done': async ({ dir }) => {
+				if (!SITE_BASE) return;
+				const root = fileURLToPath(dir);
+				// Prefix root-absolute urls that Astro/Starlight did not already base:
+				// skip protocol-relative (//) and anything already under the base.
+				const skip = new RegExp('^/' + baseName + '(/|$)');
+				const rewrite = (s) => s
+					.replace(/(href|src|action|poster|content)="(\/[^"/][^"]*|\/)"/g, (m, attr, url) =>
+						skip.test(url) ? m : `${attr}="${SITE_BASE}${url}"`)
+					.replace(/location(\.href)?\s*=\s*'(\/[^'/][^']*)'/g, (m, p1, url) =>
+						skip.test(url) ? m : `location${p1 || ''}='${SITE_BASE}${url}'`);
+				const walk = async (d) => {
+					for (const e of await readdir(d, { withFileTypes: true })) {
+						const p = path.join(d, e.name);
+						if (e.isDirectory()) await walk(p);
+						else if (e.name.endsWith('.html')) await writeFile(p, rewrite(await readFile(p, 'utf8')));
+					}
+				};
+				await walk(root);
+				await writeFile(path.join(root, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+			},
+		},
+	};
+}
 
 // Canonical publish target is the org page (served at the domain root, no base path).
 // `build.format: 'directory'` reproduces the legacy trailing-slash directory URLs so
@@ -9,6 +49,9 @@ import starlightLinksValidator from 'starlight-links-validator';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://pryv.github.io',
+	// Root cutover serves at '/'. A staging/preview deploy under a subpath (project pages,
+	// e.g. pryv.github.io/dev-site2) sets SITE_BASE=/dev-site2 so links resolve there.
+	base: process.env.SITE_BASE || undefined,
 	build: { format: 'directory' },
 	// Legacy /reference-full/ was itself a redirect to the reference; preserve it.
 	redirects: { '/reference-full': '/reference' },
@@ -17,7 +60,9 @@ export default defineConfig({
 			// The reference / event-types / functional-specs pages are custom (non-collection)
 			// routes, so their in-page anchors cannot be introspected here; they are covered
 			// by a dedicated anchor-parity check instead. Exclude them from link validation.
-			plugins: [starlightLinksValidator({
+			// Skipped on staging builds: absolute links are base-prefixed post-build, which
+			// the in-build validator cannot see (root builds keep full validation).
+			plugins: SITE_BASE ? [] : [starlightLinksValidator({
 				errorOnRelativeLinks: false,
 				exclude: [
 					// Custom (non-collection) routes: anchors validated by the anchor-parity check.
@@ -50,6 +95,9 @@ export default defineConfig({
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '152x152', href: '/assets/images/apple-touch-icon-152x152-black.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '120x120', href: '/assets/images/apple-touch-icon-120x120-black.png' } },
 				{ tag: 'meta', attrs: { property: 'og:image', content: '/assets/images/logo-256.png' } },
+				// Staging/preview: keep it out of every search index so it never competes
+				// with the live site (belt-and-braces with the Disallow robots.txt).
+				...(SITE_BASE ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } }] : []),
 			],
 			customCss: [
 				// Self-hosted Roboto (body) + Roboto Condensed (headings), matching the
@@ -164,5 +212,6 @@ export default defineConfig({
 				},
 			],
 		}),
+		stagingSubpath(),
 	],
 });
