@@ -1,5 +1,27 @@
-/* Styles for the generated API reference (classes emitted by render.ts). */
+/* API reference styles, matching the look & feel of the original dev-site. */
 
+/* --- Top toolbar + sub-nav (selectors on top; sample controls) ------------- */
+.ref-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+}
+.ref-nav a {
+	font: 600 var(--sl-text-sm) / 1 var(--pryv-font-headings, sans-serif);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	padding: 0.4rem 0.8rem;
+	border-radius: 0.25rem;
+	border: 1px solid var(--sl-color-gray-5);
+	color: var(--sl-color-text);
+	text-decoration: none;
+}
+.ref-nav a[aria-current='page'] {
+	background: var(--pryv-blue);
+	border-color: var(--pryv-blue);
+	color: #fff;
+}
 .ref-toolbar {
 	position: sticky;
 	top: 0;
@@ -23,43 +45,106 @@
 	color: var(--sl-color-text);
 }
 
+/* --- Section headings: uppercase group titles, as on the original --------- */
+.reference :is(h1, h2) {
+	text-transform: uppercase;
+}
+.reference section.method > :is(h3, h4, h5, h6) { text-transform: none; }
+.reference section.method {
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--sl-color-hairline);
+	margin-top: 1.5rem;
+}
+
+/* --- Two-pane: examples float to the right (original layout) --------------- */
+.reference section { overflow: visible; }
+.reference .content { overflow: hidden; } /* contain the floated aside per method */
+.reference aside {
+	float: right;
+	clear: right;
+	width: 50%;
+	padding-left: 30px;
+	margin-bottom: 1rem;
+}
+.reference aside pre { max-height: 420px; overflow: auto; }
+.reference .example { margin: 0 0 1.5rem; }
+.reference .step-marker { text-align: center; font-size: 1.6em; line-height: 0.6; color: var(--pryv-light-gray); margin: 0.1em 0; }
+@media (max-width: 1100px) {
+	/* Stack on narrow screens */
+	.reference aside { float: none; width: 100%; padding-left: 0; }
+}
+
 /* Example format panes: only the active one shows. */
 .reference .example .tab-pane { display: none; }
 .reference .example .tab-pane.active { display: block; }
-.reference .example { margin: 0.5rem 0 1.5rem; }
-.reference .step-marker { text-align: center; font-size: 1.2rem; opacity: 0.6; margin: 0.15rem 0; }
 
-/* Property tables. */
-.reference table.definitions { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
+/* --- Property tables (right-aligned keys, as on the original) ------------- */
+.reference table.definitions { width: auto; border-collapse: collapse; margin: 0.5rem 0 1rem; }
 .reference table.definitions th,
-.reference table.definitions td {
-	text-align: left;
-	vertical-align: top;
-	padding: 0.4rem 0.6rem;
-	border-top: 1px solid var(--sl-color-hairline);
-}
-.reference table.definitions th { width: 12rem; white-space: nowrap; }
-.reference table.definitions .header { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; margin-bottom: 0.2rem; }
+.reference table.definitions td { padding: 0 0 0.4em 0; vertical-align: top; }
+.reference table.definitions th { padding-right: 0.8em; text-align: right; font-weight: normal; white-space: nowrap; }
+.reference table.definitions .header { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; }
 .reference .type { color: var(--sl-color-text-accent); }
 .reference table.definitions .description > :first-child { margin-top: 0; }
-.reference table.definitions table.definitions { margin-top: 0.5rem; } /* nested */
+.reference .attribute { margin-left: 0.5em; }
 
-/* Labels + badges. */
-.reference .label { font-size: var(--sl-text-xs); padding: 0 0.35rem; border-radius: 0.25rem; }
-.reference .label.label-default { background: var(--sl-color-gray-6); color: var(--sl-color-text); }
-.reference .label.unique { background: color-mix(in srgb, var(--pryv-blue) 25%, transparent); }
-.reference .label.optional { opacity: 0.7; }
-.reference .label.read-only { font-style: italic; }
-.reference .meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.25rem 0 0.5rem; }
-.reference .http { display: inline-flex; gap: 0.3rem; align-items: baseline; }
-.reference .http .label { background: var(--pryv-green); color: #fff; }
-.reference .method-id .label,
+/* --- Meta row + tag pills (exact original colors) ------------------------- */
+.reference .meta { display: flex; flex-wrap: wrap; gap: 0; align-items: center; margin: 0.35rem 0 0.75rem; }
+.reference .method-id,
+.reference .http,
+.reference .trusted-tag,
+.reference .admin-tag,
+.reference .v2-tag {
+	display: inline-flex;
+	align-items: stretch;
+	height: 1.9em;
+	border-radius: 0.25em;
+	overflow: hidden;
+	margin-right: 0.5em;
+	font-size: var(--sl-text-sm);
+}
+.reference :is(.method-id, .http, .trusted-tag, .admin-tag, .v2-tag) .label {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 0.6em;
+	font-weight: bold;
+	color: #fff;
+	border-radius: 0;
+}
+.reference :is(.method-id, .http, .trusted-tag, .admin-tag, .v2-tag) .label-value {
+	display: inline-flex;
+	align-items: center;
+}
+.reference :is(.method-id, .http, .trusted-tag, .admin-tag, .v2-tag) .label-value :is(code, span) {
+	padding: 0 0.6em;
+	margin: 0;
+	white-space: nowrap;
+	background: var(--pryv-code-bg, #edeff3);
+	color: var(--sl-color-text);
+	border-radius: 0;
+}
+.reference .method-id .label { background: #266c9c; }
+.reference .http .label { background: #7e7e7e; }
 .reference .trusted-tag .label,
-.reference .admin-tag .label,
-.reference .v2-tag .label { background: var(--sl-color-gray-5); cursor: pointer; }
-.reference .v2-tag .label { background: var(--pryv-blue); color: #fff; }
-.reference .label.trusted-only,
-.reference .label.admin-only { background: color-mix(in srgb, var(--pryv-red) 20%, transparent); }
+.reference .admin-tag .label { background: #dd8800; }
+.reference .v2-tag .label { background: #2e7d32; }
 
-/* Method sections get a light separator. */
-.reference section.method { padding-top: 0.5rem; border-top: 2px solid var(--sl-color-hairline); margin-top: 1.5rem; }
+/* Trusted/admin/preview banners */
+.reference .label.trusted-only,
+.reference .label.admin-only,
+.reference .label.trusted-only.preview {
+	display: inline-block;
+	background: #dd8800;
+	color: #fff;
+	font-weight: bold;
+	text-transform: uppercase;
+	padding: 0.4em 0.7em;
+	border-radius: 0.25em;
+	margin: 0.25rem 0;
+}
+
+/* Cursor affordance for the clickable tags */
+.reference :is(.method-id, .trusted-tag, .admin-tag, .v2-tag, .label.trusted-only, .label.admin-only) { cursor: pointer; }
+
+:root { --pryv-code-bg: #edeff3; }
+:root[data-theme='dark'] { --pryv-code-bg: #2b2b33; }
