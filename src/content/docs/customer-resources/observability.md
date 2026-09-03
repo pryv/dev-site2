@@ -10,20 +10,6 @@ No third-party monitoring agent runs inside the process, and nothing is auto-ins
 
 > **Data handling note.** Enabling observability means performance metadata leaves your deployment for wherever you point it. The emitted surface is enumerated below and is deliberately anonymous, but you own the decision and — unless you point it at a collector you host yourself — it is a processing arrangement with a third party. Read [What is sent](#what-is-sent) before enabling this on a deployment holding personal data.
 
-## Table of contents <!-- omit in toc -->
-
-1. [Overview](#overview)
-2. [What is sent](#what-is-sent)
-3. [What cannot be sent](#what-cannot-be-sent)
-4. [How anonymous is it, exactly](#how-anonymous-is-it-exactly)
-5. [Choosing a backend](#choosing-a-backend)
-6. [Enabling it](#enabling-it)
-7. [The reporting interval](#the-reporting-interval)
-8. [Verifying what your backend holds](#verifying-what-your-backend-holds)
-9. [Rotating credentials](#rotating-credentials)
-10. [Disabling](#disabling)
-11. [Caveats](#caveats)
-
 ## Overview
 
 A single emitter inside the core builds every datapoint from a compile-time vocabulary, validates it, aggregates it in memory, and posts it to your OTLP endpoint on a timer. Anything that does not match the vocabulary is dropped and counted, never sent.

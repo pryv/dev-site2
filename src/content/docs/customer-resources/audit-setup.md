@@ -8,29 +8,6 @@ This document describes how to configure the Audit feature for your Pryv.io plat
 
 > **Since v2 (2026)** audit is configured entirely through the unified config (`override-config.yml` merged on top of `config/default-config.yml` at startup) under the `audit:` block. There is no longer a `platform.yml` file or admin-panel GUI — one config file, applied on core restart, is the surface for filters, syslog options and templates alike.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Outputs](#outputs)
-2. [Filtering](#filtering)
-3. [Rules](#rules)
-   1. [You must specify at least one of them](#you-must-specify-at-least-one-of-them)
-   2. [You can aggregate per resource](#you-can-aggregate-per-resource)
-4. [Examples](#examples)
-   1. [log everything](#log-everything)
-   2. [log nothing](#log-nothing)
-   3. [log a few API methods](#log-a-few-api-methods)
-   4. [log everything, but a few](#log-everything-but-a-few)
-   5. [log all events methods, but get](#log-all-events-methods-but-get)
-5. [Syslog](#syslog)
-   1. [Templating](#templating)
-   2. [Plugin format](#plugin-format)
-6. [Support](#support)
-7. [Performance](#performance)
-8. [v1 → v2 config mapping](#v1--v2-config-mapping)
-9. [Previous version](#previous-version)
-
-
 ## Outputs
 
 Audit data can be written to any or both of the following:

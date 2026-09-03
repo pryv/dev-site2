@@ -8,19 +8,6 @@ This guide describes how to use **CMC** — Pryv.io's built-in protocol for fede
 
 It complements the [Consent request guide](/guides/consent/), which covers the classical single-account consent flow (one app obtaining an access token on one user's account). CMC is what you reach for when consent flows BETWEEN two end-user accounts.
 
-## Table of contents <!-- omit in toc -->
-<!-- no toc -->
-1. [When to use CMC](#when-to-use-cmc)
-2. [Concepts](#concepts)
-3. [Streams reserved by the plugin](#streams-reserved-by-the-plugin)
-4. [Event types](#event-types)
-5. [The handshake — a worked example](#the-handshake-a-worked-example)
-6. [Sending chat messages](#sending-chat-messages)
-7. [Sending system notifications](#sending-system-notifications)
-8. [Revoking](#revoking)
-9. [Lib-js helpers](#lib-js-helpers)
-10. [Further reading](#further-reading)
-
 ## When to use CMC
 
 Use CMC when:

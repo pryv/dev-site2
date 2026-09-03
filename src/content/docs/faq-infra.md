@@ -8,15 +8,6 @@ In this FAQ we answer common questions related to the Pryv.io platform. You can 
 
 > **Pryv.io v2** — Since v2 (2026) Pryv.io ships as a single binary (`pryvio/open-pryv.io` Docker image, or `node bin/master.js`). Registration, DNS and the admin endpoints are all built into the core — there is no separate `register`, `core`, `hfs`, `preview` or `dns` container. Where a procedure below still references the v1 multi-container layout (`pryvio_*` containers, `run-pryv`, `${PRYV_CONF_ROOT}` scripts) it is kept for operators still on v1; the v2 equivalent is noted inline. For v2 installs see [INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md).
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Platform prerequisites](#platform-prerequisites)
-2. [Customize registration, login, password-reset pages](#customize-registration-login-password-reset-pages)
-3. [Host apps, resources on the same domain, and reuse the SSL certificate](#host-apps-resources-on-the-same-domain-and-reuse-the-ssl-certificate)
-4. [System administrators](#system-administrators)
-
-
 ## Platform prerequisites
 
 In addition to the **Infrastructure procurement** guide (available on request), a Pryv.io platform requires its own **domain name**, such as `pryv.me` to work. Apps will access data through the https://${username}.${domain} endpoint, e.g. https://user-123.pryv.me. This can be totally hidden from the end user.

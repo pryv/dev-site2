@@ -15,22 +15,6 @@ v2 supports two delivery paths. Pick one at `services.email.method` in `override
 
 Everything below assumes v2 (`open-pryv.io`). v1 deployments configured the same two delivery paths under `services.email.method: mandrill | microservice` in `core/core/conf/core.json`, with templates in a separate `pryv/mail` Docker container or via Mandrill's hosted templates — that surface is no longer used in v2.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Choose a method](#choose-a-method)
-2. [Common config — SMTP, sender, language](#common-config)
-3. [`in-process` mode (recommended)](#in-process-mode)
-    1. [Boot-time template seeding](#boot-time-template-seeding)
-    2. [Managing templates — `bin/mail.js` CLI](#mail-cli)
-    3. [Managing templates — admin HTTP API](#admin-http-api)
-    4. [PlatformDB keyspace](#platformdb-keyspace)
-    5. [Cluster propagation](#cluster-propagation)
-4. [`microservice` mode (legacy)](#microservice-mode)
-5. [Template variables](#template-variables)
-6. [SPF record reminder](#spf-record-reminder)
-
-
 ## Choose a method <a name="choose-a-method"></a>
 
 Set `services.email.method` in `override-config.yml`. Default is `microservice` for now; a future release will flip the default to `in-process` once both modes have had equal prod exposure.

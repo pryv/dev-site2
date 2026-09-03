@@ -8,31 +8,6 @@ This document is for system administrators provisioning virtual machines and oth
 
 > **Since Pryv.io v2 (2026)** the platform runs as a **single binary** (`bin/master.js`) packaged as a **single Docker image** (`pryvio/open-pryv.io`). There is no longer a separate `register`, `core`, `hfs`, `preview`, `static-web` or `dns` service to procure — one machine runs everything. Scaling out is done by adding more instances of the same binary and joining them through an embedded [rqlite](https://rqlite.io/) cluster.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Topology](#topology)
-   1. [Single-core (most deployments)](#single-core-most-deployments)
-   2. [Multi-core for load](#multi-core-for-load)
-   3. [Multi-core for geographical compliance](#multi-core-for-geographical-compliance)
-2. [Business requirements](#business-requirements)
-   1. [Granularity](#granularity)
-   2. [Data production](#data-production)
-   3. [Data consumption](#data-consumption)
-3. [Sizing a core](#sizing-a-core)
-4. [System requirements](#system-requirements)
-   1. [Operating systems](#operating-systems)
-   2. [Docker](#docker)
-   3. [Per-core machine](#per-core-machine)
-   4. [Database host (optional — external PostgreSQL / MongoDB)](#database-host-optional--external-postgresql--mongodb)
-5. [Network and firewall](#network-and-firewall)
-6. [Operational concerns](#operational-concerns)
-   1. [System hardening](#system-hardening)
-   2. [Backups](#backups)
-   3. [Node monitoring](#node-monitoring)
-7. [Previous versions of this document](#previous-versions-of-this-document)
-
-
 ## Topology
 
 A Pryv.io v2 deployment is a set of **cores**. Every core is the same binary — there are no role-specific machines. Cores coordinate through an embedded rqlite cluster that holds the platform DB (user→core mapping, registration tokens, invitations, active-core list).

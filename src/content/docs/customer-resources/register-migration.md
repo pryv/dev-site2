@@ -20,22 +20,6 @@ The register migration procedure only takes into account the master registers. I
 
 We copy the data from the old master register to the new one, set the old register to proxy to the new one and enable replication between the two so they are synchronized during the DNS propagation phase.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Setup *dest* machine](#setup-dest-machine)
-2. [Transfer data](#transfer-data)
-   1. [Transfer config data](#transfer-config-data)
-   2. [Transfer user data and fetch docker images](#transfer-user-data-and-fetch-docker-images)
-   3. [Fix permissions and boot services on *dest*](#fix-permissions-and-boot-services-on-dest)
-3. [Set NGINX redirection for register on *source*](#set-nginx-redirection-for-register-on-source)
-4. [Reload NGINX on *source*](#reload-nginx-on-source)
-5. [Set the *source* register as replica of the *dest* register through a SSH tunnel](#set-the-source-register-as-replica-of-the-dest-register-through-a-ssh-tunnel)
-6. [Update Name servers](#update-name-servers)
-7. [Verify](#verify)
-8. [Finalize](#finalize)
-
-
 ## Setup *dest* machine
 
 We assume that you have installed `docker` and `docker-compose` on the *dest* machine and have authenticated yourself with our private Docker repository.

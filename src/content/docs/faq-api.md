@@ -6,24 +6,6 @@ description: Answers to common questions about the Pryv.io API, covering persona
 
 In this FAQ we answer common questions related to Pryv.io API. You can contact us on [Github Discussion](https://github.com/orgs/pryv/discussions) if your question is not listed here.
 
-
-
-## Table of contents <!-- omit in toc -->
-
-1. [Personal data](#personal-data)
-2. [Streams](#streams)
-3. [Event types](#event-types)
-4. [Other data structures](#other-data-structures)
-5. [API methods](#api-methods)
-7. [Synchronization](#synchronization)
-8. [User creation](#user-creation)
-9. [Authentication](#authentication)
-10. [Account granularity](#account-granularity)
-11. [Access sharing](#access-sharing)
-12. [Notification system](#notification-system)
-13. [Test setup](#do-you-have-a-test-setup-where-i-could-experiment-with-your-api-)
-
-
 ## Personal data
 
 ### We are using medical devices to collect data from our users. Is technical data from these devices also part of “personal” data of the user ?

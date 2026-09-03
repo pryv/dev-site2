@@ -16,23 +16,6 @@ The strategy:
 4. Either update DNS to point to **dest**, or keep **source** alive as an NGINX proxy to **dest** during DNS propagation
 5. Stop **source** once traffic has drained
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [(Optional) Create a verification user on source](#optional-create-a-verification-user-on-source)
-2. [Set up the dest machine](#set-up-the-dest-machine)
-3. [Transfer data](#transfer-data)
-   1. [Transfer configuration](#transfer-configuration)
-   2. [Dump and transfer the database](#dump-and-transfer-the-database)
-   3. [Transfer file-system data](#transfer-file-system-data)
-4. [Launch the core on dest](#launch-the-core-on-dest)
-5. [Cut over](#cut-over)
-   1. [Option A — update DNS and stop source](#option-a--update-dns-and-stop-source)
-   2. [Option B — proxy from source to dest during DNS propagation](#option-b--proxy-from-source-to-dest-during-dns-propagation)
-6. [Verify](#verify)
-7. [Multi-core deployments — update the PlatformDB entry](#multi-core-deployments--update-the-platformdb-entry)
-
-
 ## (Optional) Create a verification user on source
 
 Create a test user with a few streams and events on the **source** core before the migration. After the cutover, log in as that user on **dest** and check that the data is intact — a quick naked-eye check complements the automated verification steps later.

@@ -9,25 +9,6 @@ This guide, addressed to IT operators, walks through the steps to set up a Pryv.
 
 > **Since v2 (2026)** Pryv.io is a single binary / single Docker image — `pryvio/open-pryv.io`. The authoritative install document is [INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md) in the repository: it covers prerequisites, config skeleton, data directories, running standalone with built-in HTTPS, and running behind nginx. The guide below is the higher-level platform perspective — procurement, domain, certificate, validation, customization — and links out to INSTALL for the install-time specifics.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Provision the machine(s)](#provision-the-machines)
-2. [Obtain a domain name](#obtain-a-domain-name)
-   1. [Single-core (`dnsLess`)](#single-core-dnsless)
-   2. [Multi-core with embedded DNS](#multi-core-with-embedded-dns)
-   3. [Multi-core with externally-managed DNS](#multi-core-with-externally-managed-dns)
-3. [Install and configure the core](#install-and-configure-the-core)
-4. [Obtain an SSL certificate](#obtain-an-ssl-certificate)
-5. [Validate the installation](#validate-the-installation)
-6. [Set up health monitoring](#set-up-health-monitoring)
-7. [Customize authentication / registration / password-reset pages](#customize-authentication--registration--password-reset-pages)
-8. [Set up email sending](#set-up-email-sending)
-9. [Define your data model](#define-your-data-model)
-10. [Customize event-type validation](#customize-event-type-validation)
-11. [Other documents](#other-documents)
-
-
 ## Provision the machine(s)
 
 Decide whether you need a **single-core** install (most deployments) or a **multi-core** install (scale-out or geographical compliance). The [infrastructure procurement guide](/customer-resources/infrastructure-procurement/) covers sizing tables, OS/Docker requirements and the network ports to open.

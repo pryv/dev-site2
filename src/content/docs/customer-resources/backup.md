@@ -8,23 +8,6 @@ This guide describes how the **operator** backs up a Pryv.io platform and restor
 
 > **Since v2 (2026)** Pryv.io ships a built-in backup/restore tool, `bin/backup.js`. Prefer it over raw database dumps — it understands Pryv.io's data model, backs up per user, supports incremental runs, can verify integrity on restore, and can **encrypt its output on demand** so no plaintext personal/health data touches the backup media. For any backup that leaves the host (off-site, outsourced, or third-party storage) you should [encrypt it](#encrypting-the-backup). Raw database/filesystem dumps are still documented below as a disaster-recovery alternative for operators who need them (offline DB snapshots, block-level volume backups, etc.).
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Recommended: `bin/backup.js`](#recommended-binbackupjs)
-   1. [Full backup](#full-backup)
-   2. [Incremental backup](#incremental-backup)
-   3. [Backup a single user](#backup-a-single-user)
-   4. [Encrypting the backup](#encrypting-the-backup)
-   5. [Restore](#restore)
-   6. [What's in the backup](#whats-in-the-backup)
-2. [Alternative: raw database + filesystem dumps](#alternative-raw-database--filesystem-dumps)
-   1. [What to back up](#what-to-back-up)
-   2. [Dump PostgreSQL](#dump-postgresql)
-   3. [Restore raw dumps](#restore-raw-dumps)
-3. [Important notice on consistency](#important-notice-on-consistency)
-
-
 ## Recommended: `bin/backup.js`
 
 Run from the `open-pryv.io` repository root. The tool uses the same config files as the running core, so point `NODE_ENV` and `--config` at the same override you use in production.

@@ -3,21 +3,6 @@ title: 'Custom Authentication'
 description: How to add a custom authentication step to your Pryv.io platform to validate API requests against extra information or an external service.
 ---
 
-
-## Table of contents <!-- omit in toc -->
-<!-- no toc -->
-1. [Introduction](#introduction)
-2. [Pryv.io Custom Auth Step](#pryv-io-custom-auth-step)
-  1. [Why using a custom auth step](#why-using-a-custom-auth-step)
-  2. [What is the custom auth step](#what-is-the-custom-auth-step)
-  3. [How to set up the custom auth step](#how-to-set-up-the-custom-auth-step)
-3. [Authenticate data access with Pryv.io](#authenticate-data-access-with-pryv-io)
-  1. [Hands-on example](#hands-on-example)
-  2. [Custom authentication function](#custom-authentication-function)
-4. [Custom Auth Step features](#custom-auth-step-features)
-5. [Authenticate data access with an external service](#authenticate-data-access-with-an-external-service)
-
-
 ## Introduction
 
 Authentication allows you to validate the identity of a registered user attempting to access resources. You can add a custom authentication step to your Pryv.io platform to verify more information than the authorization token when performing a request to access data.  

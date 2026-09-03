@@ -18,33 +18,6 @@ The prerequisite for this is to have:
 
 The `mfa.*` API flow (activate → confirm → login → challenge → verify) is the same for both methods; only the enrolment payload and what is verified differ. For SMS, depending on your provider's capabilities you use the **single** or **challenge-verify** mode.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Flow](#flow)
-   1. [Setup](#setup)
-   2. [Usage](#usage)
-   3. [Deactivation and recovery](#deactivation-and-recovery)
-2. [Modes](#modes)
-3. [Configuration](#configuration)
-   1. [Enabling MFA](#enabling-mfa)
-   2. [Endpoint shape](#endpoint-shape)
-   3. [User data](#user-data)
-   4. [Parameters](#parameters)
-      1. [url](#url)
-      2. [method](#method)
-      3. [body](#body)
-      4. [headers](#headers)
-   5. [Session TTL](#session-ttl)
-4. [Single](#single)
-   1. [Single template](#single-template)
-   2. [Single user data](#single-user-data)
-5. [Challenge-Verify mode](#challenge-verify-mode)
-   1. [Challenge-Verify template](#challenge-verify-template)
-   2. [Challenge-Verify user data](#challenge-verify-user-data)
-6. [References](#references)
-
-
 ## Flow
 
 You will need to define a template for the API call(s) that will be made to your communication service. The user-specific values that will be substituted in the template will be stored in the user's [private profile](/reference/#get-private-profile).

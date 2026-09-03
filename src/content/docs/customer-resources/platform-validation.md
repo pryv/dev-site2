@@ -8,28 +8,6 @@ This guide describes how to validate that a Pryv.io platform is up and running a
 
 > **Since v2 (2026)** Pryv.io is a single binary serving registration, core API, HFS and — in multi-core mode — DNS. Validation is therefore one short checklist instead of four (DNS + register + core + NGINX). In multi-core mode, run the checklist against every core.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Variables](#variables)
-2. [Tools](#tools)
-3. [Checklist](#checklist)
-   1. [1. Process is up](#1-process-is-up)
-   2. [2. Public URL responds](#2-public-url-responds)
-   3. [3. Registration / rqlite reachable](#3-registration--rqlite-reachable)
-   4. [4. DNS (multi-core only)](#4-dns-multi-core-only)
-   5. [5. Base storage (PostgreSQL / MongoDB) reachable](#5-base-storage-postgresql--mongodb-reachable)
-   6. [6. (Optional) HFS port reachable](#6-optional-hfs-port-reachable)
-   7. [7. mTLS handshake on Raft (multi-core only)](#7-mtls-handshake-on-raft-multi-core-only)
-4. [Troubleshoot](#troubleshoot)
-   1. [Core does not start](#core-does-not-start)
-   2. [502 / 504 from the reverse proxy](#502--504-from-the-reverse-proxy)
-   3. [rqlite cluster split-brain or not converging](#rqlite-cluster-split-brain-or-not-converging)
-   4. [DNS does not resolve user subdomains](#dns-does-not-resolve-user-subdomains)
-   5. [Base storage connection fails](#base-storage-connection-fails)
-   6. [Permission denied on data directories](#permission-denied-on-data-directories)
-
-
 ## Variables
 
 Replace these placeholders:

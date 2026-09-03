@@ -10,21 +10,6 @@ This guide describes how to perform regular healthcheck API calls against a Pryv
 
 The checks in this guide require a dedicated healthcheck user account with a non-expirable access token. Create it once and reuse the `(username, token)` pair in your monitoring system.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Variables](#variables)
-2. [Tools](#tools)
-3. [Preparation — create the healthcheck account](#preparation--create-the-healthcheck-account)
-   1. [Create the user](#create-the-user)
-   2. [Obtain a non-expirable access token](#obtain-a-non-expirable-access-token)
-4. [Healthchecks](#healthchecks)
-   1. [1. DNS resolution (multi-core only)](#1-dns-resolution-multi-core-only)
-   2. [2. Registration endpoint reachable](#2-registration-endpoint-reachable)
-   3. [3. Core API + base storage reachable](#3-core-api--base-storage-reachable)
-   4. [4. (Optional) HFS port reachable](#4-optional-hfs-port-reachable)
-
-
 ## Variables
 
 Replace the following variables in the commands below:

@@ -7,22 +7,6 @@ description: "How Pryv.io supports privacy by design and by default: its archite
 In this guide we address developers building data-collecting applications who want to understand how Pryv.io supports privacy by design and privacy by default.
 It describes Pryv.io's architectural choices, the platform defaults that protect personal data out of the box, and what remains in the developer's hands.
 
-## Table of contents
-
-1. [Introduction](#introduction)
-2. [Why a developer should care](#why-a-developer-should-care)
-3. [Glossary](#glossary)
-4. [Privacy by design in Pryv.io](#privacy-by-design-in-pryv-io)
-    1. [The standard pattern and its limits](#the-standard-pattern-and-its-limits)
-    2. [Pryv.io's architecture](#pryv-io-s-architecture)
-    3. [Data model: subject and context segregation](#data-model-subject-and-context-segregation)
-5. [Privacy by default in Pryv.io](#privacy-by-default-in-pryv-io)
-    1. [The opt-in pattern](#the-opt-in-pattern)
-    2. [Twelve platform defaults](#twelve-platform-defaults)
-6. [What stays in the developer's hands](#what-stays-in-the-developer-s-hands)
-7. [Privacy-enhancing technologies](#privacy-enhancing-technologies)
-8. [References](#references)
-
 ## Introduction
 
 The new [FADP](https://www.fedlex.admin.ch/eli/cc/2022/491/en) and [GDPR](https://gdpr.eu) require all organizations to be able to answer, on demand, a list of data-subject questions: *send me a copy of all my data*, *tell me who has accessed my data*, *prove that you have my consent*, *let me modify who can access my data*, *delete my personal data*.

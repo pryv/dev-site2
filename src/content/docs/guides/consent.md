@@ -3,15 +3,6 @@ title: 'Consent implementation with Pryv.io'
 description: How to implement user consent with Pryv.io to meet data-protection requirements, covering the consent request flow and a hands-on example.
 ---
 
-
-## Table of contents <!-- omit in toc -->
-<!-- no toc -->
-1. [Introduction](#introduction)
-2. [How to collect consent with Pryv.io](#how-to-collect-consent-with-pryv-io)
-    1. [Consent request](#consent-request)
-    2. [Hands-on example](#hands-on-example)
-3. [References](#references)
-
 ## Introduction
 
 Managing consent is a critical issue for many developers when building personal data collecting applications. More than a checking-box option, it is what allows users to keep control over their personal information and businesses to keep track of data-related accesses and the purposes for which each data can be used.

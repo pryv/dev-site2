@@ -8,26 +8,6 @@ This document explains how to set up system streams.
 
 > **Since v2 (2026)** system streams are configured in the unified config file under `custom.systemStreams.account` / `custom.systemStreams.other` (plain YAML). There is no `ACCOUNT_SYSTEM_STREAMS` / `OTHER_SYSTEM_STREAMS` JSON-encoded string, no admin-panel *Advanced API settings* tab, and no `BACKWARD_COMPATIBILITY_SYSTEM_STREAMS_PREFIX` switch — v2 uses the `:_system:` / `:system:` prefix scheme exclusively. The module implementing the runtime behaviour lives at [`components/business/src/system-streams/`](https://github.com/pryv/open-pryv.io/tree/master/components/business/src/system-streams).
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [About system streams](#about-system-streams)
-   1. [Unicity](#unicity)
-   2. [Indexed](#indexed)
-   3. [Editability](#editability)
-   4. [Requiredness at registration](#requiredness-at-registration)
-   5. [Format](#format)
-   6. [Event type](#event-type)
-   7. [Visibility](#visibility)
-2. [Configuration](#configuration)
-   1. [Schema](#schema)
-   2. [Baked-in account streams](#baked-in-account-streams)
-   3. [Adding custom account streams](#adding-custom-account-streams)
-   4. [Adding custom *other* streams](#adding-custom-other-streams)
-   5. [Modification caveats](#modification-caveats)
-3. [Backward compatibility (historical)](#backward-compatibility-historical)
-
-
 ## About system streams
 
 System streams are a predefined set of streams. They are loaded in memory by Pryv.io from the config file at startup and are not stored in the database.

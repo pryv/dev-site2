@@ -12,27 +12,6 @@ This guide describes how to upgrade a running single-core Pryv.io deployment to 
 >
 > This page is the platform-operator narrative around the upstream [SINGLE-TO-MULTIPLE.md](https://github.com/pryv/open-pryv.io/blob/master/SINGLE-TO-MULTIPLE.md), which contains the exact config snippets and verification commands.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Prerequisites](#prerequisites)
-2. [Outcome at a glance](#outcome-at-a-glance)
-3. [How adding a core works](#how-adding-a-core-works)
-4. [Decide on a DNS strategy](#decide-on-a-dns-strategy)
-5. [Pick a wildcard SSL strategy](#pick-a-wildcard-ssl-strategy)
-6. [Step 1 — Set up DNS](#step-1--set-up-dns)
-7. [Step 2 — Switch the existing core to multi-core mode](#step-2--switch-the-existing-core-to-multi-core-mode)
-8. [Step 3 — Issue a bootstrap bundle for the new core](#step-3--issue-a-bootstrap-bundle-for-the-new-core)
-9. [Step 4 — Transfer bundle + passphrase to the new core](#step-4--transfer-bundle--passphrase-to-the-new-core)
-10. [Step 5 — Boot the new core in `--bootstrap` mode](#step-5--boot-the-new-core-in---bootstrap-mode)
-11. [Step 6 — Verify cross-core operation](#step-6--verify-cross-core-operation)
-12. [Cluster security at a glance](#cluster-security-at-a-glance)
-13. [Operations: managing in-flight bundles](#operations-managing-in-flight-bundles)
-14. [Nginx / reverse-proxy notes](#nginx--reverse-proxy-notes)
-15. [Rollback](#rollback)
-16. [Appendix — manual bootstrap (no CLI)](#appendix--manual-bootstrap-no-cli)
-
-
 ## Prerequisites
 
 - A running single-core Pryv.io v2 install with real users and data.

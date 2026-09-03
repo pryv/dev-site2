@@ -7,29 +7,6 @@ description: How to implement notified systems with Pryv.io webhooks, why to use
 In this guide we address developers that wish to implement notified systems with Webhooks.
 It describes what Webhooks are, why and how to use them on Pryv.io, illustrating it with a common use case.
 
-## Table of contents <!-- omit in toc -->
-<!-- no toc -->
-1. [Introduction](#introduction)
-2. [Pryv.io Webhooks](#pryv-io-webhooks)
-  1. [What are Webhooks?](#what-are-webhooks-)
-  2. [Why using Webhooks?](#why-using-webhooks-)
-  3. [Why only notify of changes?](#why-only-notify-of-changes-) 
-  4. [Separation of responsibility](#separation-of-responsibility)
-3. [Use case: Notify of a new document uploaded on your application](#use-case-notify-of-a-new-document-uploaded-on-your-application)
-4. [Hands-on example](#hands-on-example)
-5. [Pryv.io Webhooks features](#pryv-io-webhooks-features)
-  1. [Frequency limit](#frequency-limit) 
-  2. [Retries](#retries) 
-  3. [Reactivation](#reactivation) 
-  4. [Stats](#stats) 
-  5. [Deletion of the original access](#deletion-of-the-original-access)
-6. [Endpoint setup](#endpoint-setup)
-  1. [User identification](#user-identification)
-  2. [Endpoint testing](#endpoint-testing)
-  3. [Webhook authorization](#webhook-authorization)
-7. [Events synchronization](#events-synchronization)
-8. [Conclusion](#conclusion)
-
 ## Introduction
 
 Webhooks are a reliable system for real time streaming and push notifications to external services as your users' data is created and modified. 

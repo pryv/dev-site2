@@ -10,17 +10,6 @@ This document describes how to obtain and install the SSL certificate used by a 
 
 Prerequisite: you have [obtained a domain name](/customer-resources/pryv.io-setup/#obtain-a-domain-name) and installed the core ([INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md)).
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [Which certificate do I need?](#which-certificate-do-i-need)
-2. [Choose an issuance strategy](#choose-an-issuance-strategy)
-3. [Strategy A — built-in auto-renewal (recommended)](#strategy-a--built-in-auto-renewal-recommended)
-4. [Strategy B — reverse proxy handles ACME](#strategy-b--reverse-proxy-handles-acme)
-5. [Strategy C — manual certbot + file paths](#strategy-c--manual-certbot--file-paths)
-6. [v1 procedure (legacy)](#v1-procedure-legacy)
-
-
 ## Which certificate do I need?
 
 | Deployment                                 | Certificate                                                         |

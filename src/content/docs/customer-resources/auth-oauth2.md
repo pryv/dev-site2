@@ -11,18 +11,6 @@ This document is for **app developers** choosing how their application obtains a
 
 Neither flow is deprecated. Pick per app using the decision matrix below.
 
-## Table of contents <!-- omit in toc -->
-
-1. [Which flow should my app use?](#which-flow-should-my-app-use)
-2. [The OAuth2 flow at a glance](#the-oauth2-flow-at-a-glance)
-3. [Endpoints and discovery](#endpoints-and-discovery)
-4. [Scopes](#scopes)
-5. [Multi-core deployments: the `apiEndpoint` extension](#multi-core-deployments-the-apiendpoint-extension)
-6. [Token lifetimes and refresh](#token-lifetimes-and-refresh)
-7. [Client registration](#client-registration)
-8. [Using lib-js](#using-lib-js)
-9. [Related documents](#related-documents)
-
 ## Which flow should my app use?
 
 | Your situation | Recommended flow |

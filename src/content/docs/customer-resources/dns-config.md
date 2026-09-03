@@ -13,28 +13,6 @@ This guide describes how to declare DNS records that Pryv.io's embedded DNS serv
 >
 > There is no longer a `service-config-leader` / admin-panel GUI — the unified config file is the source of truth for static records, and the CLI / admin API are the source of truth for runtime records.
 
-
-## Table of contents <!-- omit in toc -->
-
-1. [When do I need this?](#when-do-i-need-this)
-2. [Topology prerequisites](#topology-prerequisites)
-3. [Static records (YAML)](#static-records-yaml)
-   1. [Static subdomains — `dns.staticEntries`](#static-subdomains--dnsstaticentries)
-   2. [Root records — `dns.records.root`](#root-records--dnsrecordsroot)
-   3. [Reserved subdomains](#reserved-subdomains)
-4. [Runtime records (PlatformDB)](#runtime-records-platformdb)
-   1. [`bin/dns-records.js` CLI](#bindns-recordsjs-cli)
-   2. [Admin HTTP endpoints](#admin-http-endpoints)
-5. [Record type reference](#record-type-reference)
-   1. [A / AAAA](#a--aaaa)
-   2. [CNAME](#cname)
-   3. [TXT](#txt)
-   4. [SPF](#spf)
-   5. [MX](#mx)
-   6. [NS / CAA / SOA](#ns--caa--soa)
-6. [v1 procedure (legacy)](#v1-procedure-legacy)
-
-
 ## When do I need this?
 
 This page is for operators whose Pryv.io deployment runs in **DNS-active** mode — i.e. the embedded DNS server answers for the domain (`dns.active: true`). It is **not** needed if your deployment runs in **DNSless** mode (`dnsLess.isActive: true`) or if you delegate DNS to a third party (Route 53, Cloudflare, Gandi, Infomaniak…).
