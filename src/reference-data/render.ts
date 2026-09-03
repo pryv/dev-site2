@@ -143,7 +143,7 @@ function responseBlock (ex: { result?: unknown; resultHTTP?: string }, settings:
 	const body = `HTTP/1.1 ${resultHttpStatus(ex, settings)}\n` +
 		`Content-Type: application/json; charset=utf-8\nAPI-Version: ${version}\n\n` +
 		printJSON(ex.result);
-	return '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(body), 'http');
+	return '<div class="step-marker">⬇︎</div>' + codeBlock(templateEndpoints(body), 'http');
 }
 
 function renderExamples (examples: Section['examples'], settings: Section): string {
@@ -153,11 +153,11 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 		let block = ex.title ? renderMd(ex.title) : '';
 		if (ex.content || typeof ex.params === 'string') {
 			block += exampleContent(ex.content) + exampleContent(ex.params);
-			if (ex.result) block += '<div class="step-marker">⬇</div>' + exampleContent(ex.result);
+			if (ex.result) block += '<div class="step-marker">⬇︎</div>' + exampleContent(ex.result);
 		} else if (ex.params) {
 			const p = ex.params as Record<string, unknown>;
 			let panes = `<div class="tab-pane json active">${codeBlock(getRestCall(p, settings.http as string), 'json')}`;
-			if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
+			if (ex.result) panes += '<div class="step-marker">⬇︎</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 			panes += '</div>';
 			if (settings.http) {
 				panes += `<div class="tab-pane http">${codeBlock(getCurlCall(p, settings.http, settings.server, false), 'bash')}`;
@@ -169,7 +169,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				if (settings.httpOnly) panes += `<pre>${httpOnlyMsg()}</pre>`;
 				else {
 					panes += codeBlock(`socket.emit('${settings.id}', ${getWebsocketCall(p)}, callback);`, 'javascript');
-					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
+					if (ex.result) panes += '<div class="step-marker">⬇︎</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 				}
 				panes += '</div>';
 			}
@@ -179,7 +179,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 				else {
 					if (settings.id === 'callBatch') panes += renderMd('Yes it works! Calling a method `callBatch` within a **call batch** would make no sense. Look at Rest or Socket.io calls.');
 					panes += codeBlock(getBatchBlock(settings.id as string, p), 'json');
-					if (ex.result) panes += '<div class="step-marker">⬇</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
+					if (ex.result) panes += '<div class="step-marker">⬇︎</div>' + codeBlock(templateEndpoints(printJSON(ex.result)), 'json');
 				}
 				panes += '</div>';
 			}

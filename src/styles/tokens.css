@@ -38,6 +38,54 @@
 	font-family: var(--pryv-font-headings);
 }
 
+/* --- Typography to match the legacy site's character (light/regular condensed,
+   uppercase headings with letter-spacing) instead of stock Starlight bold. -------- */
+:root {
+	--sl-text-h1: 2.3rem;   /* ~37px, as legacy */
+	--sl-text-h2: 1.75rem;  /* ~28px */
+	--sl-line-height: 1.5;  /* legacy is denser than Starlight's 1.75 */
+	--pryv-code-bg: rgba(0, 8, 64, 0.04);
+}
+:root[data-theme='dark'] { --pryv-code-bg: #2b2b33; }
+
+h1, .sl-markdown-content h1, .hero h1 { font-weight: 300; letter-spacing: 0.04em; text-transform: uppercase; }
+h2, .sl-markdown-content h2 { font-weight: 400; letter-spacing: 0.04em; text-transform: uppercase; }
+:is(h3, h4, h5, h6), .sl-markdown-content :is(h3, h4, h5, h6) { font-weight: 500; }
+
+/* Legacy underlined links on hover only (permanent underline is the loudest
+   stock-Starlight tell in prose). */
+.sl-markdown-content a:not(:where(.not-content *)) { text-decoration: none; }
+.sl-markdown-content a:not(:where(.not-content *)):hover { text-decoration: underline; }
+
+/* Dotted leader lines flanking section h2s, as on the legacy reference/guide pages. */
+.sl-markdown-content h2 { display: flex; align-items: center; gap: 0.6em; }
+.sl-markdown-content h2::before { content: ''; flex: 0 0 1.5em; border-bottom: 2px dotted var(--pryv-light-gray); }
+.sl-markdown-content h2::after { content: ''; flex: 1; border-bottom: 2px dotted var(--pryv-light-gray); }
+
+/* Inline code chips: lighter, subtly rounded, slightly larger (legacy proportions). */
+.sl-markdown-content code:not(:where(.not-content *)) {
+	background: var(--pryv-code-bg);
+	border-radius: 3px;
+	font-size: 0.9em;
+}
+
+/* --- Home hero: uppercase condensed title + dark-grey rectangular buttons, the
+   legacy identity rather than the stock rounded blue pill. ----------------------- */
+.hero h1 { letter-spacing: 0.05em; }
+.hero .sl-link-button {
+	background: var(--pryv-dark-gray);
+	color: #fff;
+	border: 0;
+	border-radius: 5px;
+	font-family: var(--pryv-font-headings);
+	font-weight: 400;
+	font-size: 1.15rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	padding: 0.55em 2em;
+}
+.hero .sl-link-button:hover { background: var(--pryv-black); color: #fff; }
+
 /* Dark theme (Starlight default; overridden accent) */
 :root[data-theme='dark'] {
 	--sl-color-accent-low: #13243a;
