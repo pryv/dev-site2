@@ -94,7 +94,7 @@ h2, .sl-markdown-content h2 { font-weight: 400; letter-spacing: 0.04em; text-tra
 	margin-inline: calc(50% - 50vw);
 	margin-block-start: -2.4rem; /* cancel the content panel's top padding, flush to header */
 }
-.dev-banner-bg { width: 100%; height: clamp(240px, 32vw, 440px); object-fit: cover; border-radius: 0; display: block; }
+.dev-banner-bg { width: 100%; height: clamp(150px, 13vw, 200px); object-fit: cover; border-radius: 0; display: block; }
 .dev-banner-cap {
 	position: absolute; inset: 0;
 	display: flex; align-items: center; justify-content: center; gap: 0.35em;
