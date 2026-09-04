@@ -9,21 +9,25 @@ import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import { userSections, systemSection } from '../reference-data';
 import { adminSections } from '../reference-data/admin';
 import { headingSlug } from '../reference-data/slug';
-import type { Section } from '../reference-data/types';
+import { isVisible } from '../reference-data/render';
+import type { Section, ReferenceFlavor } from '../reference-data/types';
 
 // Strip the deploy base (e.g. /dev-site2) so route matching works at root AND under a
 // project-pages subpath.
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 let path = Astro.url.pathname.replace(/\/$/, '');
 if (base && path.startsWith(base)) path = path.slice(base.length);
-const REF: Record<string, Section[]> = {
-	'/reference': userSections,
-	'/reference-light': userSections,
-	'/reference-preview': userSections,
-	'/reference-system': systemSection.sections ?? [],
-	'/reference-admin': adminSections,
+// Each route carries the SAME flavor its page passes to ReferencePage, so the outline is
+// filtered by the identical visibility rule the renderer uses (otherwise the light page,
+// which hides trusted-only sections, would list dead anchors).
+const REF: Record<string, { sections: Section[]; flavor: ReferenceFlavor }> = {
+	'/reference': { sections: userSections, flavor: { source: 'default', showTrustedOnlyContent: true } },
+	'/reference-light': { sections: userSections, flavor: { source: 'default', showTrustedOnlyContent: false } },
+	'/reference-preview': { sections: userSections, flavor: { source: 'default', showTrustedOnlyContent: true, showPreviewOnlyContent: true } },
+	'/reference-system': { sections: systemSection.sections ?? [], flavor: { source: 'system', showTrustedOnlyContent: true } },
+	'/reference-admin': { sections: adminSections, flavor: { source: 'admin' } },
 };
-const sections = REF[path];
+const ref = REF[path];
 
 type Entry =
 	| { type: 'link'; href: string; label: string; isCurrent: boolean; attrs: Record<string, unknown> }
@@ -31,15 +35,17 @@ type Entry =
 
 // Level-1 sections become groups; their level-2 children become in-page anchor links.
 // Anchors use the same text-based slug as the rendered heading ids so they resolve.
-function outline (roots: Section[]): Entry[] {
+// Both levels are filtered through the renderer's isVisible(); a group whose children are
+// all hidden for this flavor is dropped so the sidebar never advertises a missing section.
+function outline (roots: Section[], flavor: ReferenceFlavor): Entry[] {
 	return roots
-		.filter((l1) => l1.title)
+		.filter((l1) => l1.title && isVisible(l1, flavor))
 		.map((l1) => ({
 			type: 'group' as const,
 			label: l1.title as string,
 			collapsed: false,
 			entries: (l1.sections ?? [])
-				.filter((l2) => l2.title)
+				.filter((l2) => l2.title && isVisible(l2, flavor))
 				.map((l2) => ({
 					type: 'link' as const,
 					href: '#' + headingSlug(l2.title as string),
@@ -47,11 +53,12 @@ function outline (roots: Section[]): Entry[] {
 					isCurrent: false,
 					attrs: {},
 				})),
-		}));
+		}))
+		.filter((group) => group.entries.length > 0);
 }
 ---
 
-{sections
-	? <SidebarSublist sublist={outline(sections)} />
+{ref
+	? <SidebarSublist sublist={outline(ref.sections, ref.flavor)} />
 	: <Default><slot /></Default>
 }

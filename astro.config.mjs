@@ -51,6 +51,9 @@ function stagingSubpath () {
 				const rewrite = (s) => s
 					.replace(/(href|src|action|poster|content)="(\/[^"/][^"]*|\/)"/g, (m, attr, url) =>
 						skip.test(url) ? m : `${attr}="${SITE_BASE}${url}"`)
+					// meta-refresh redirect targets, e.g. content="0;url=/reference"
+					.replace(/content="(\d+;\s*url=)(\/[^"]*)"/g, (m, prefix, url) =>
+						skip.test(url) ? m : `content="${prefix}${SITE_BASE}${url}"`)
 					.replace(/location(\.href)?\s*=\s*'(\/[^'/][^']*)'/g, (m, p1, url) =>
 						skip.test(url) ? m : `location${p1 || ''}='${SITE_BASE}${url}'`);
 				const walk = async (d) => {
@@ -118,7 +121,7 @@ export default defineConfig({
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/assets/images/apple-touch-icon-180x180-black.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '152x152', href: '/assets/images/apple-touch-icon-152x152-black.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '120x120', href: '/assets/images/apple-touch-icon-120x120-black.png' } },
-				{ tag: 'meta', attrs: { property: 'og:image', content: '/assets/images/logo-256.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://pryv.github.io/assets/images/logo-256.png' } },
 				{ tag: 'script', attrs: { type: 'application/ld+json' }, content: STRUCTURED_DATA },
 				// Staging/preview: keep it out of every search index so it never competes
 				// with the live site (belt-and-braces with the Disallow robots.txt).

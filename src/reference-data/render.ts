@@ -195,7 +195,7 @@ function renderExamples (examples: Section['examples'], settings: Section): stri
 	return `<aside>${out}</aside>`;
 }
 
-function isVisible (section: Section, flavor: ReferenceFlavor): boolean {
+export function isVisible (section: Section, flavor: ReferenceFlavor): boolean {
 	return (!section.trustedOnly && !section.previewOnly) ||
 		(!section.previewOnly && !!flavor.showTrustedOnlyContent) ||
 		!!flavor.showPreviewOnlyContent;

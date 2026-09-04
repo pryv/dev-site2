@@ -21,7 +21,10 @@ function getHighlighter (): Promise<Highlighter> {
 	return highlighterPromise;
 }
 
-const MARKER_RE = /<span class="([\w-]+)">([^<]*)<\/span>/g;
+// Only the environment-marker spans (api-* / core-*) are preserved across highlighting;
+// anchoring the class prevents an incidental `<span class="x">` in a future code sample
+// from being re-injected as live HTML.
+const MARKER_RE = /<span class="((?:api|core)[\w-]*)">([^<]*)<\/span>/g;
 const BLOCK_RE = /<pre><code data-lang="([^"]+)" data-raw="([^"]*)"><\/code><\/pre>/g;
 
 function highlightOne (hl: Highlighter, raw: string, lang: string): string {
@@ -33,6 +36,11 @@ function highlightOne (hl: Highlighter, raw: string, lang: string): string {
 	});
 	let out = hl.codeToHtml(prepared, { lang, themes: THEMES, defaultColor: false });
 	for (const { token, html } of markers) out = out.split(token).join(html);
+	// Fail the build loudly if a placeholder ever survived (e.g. Shiki split it across
+	// tokens) rather than shipping a literal PRYVMARKER token silently.
+	if (markers.length && out.includes('PRYVMARKER')) {
+		throw new Error('highlight.ts: an environment-marker placeholder was not restored after highlighting');
+	}
 	return out;
 }
 

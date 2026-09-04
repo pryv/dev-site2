@@ -123,7 +123,8 @@
 .reference .step-marker { text-align: center; font-size: 1.6em; line-height: 0.6; color: var(--pryv-light-gray); margin: 0.1em 0; }
 @media (max-width: 1100px) {
 	/* Stack on narrow screens */
-	.reference aside { float: none; width: 100%; padding-left: 0; }
+	/* Reset the desktop float's left margin too, or width:100% + margin overflows. */
+	.reference aside { float: none; width: 100%; padding-left: 0; margin-inline: 0; }
 }
 
 /* Example format panes: only the active one shows. */
@@ -174,7 +175,7 @@
 	padding: 0 0.6em;
 	margin: 0;
 	white-space: nowrap;
-	background: var(--pryv-code-bg, #edeff3);
+	background: var(--pryv-chip-bg);
 	color: var(--sl-color-text);
 	border-radius: 0;
 }
@@ -201,5 +202,7 @@
 /* Cursor affordance for the clickable tags */
 .reference :is(.method-id, .trusted-tag, .admin-tag, .v2-tag, .label.trusted-only, .label.admin-only) { cursor: pointer; }
 
-:root { --pryv-code-bg: #edeff3; }
-:root[data-theme='dark'] { --pryv-code-bg: #2b2b33; }
+/* Tag-pill inner code chips keep their own (slightly stronger) tint, independent of the
+   inline-prose code background defined in tokens.css. */
+:root { --pryv-chip-bg: #edeff3; }
+:root[data-theme='dark'] { --pryv-chip-bg: #2b2b33; }

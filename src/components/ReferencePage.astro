@@ -77,6 +77,9 @@ const isCurrent = (href: string): boolean => {
 			'api-user': '{username}', 'api-host': '{hostname}', 'api-reg': '{hostname}/reg',
 			'api-reg-curl': '${hostname}/reg', api: '{hostname}/{username}', 'api-curl': '${hostname}/${username}',
 			'core-reg-curl': '${core-hostname}',
+			// No api-admin / api-admin-curl here (matches the legacy switcher). Harmless today
+			// as no page emits those markers; if admin curl examples are ever added, add
+			// DNS-less values so switching away from another env can't leave a stale host.
 		},
 		Own: {
 			'api-user': '', 'api-host': '{username}.{domain}', 'api-reg': 'reg.{domain}',

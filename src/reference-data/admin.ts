@@ -22,7 +22,7 @@ All \`/system/*\` routes are always mounted; access is purely key-gated (there i
 
 \`\`\`bash
 curl -i -H 'Authorization: <adminAccessKey>' \\
-  "https://<span class="api-host">{username}.pryv.me</span>/system/admin/cores"
+  "https://{username}.pryv.me/system/admin/cores"
 \`\`\`
 
 The key is the \`auth.adminAccessKey\` config value, which is required at boot and must be identical across every core in a cluster. On a missing or wrong key the core answers \`404 unknown-resource\`. The one exception is \`POST /system/admin/cores/ack\`, which authenticates with a one-time join token in the request body instead.`,
