@@ -69,8 +69,39 @@ h2, .sl-markdown-content h2 { font-weight: 400; letter-spacing: 0.04em; text-tra
 	font-size: 0.9em;
 }
 
-/* --- Home hero: uppercase condensed title + dark-grey rectangular buttons, the
-   legacy identity rather than the stock rounded blue pill. ----------------------- */
+/* --- Home hero: full-width photo banner ("Welcome developers") like the legacy site,
+   no doc title, dark-grey rectangular buttons on a single row. ------------------- */
+/* Force a single column so the banner spans full width on top (overrides Starlight's
+   two-column hero at >=50rem). */
+.hero { grid-template-columns: 100% !important; gap: 1.5rem; }
+.hero > .hero-html {
+	order: -1 !important;
+	width: 100% !important;
+	max-width: none !important;
+	margin: 0 !important;
+}
+.dev-banner { position: relative; width: 100%; }
+.dev-banner-bg { width: 100%; height: clamp(180px, 26vw, 320px); object-fit: cover; border-radius: 8px; display: block; }
+.dev-banner-cap {
+	position: absolute; inset: 0;
+	display: flex; align-items: center; justify-content: center; gap: 0.35em;
+	font-family: var(--pryv-font-headings);
+	font-weight: 300; text-transform: uppercase; letter-spacing: 0.06em;
+	font-size: clamp(1.6rem, 4vw, 3rem);
+	color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+.dev-banner-logo { height: 1.15em; width: auto; }
+
+/* Hide the doc title visually but keep it for SEO/accessibility (sr-only). */
+.hero h1[data-page-title] {
+	position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.hero .stack { text-align: center; }
+.hero .copy { align-items: center; }
+/* The three actions on one row. */
+.hero .actions { flex-wrap: nowrap; justify-content: center; }
+
 .hero h1 { letter-spacing: 0.05em; }
 .hero .sl-link-button {
 	background: var(--pryv-dark-gray);
