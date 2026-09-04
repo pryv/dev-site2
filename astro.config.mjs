@@ -13,6 +13,30 @@ import starlightLinksValidator from 'starlight-links-validator';
 // preview noindex (own robots.txt) so it never competes with the live site's SEO.
 const SITE_BASE = process.env.SITE_BASE ? process.env.SITE_BASE.replace(/\/$/, '') : '';
 
+// Site-wide structured data (schema.org) for rich results + AI-search grounding. URLs
+// point at the canonical root deploy (the preview is noindex, so its URLs are moot).
+const STRUCTURED_DATA = JSON.stringify({
+	'@context': 'https://schema.org',
+	'@graph': [
+		{
+			'@type': 'WebSite',
+			'@id': 'https://pryv.github.io/#website',
+			name: 'Pryv developer documentation',
+			description: 'API reference, guides and setup documentation for Pryv.io, the middleware for personal and health data.',
+			url: 'https://pryv.github.io/',
+			publisher: { '@id': 'https://www.pryv.com/#organization' },
+		},
+		{
+			'@type': 'Organization',
+			'@id': 'https://www.pryv.com/#organization',
+			name: 'Pryv',
+			url: 'https://www.pryv.com/',
+			logo: 'https://pryv.github.io/assets/images/logo-256.png',
+			sameAs: ['https://github.com/pryv'],
+		},
+	],
+});
+
 function stagingSubpath () {
 	const baseName = SITE_BASE.replace(/^\//, '');
 	return {
@@ -95,6 +119,7 @@ export default defineConfig({
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '152x152', href: '/assets/images/apple-touch-icon-152x152-black.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '120x120', href: '/assets/images/apple-touch-icon-120x120-black.png' } },
 				{ tag: 'meta', attrs: { property: 'og:image', content: '/assets/images/logo-256.png' } },
+				{ tag: 'script', attrs: { type: 'application/ld+json' }, content: STRUCTURED_DATA },
 				// Staging/preview: keep it out of every search index so it never competes
 				// with the live site (belt-and-braces with the Disallow robots.txt).
 				...(SITE_BASE ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } }] : []),
