@@ -7,7 +7,7 @@ import Default from '@astrojs/starlight/components/SiteTitle.astro';
 
 <Default><slot /></Default>
 <nav class="top-nav" aria-label="Primary">
-	<a href="/getting-started/">Documentation</a>
+	<a href="/getting-started/"><span class="nav-full">Documentation</span><span class="nav-abbr">Doc</span></a>
 	<a href="/reference/">API</a>
 	<a href="https://pryv.github.io/www/">WWW</a>
 </nav>
@@ -19,7 +19,7 @@ import Default from '@astrojs/starlight/components/SiteTitle.astro';
 		gap: 0.5rem;
 		margin-inline-start: 1rem;
 	}
-	/* Two identical buttons. */
+	/* Three identical buttons. */
 	.top-nav a {
 		padding: 0.3rem 0.8rem;
 		font-size: var(--sl-text-sm);
@@ -33,9 +33,15 @@ import Default from '@astrojs/starlight/components/SiteTitle.astro';
 		background: var(--pryv-blue, #266c9c);
 	}
 	.top-nav a:hover { filter: brightness(1.1); }
-	/* Hide on narrow viewports where the title-wrapper clips; the sidebar still
-	   exposes navigation there. */
-	@media (max-width: 36rem) {
-		.top-nav { display: none; }
+	.nav-abbr { display: none; }
+	/* Keep all three visible on mobile: compact them and abbreviate Documentation to
+	   "Doc" so they always fit next to the logo. The title-wrapper clips by default;
+	   allow the buttons to show. */
+	:global(.title-wrapper:has(.top-nav)) { overflow: visible; }
+	@media (max-width: 34rem) {
+		.top-nav { gap: 0.25rem; margin-inline-start: 0.4rem; }
+		.top-nav a { padding: 0.25rem 0.45rem; font-size: var(--sl-text-xs); letter-spacing: 0; }
+		.nav-full { display: none; }
+		.nav-abbr { display: inline; }
 	}
 </style>

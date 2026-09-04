@@ -213,10 +213,13 @@
 
 /* --- Mobile -------------------------------------------------------------- */
 @media (max-width: 50rem) {
-	/* Full-width selector bar; the selects fill it and shrink rather than overflow. */
-	.ref-toolbar { width: 100%; margin-inline: 0; }
-	.ref-toolbar > div { flex: 1 1 0; min-width: 0; }
-	.ref-toolbar select { max-width: none; width: 100%; min-width: 0; }
+	/* No interactive samples on a phone: drop the API/format selectors AND the
+	   request/response example panes (they are unusable at this width). The reference
+	   becomes a clean read of concepts, methods, parameters and data structures. */
+	.ref-toolbar { display: none; }
+	.reference aside { display: none; }
+	/* No toolbar to clear here, so trim the anchor offset back to the header only. */
+	.reference :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: calc(var(--sl-nav-height) + 0.5rem); }
 	/* Parameter tables stack the key above its description: the right-aligned key column
 	   wastes half the width and cramps the text on a phone. */
 	.reference table.definitions,
