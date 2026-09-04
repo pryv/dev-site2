@@ -73,15 +73,28 @@ h2, .sl-markdown-content h2 { font-weight: 400; letter-spacing: 0.04em; text-tra
    no doc title, dark-grey rectangular buttons on a single row. ------------------- */
 /* Force a single column so the banner spans full width on top (overrides Starlight's
    two-column hero at >=50rem). */
-.hero { grid-template-columns: 100% !important; gap: 1.5rem; }
+.hero {
+	grid-template-columns: 100% !important;
+	gap: 1.5rem;
+	/* Banner sits flush under the header: drop the hero's large top padding. */
+	padding-block-start: 0 !important;
+}
 .hero > .hero-html {
 	order: -1 !important;
 	width: 100% !important;
 	max-width: none !important;
 	margin: 0 !important;
 }
-.dev-banner { position: relative; width: 100%; }
-.dev-banner-bg { width: 100%; height: clamp(180px, 26vw, 320px); object-fit: cover; border-radius: 8px; display: block; }
+/* Full-bleed edge-to-edge banner, flush under the header (no white gap / no side
+   margins), like the legacy jumbotron. The negative top margin cancels the content
+   panel's top padding; the 100vw + margin-inline break out of the centered column. */
+.dev-banner {
+	position: relative;
+	width: 100vw;
+	margin-inline: calc(50% - 50vw);
+	margin-block-start: -2.4rem; /* cancel the content panel's top padding, flush to header */
+}
+.dev-banner-bg { width: 100%; height: clamp(240px, 32vw, 440px); object-fit: cover; border-radius: 0; display: block; }
 .dev-banner-cap {
 	position: absolute; inset: 0;
 	display: flex; align-items: center; justify-content: center; gap: 0.35em;
