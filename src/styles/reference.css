@@ -206,3 +206,24 @@
    inline-prose code background defined in tokens.css. */
 :root { --pryv-chip-bg: #edeff3; }
 :root[data-theme='dark'] { --pryv-chip-bg: #2b2b33; }
+
+/* Anchor targets clear the sticky header + selector toolbar (so jumping to a method
+   heading doesn't land it behind the toolbar). */
+.reference :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: calc(var(--sl-nav-height) + 3.5rem); }
+
+/* --- Mobile -------------------------------------------------------------- */
+@media (max-width: 50rem) {
+	/* Full-width selector bar; the selects fill it and shrink rather than overflow. */
+	.ref-toolbar { width: 100%; margin-inline: 0; }
+	.ref-toolbar > div { flex: 1 1 0; min-width: 0; }
+	.ref-toolbar select { max-width: none; width: 100%; min-width: 0; }
+	/* Parameter tables stack the key above its description: the right-aligned key column
+	   wastes half the width and cramps the text on a phone. */
+	.reference table.definitions,
+	.reference table.definitions tbody,
+	.reference table.definitions tr,
+	.reference table.definitions :is(th, td) { display: block; width: auto; }
+	.reference table.definitions th { text-align: left; padding: 0 0 0.15em; white-space: normal; }
+	.reference table.definitions td { padding: 0 0 0.6em; }
+	.reference .attribute { margin-left: 0; }
+}

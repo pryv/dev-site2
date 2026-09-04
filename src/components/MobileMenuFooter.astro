@@ -1,0 +1,32 @@
+---
+// On mobile the top-bar Documentation/API/WWW buttons are hidden (they don't fit the
+// header); surface them inside the hamburger menu instead, above Starlight's default
+// theme/social footer. (The splash home has no hamburger, but its hero buttons cover nav.)
+import Default from '@astrojs/starlight/components/MobileMenuFooter.astro';
+---
+
+<nav class="mobile-top-nav" aria-label="Primary">
+	<a href="/getting-started/">Documentation</a>
+	<a href="/reference/">API</a>
+	<a href="https://pryv.github.io/www/">WWW</a>
+</nav>
+<Default />
+
+<style>
+	.mobile-top-nav {
+		display: flex;
+		flex-direction: column;
+		padding-block: 0.5rem;
+	}
+	.mobile-top-nav a {
+		padding: 0.6rem 0.25rem;
+		font-weight: 700;
+		font-size: var(--sl-text-sm);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: var(--sl-color-text-accent);
+		text-decoration: none;
+		border-bottom: 1px solid var(--sl-color-gray-6);
+	}
+	.mobile-top-nav a:hover { color: var(--sl-color-white); }
+</style>

@@ -112,8 +112,11 @@ h2, .sl-markdown-content h2 { font-weight: 400; letter-spacing: 0.04em; text-tra
 }
 .hero .stack { text-align: center; }
 .hero .copy { align-items: center; }
-/* The three actions on one row. */
-.hero .actions { flex-wrap: nowrap; justify-content: center; }
+/* The three actions on one row on wider screens; they wrap on mobile (never overflow). */
+.hero .actions { flex-wrap: wrap; justify-content: center; }
+@media (min-width: 50rem) {
+	.hero .actions { flex-wrap: nowrap; }
+}
 
 .hero h1 { letter-spacing: 0.05em; }
 .hero .sl-link-button {
