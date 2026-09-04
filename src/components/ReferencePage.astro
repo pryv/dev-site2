@@ -7,11 +7,12 @@ import '../styles/reference.css';
 
 interface Props {
 	title: string;
+	description?: string;
 	rootSections: Section[];
 	flavor: ReferenceFlavor;
 }
 
-const { title, rootSections, flavor } = Astro.props;
+const { title, description, rootSections, flavor } = Astro.props;
 const rendered = renderReference(rootSections, flavor);
 const hasExamples = rendered.includes('tab-pane');
 const html = await highlightExamples(rendered);
@@ -32,7 +33,7 @@ const isCurrent = (href: string): boolean => {
 };
 ---
 
-<StarlightPage frontmatter={{ title, tableOfContents: false }}>
+<StarlightPage frontmatter={{ title, description, tableOfContents: false }}>
 	<nav class="ref-nav" aria-label="API reference sections">
 		{navItems.map((item) => (
 			<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
