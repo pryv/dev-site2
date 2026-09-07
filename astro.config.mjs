@@ -110,6 +110,8 @@ export default defineConfig({
 				// The reference pages get their own left-hand navigation (the API outline);
 				// the rest of the site keeps the default sidebar.
 				Sidebar: './src/components/Sidebar.astro',
+				// Prepends an "API version: <x>" indicator to the right header cluster.
+				SocialIcons: './src/components/SocialIcons.astro',
 			},
 			logo: {
 				light: './src/assets/logo-256-black.png',

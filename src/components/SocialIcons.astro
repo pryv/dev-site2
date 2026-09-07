@@ -1,0 +1,27 @@
+---
+// Header override: prepend an "API version: <x>" indicator to the right-hand header
+// cluster, as on the legacy reference site (returning users use it as an anchor). The
+// version string is sourced at build time from the canonical reference data.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import { version } from '../reference-data/index';
+---
+
+<a class="api-version" href="/reference/" title="API reference">API version: {version}</a>
+<Default><slot /></Default>
+
+<style>
+	.api-version {
+		align-self: center;
+		white-space: nowrap;
+		font-family: var(--pryv-font-headings);
+		font-size: var(--sl-text-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: var(--sl-color-text-accent);
+		text-decoration: none;
+		margin-inline-end: 0.5rem;
+	}
+	.api-version:hover { text-decoration: underline; }
+	/* On phones the header is tight; the reference toolbar already shows the version. */
+	@media (max-width: 50rem) { .api-version { display: none; } }
+</style>
