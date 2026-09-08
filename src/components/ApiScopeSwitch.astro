@@ -1,0 +1,33 @@
+---
+// Scope switch for the three API references (API / System / Admin). Rendered in two
+// places by the same component: at the top of the left sidebar on desktop, and as a
+// sticky bar in the content column on mobile (where the sidebar is collapsed behind the
+// menu toggle). CSS in styles/reference.css shows exactly one instance per breakpoint.
+interface Props {
+	variant?: 'sidebar' | 'sticky';
+}
+const { variant = 'sticky' } = Astro.props;
+
+const items = [
+	{ label: 'API', href: '/reference/' },
+	{ label: 'System API', href: '/reference-system/' },
+	{ label: 'Admin API', href: '/reference-admin/' },
+];
+
+// Strip the deploy base so route matching works at root AND under a project-pages subpath.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+let current = Astro.url.pathname.replace(/\/$/, '');
+if (base && current.startsWith(base)) current = current.slice(base.length);
+
+const isCurrent = (href: string): boolean => {
+	// The plain API reference plus its light/preview flavors all map to the "API" segment.
+	if (href === '/reference/') return ['/reference', '/reference-light', '/reference-preview'].includes(current);
+	return current === href.replace(/\/$/, '');
+};
+---
+
+<nav class={`api-scope api-scope--${variant}`} aria-label="API reference scope">
+	{items.map((item) => (
+		<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
+	))}
+</nav>

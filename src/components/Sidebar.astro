@@ -6,6 +6,7 @@
 // defer to Starlight's default sidebar.
 import Default from '@astrojs/starlight/components/Sidebar.astro';
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+import ApiScopeSwitch from './ApiScopeSwitch.astro';
 import { userSections, systemSection } from '../reference-data';
 import { adminSections } from '../reference-data/admin';
 import { headingSlug } from '../reference-data/slug';
@@ -59,6 +60,9 @@ function outline (roots: Section[], flavor: ReferenceFlavor): Entry[] {
 ---
 
 {ref
-	? <SidebarSublist sublist={outline(ref.sections, ref.flavor)} />
+	? <>
+			<ApiScopeSwitch variant="sidebar" />
+			<SidebarSublist sublist={outline(ref.sections, ref.flavor)} />
+		</>
 	: <Default><slot /></Default>
 }

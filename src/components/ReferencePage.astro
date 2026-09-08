@@ -3,6 +3,7 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { renderReference } from '../reference-data/render';
 import { highlightExamples } from '../reference-data/highlight';
 import type { Section, ReferenceFlavor } from '../reference-data/types';
+import ApiScopeSwitch from './ApiScopeSwitch.astro';
 import '../styles/reference.css';
 
 interface Props {
@@ -16,29 +17,10 @@ const { title, description, rootSections, flavor } = Astro.props;
 const rendered = renderReference(rootSections, flavor);
 const hasExamples = rendered.includes('tab-pane');
 const html = await highlightExamples(rendered);
-
-// Sub-nav so System & Admin references are reachable from the main API page.
-const navItems = [
-	{ label: 'API', href: '/reference/' },
-	{ label: 'System API', href: '/reference-system/' },
-	{ label: 'Admin API', href: '/reference-admin/' },
-];
-const refBase = import.meta.env.BASE_URL.replace(/\/$/, '');
-let current = Astro.url.pathname.replace(/\/$/, '');
-if (refBase && current.startsWith(refBase)) current = current.slice(refBase.length);
-const isCurrent = (href: string): boolean => {
-	// The plain API reference plus its light/preview flavors all map to the "API" tab.
-	if (href === '/reference/') return ['/reference', '/reference-light', '/reference-preview'].includes(current);
-	return current === href.replace(/\/$/, '');
-};
 ---
 
 <StarlightPage frontmatter={{ title, description, tableOfContents: false }}>
-	<nav class="ref-nav" aria-label="API reference sections">
-		{navItems.map((item) => (
-			<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>
-		))}
-	</nav>
+	<ApiScopeSwitch variant="sticky" />
 
 	<div class="ref-toolbar" style={hasExamples ? undefined : 'display:none'}>
 		<div>

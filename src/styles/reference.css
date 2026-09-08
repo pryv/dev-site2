@@ -14,27 +14,59 @@
    Denser line-height than Starlight's default, matching the legacy reference. */
 .reference { font-size: 0.95rem; line-height: 1.45; }
 
-/* --- Top toolbar + sub-nav (selectors on top; sample controls) ------------- */
-.ref-nav {
+/* --- API scope switch (API / System / Admin) + sample toolbar ------------- */
+/* One segmented control, rendered twice by ApiScopeSwitch.astro: at the top of the
+   left sidebar on desktop, and as a sticky bar in content on mobile. The three
+   references are mutually-exclusive scopes, so they read as one connected switch. */
+.api-scope {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	margin-bottom: 0.75rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.375rem;
+	overflow: hidden;
+	background: var(--sl-color-gray-6);
 }
-.ref-nav a {
-	font: 600 var(--sl-text-sm) / 1 var(--pryv-font-headings, sans-serif);
+.api-scope a {
+	flex: 1 1 0;
+	text-align: center;
+	font: 600 var(--sl-text-xs) / 1 var(--pryv-font-headings, sans-serif);
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
-	padding: 0.4rem 0.8rem;
-	border-radius: 0.25rem;
-	border: 1px solid var(--sl-color-gray-5);
+	white-space: nowrap;
+	padding: 0.5rem 0.35rem;
 	color: var(--sl-color-text);
 	text-decoration: none;
+	border-inline-start: 1px solid var(--sl-color-gray-5);
+	transition: background-color 0.12s ease;
 }
-.ref-nav a[aria-current='page'] {
+.api-scope a:first-child { border-inline-start: 0; }
+.api-scope a:hover:not([aria-current='page']) { background: var(--sl-color-gray-5); }
+.api-scope a[aria-current='page'] {
 	background: var(--pryv-blue);
-	border-color: var(--pryv-blue);
 	color: #fff;
+}
+
+/* Desktop: pinned at the top of the sidebar outline. The sidebar is display:none on
+   mobile (Starlight), so this instance is inherently desktop-only. */
+.api-scope--sidebar {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	margin: 0 0 1rem;
+}
+
+/* Mobile: sticky under the site header, in the content column. Hidden on desktop where
+   the sidebar instance takes over. */
+.api-scope--sticky {
+	position: sticky;
+	top: var(--sl-nav-height);
+	z-index: 5;
+	margin: 0 0 1rem;
+}
+@media (min-width: 50rem) {
+	.api-scope--sticky { display: none; }
+}
+@media (max-width: 50rem) {
+	.api-scope--sidebar { display: none; }
 }
 .ref-toolbar {
 	position: sticky;
