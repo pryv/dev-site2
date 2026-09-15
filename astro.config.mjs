@@ -167,6 +167,7 @@ export default defineConfig({
 				{
 					label: 'Guides',
 					items: [
+						{ slug: 'guides/account-fields' },
 						{ slug: 'guides/app-guidelines' },
 						{ slug: 'guides/audit-logs' },
 						{ slug: 'guides/consent' },
