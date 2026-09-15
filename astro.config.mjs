@@ -173,6 +173,7 @@ export default defineConfig({
 						{ slug: 'guides/consent' },
 						{ slug: 'guides/cross-account-messaging' },
 						{ slug: 'guides/custom-auth' },
+						{ slug: 'guides/email-verification' },
 						{ slug: 'guides/privacy-by-design' },
 						{ slug: 'guides/webhooks' },
 					],
