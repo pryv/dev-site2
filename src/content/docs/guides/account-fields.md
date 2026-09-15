@@ -22,9 +22,11 @@ Account fields carry one of two prefixes, and which one a field takes is the sin
 
 **The email is a platform-defined field, so it is `:system:email`, not `:_system:email`.** It is not built in because some platforms deliberately omit an email address entirely, for account anonymity. The same applies to any additional field an operator declares, such as an insurance number.
 
-There is no `:_system:email`. Requesting it returns a `400` naming the id and restating this rule.
+There is no `:_system:email`.
 
-If you are unsure what a given platform declares, ask its operator, or grant a personal access read on `:_system:account` and list what comes back.
+What you get back when you request it depends on the version. Up to and including 2.0.0-rc.17, the request is refused with a bare `403 forbidden` carrying no message, which is easy to mistake for a deliberate policy refusal rather than a wrong id. A later release replaces that with a `400` naming the id and restating the prefix rule. If you are on a current deployment and see an unexplained `403` on an account stream, suspect the prefix first.
+
+If you are unsure what a given platform declares, ask its operator: the account-field schema is deployment configuration, and every core in a platform shares it.
 
 ## What can be requested
 
@@ -53,7 +55,7 @@ Include the permission in `requestedPermissions` exactly as you would for any st
 
 The consent screen resolves the field's configured label, so the holder sees `Read "Email"` rather than a raw stream id.
 
-**Ask for `read`.** Levels above `contribute` are refused on account fields. Requesting write access to an address the holder has already proved is rarely what an application wants, and an address changed that way has not been verified.
+**Ask for `read`.** Levels above `contribute` are refused on account fields. Write access to the holder's address is rarely what an application wants: an address changed that way goes through no verification at all, so it is worth less than the one already on the account.
 
 A caution on the plain name: requesting `email` with no prefix is currently accepted, but it is a *different*, ordinary stream that merely looks right on the consent screen. It will be empty, and it will stay empty. Always include the prefix.
 
@@ -70,7 +72,9 @@ The response carries a single event for that field, whose `content` is the curre
 Two things to know about what you get:
 
 - Wildcard queries never expand into the account namespace. You must name the stream explicitly.
-- An application granted read on the email sees the **current primary address only**. It does not see additional addresses on the account, nor any address that has not been verified.
+- An application granted read on the email sees the **current primary address only**. An account can hold further addresses, including ones awaiting verification, and none of them is reachable through this permission, even by naming their stream.
+
+A caution worth stating plainly: being the primary address does not by itself mean the holder has proved control of that inbox. An address set at registration is asserted, not inbox-verified. If your use case depends on the address having been demonstrably confirmed, treat that as a separate question to put to the operator rather than an assumption you can make from reading the field.
 
 ## Why not a copy of your own
 
