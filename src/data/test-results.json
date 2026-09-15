@@ -8347,7 +8347,7 @@
                   }
                 ]
               },
-              "[DNP] DNS Server — PlatformDB persistence (internal task Phase 1) ": {
+              "[DNP] DNS Server — PlatformDB persistence": {
                 "tests": [
                   {
                     "id": "DNP01",

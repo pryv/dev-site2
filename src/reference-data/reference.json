@@ -4194,7 +4194,7 @@
               "type": "method",
               "title": "Get account information",
               "http": "GET /account",
-              "description": "**(DEPRECATED)** Please use events methods instead.\n\nRetrieves the user's account information.",
+              "description": "**(DEPRECATED)** Please use events methods instead.\n\nRetrieves the user's account information.\n\nThe `emails` array is the exception: it is only readable here, not through events methods.",
               "result": {
                 "http": "200 OK",
                 "properties": [
@@ -4216,7 +4216,23 @@
                       "storageUsed": {
                         "dbDocuments": 34831,
                         "attachedFiles": 12
-                      }
+                      },
+                      "emails": [
+                        {
+                          "value": "chuangzi@dao.info",
+                          "primary": true,
+                          "status": "verified",
+                          "verifiedAt": 1735682400,
+                          "verificationMethod": "email-link"
+                        },
+                        {
+                          "value": "chuangzi@example.org",
+                          "primary": false,
+                          "status": "pending",
+                          "verifiedAt": null,
+                          "verificationMethod": null
+                        }
+                      ]
                     }
                   }
                 }
@@ -4236,7 +4252,53 @@
                     "http": {
                       "text": "request body"
                     },
-                    "description": "New values for the account information's fields: see [account information](#data-structure-account). All fields are optional, and only modified values must be included."
+                    "description": "New values for the account information's fields: see [account information](#data-structure-account). All fields are optional, and only modified values must be included.",
+                    "properties": [
+                      {
+                        "key": "email",
+                        "type": "string",
+                        "optional": true,
+                        "description": "The primary address. Setting it this way records the address as asserted (`verificationMethod: legacy`), not proved."
+                      },
+                      {
+                        "key": "language",
+                        "type": "string",
+                        "optional": true,
+                        "description": "The user's preferred language as a 2-letter ISO language code."
+                      },
+                      {
+                        "key": "emails",
+                        "type": "object",
+                        "optional": true,
+                        "description": "Operations on the account's [email addresses](#data-structure-account), applied in the order `add`, `setPrimary`, `remove`, `resend`. **Beta.** Each list holds at most 20 addresses, and an account holds at most `account.maxEmails` addresses in total (operator setting, hard ceiling 20).",
+                        "properties": [
+                          {
+                            "key": "add",
+                            "type": "array of strings",
+                            "optional": true,
+                            "description": "Addresses to add. Each is reserved platform-wide, recorded as `pending`, and sent a verification link when verification mail is enabled."
+                          },
+                          {
+                            "key": "remove",
+                            "type": "array of strings",
+                            "optional": true,
+                            "description": "Addresses to drop and release. Removing the primary address is refused."
+                          },
+                          {
+                            "key": "setPrimary",
+                            "type": "string",
+                            "optional": true,
+                            "description": "The address to make primary. It must already be on the account and be `verified`; the singular `email` field then mirrors it."
+                          },
+                          {
+                            "key": "resend",
+                            "type": "array of strings",
+                            "optional": true,
+                            "description": "Addresses to mail a fresh verification link to. Rotating the link kills the previous one. Refused for an already proved address, and while the per-address cooldown (`account.emailVerification.resendCooldownMs`) is running."
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
               },
@@ -4271,6 +4333,51 @@
                       }
                     }
                   }
+                },
+                {
+                  "title": "Adding a second address.",
+                  "params": {
+                    "emails": {
+                      "add": [
+                        "joseph.brenner@example.org"
+                      ]
+                    }
+                  },
+                  "result": {
+                    "account": {
+                      "username": "user-123-abc",
+                      "email": "joseph-brenner@pryv.me",
+                      "language": "en",
+                      "emails": [
+                        {
+                          "value": "joseph-brenner@pryv.me",
+                          "primary": true,
+                          "status": "verified",
+                          "verifiedAt": 1735682400,
+                          "verificationMethod": "email-link"
+                        },
+                        {
+                          "value": "joseph.brenner@example.org",
+                          "primary": false,
+                          "status": "pending",
+                          "verifiedAt": null,
+                          "verificationMethod": null
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "errors": [
+                {
+                  "key": "item-already-exists",
+                  "http": "409",
+                  "description": "An address in `emails.add` is already held by another account (`data: { email }`)."
+                },
+                {
+                  "key": "invalid-operation",
+                  "http": "400",
+                  "description": "The operation cannot be applied: adding an address the account already holds, exceeding `account.maxEmails`, removing the primary address, setting an address that is unknown or not yet verified as primary, or resending for an address that is already proved or still within its cooldown (`data: { email, retryAfterSeconds }`)."
                 }
               ]
             },
@@ -4499,6 +4606,56 @@
                     "appId": "my-app-id"
                   },
                   "result": {}
+                }
+              ]
+            },
+            {
+              "id": "account.verifyEmail",
+              "type": "method",
+              "title": "Verify email address",
+              "v2Tag": true,
+              "http": "POST /account/verify-email",
+              "description": "Marks one of the account's email addresses as verified, using the one-time token that was mailed to that address.\n\nThe token is the credential, so this method takes **no access token**: it is called by the verification page the operator configured in `auth.emailVerificationPageURL`, which receives `verifyToken` and `username` as query parameters of the mailed link. A successful call records the address as proved (`verificationMethod: email-link`).\n\nThis method requires that the `appId` and `Origin` (or `Referer`) header comply with the [trusted app verification](#basics-trusted-apps-verification).",
+              "params": {
+                "properties": [
+                  {
+                    "key": "token",
+                    "type": "string",
+                    "description": "The one-time token mailed to the address (the `verifyToken` query parameter of the link)."
+                  },
+                  {
+                    "key": "appId",
+                    "type": "string",
+                    "description": "Your app's unique identifier."
+                  }
+                ]
+              },
+              "result": {
+                "http": "200 OK",
+                "properties": [
+                  {
+                    "key": "email",
+                    "type": "string",
+                    "description": "The address that was verified."
+                  }
+                ]
+              },
+              "errors": [
+                {
+                  "key": "invalid-access-token",
+                  "http": "401",
+                  "description": "The token is unknown, expired, already used, or belongs to another account. The same answer covers all of those cases."
+                }
+              ],
+              "examples": [
+                {
+                  "params": {
+                    "token": "chtplghfp0000hqjx814u6393",
+                    "appId": "my-app-id"
+                  },
+                  "result": {
+                    "email": "joseph.brenner@example.org"
+                  }
                 }
               ]
             }
@@ -5167,6 +5324,41 @@
               "type": "string",
               "unique": true,
               "description": "The user's contact e-mail address."
+            },
+            {
+              "key": "emails",
+              "type": "array of objects",
+              "readOnly": true,
+              "description": "All email addresses held by the account, the primary included. **This is beta**: the surface may still change.\n\nAccounts that never used the feature report their single primary address as one entry. Addresses are added, removed, re-ordered and re-verified through the `emails` operations object of [update account information](#methods-account-account-update).",
+              "properties": [
+                {
+                  "key": "value",
+                  "type": "string",
+                  "description": "The email address."
+                },
+                {
+                  "key": "primary",
+                  "type": "boolean",
+                  "description": "Whether this is the address mirrored by the singular `email` field. Exactly one entry is primary."
+                },
+                {
+                  "key": "status",
+                  "type": "string",
+                  "description": "`pending` (a verification link was mailed and has not been used yet) or `verified`."
+                },
+                {
+                  "key": "verifiedAt",
+                  "type": "[timestamp](#data-structure-timestamp)",
+                  "optional": true,
+                  "description": "When the address reached `verified`, or `null` when it never did or predates this field."
+                },
+                {
+                  "key": "verificationMethod",
+                  "type": "string",
+                  "optional": true,
+                  "description": "How the address reached its status.\n\n`email-link` (the holder opened a one-time link mailed to the address), `email-code` (the holder pasted a code mailed to the address while creating the account) and `operator` count as **proved** ownership.\n\n`registration` (the founding address of an account created without the sign-up gate), `legacy` (set through the singular `email` field) and `null` (data predating this field) are asserted but **not proved**.\n\nA `verified` status alone therefore does not imply proved ownership: read this field when ownership has to be trusted."
+                }
+              ]
             },
             {
               "key": "language",
@@ -5960,7 +6152,7 @@
                 "http": "POST /users",
                 "httpOnly": true,
                 "server": "core",
-                "description": "Creates a new user account. The method's parameters can be customized with the [system streams configuration](/customer-resources/system-streams/).\nEnforces password complexity rules if enabled (set via the corresponding platform settings).\n\nBefore Pryv.io 1.6, this route was served by the register server on `/user`",
+                "description": "Creates a new user account. The method's parameters can be customized with the [system streams configuration](/customer-resources/system-streams/).\nEnforces password complexity rules if enabled (set via the corresponding platform settings).\n\nBefore Pryv.io 1.6, this route was served by the register server on `/user`\n\nWhen the operator requires a verified email address at sign-up (`account.emailVerification.requireAtRegistration`), `email` is mandatory and must be accompanied by an `emailProof` obtained from [verify an email challenge](#verify-an-email-challenge). Accounts created that way record their founding address as proved (`verificationMethod: email-code`). Accounts created through the admin API are never gated.",
                 "params": {
                   "properties": [
                     {
@@ -6000,6 +6192,12 @@
                       "type": "string",
                       "optional": true,
                       "description": "A referer id potentially used for analytics."
+                    },
+                    {
+                      "key": "emailProof",
+                      "type": "string",
+                      "optional": true,
+                      "description": "The proof returned by [verify an email challenge](#verify-an-email-challenge). Required only when the platform requires a verified address at sign-up. It is bound to the `email` of this request and expires (`account.emailVerification.registrationProofMaxAgeMs`, 30 minutes by default)."
                     }
                   ]
                 },
@@ -6023,6 +6221,16 @@
                     "key": "invalid-parameters-format",
                     "http": "400",
                     "description": "The password does not match password complexity rules (if enabled)."
+                  },
+                  {
+                    "key": "invalid-parameters-format",
+                    "http": "400",
+                    "description": "The platform requires a verified email address and `email` is missing or empty (`data: { emailVerificationRequired: true }`)."
+                  },
+                  {
+                    "key": "forbidden",
+                    "http": "403",
+                    "description": "The platform requires a verified email address and `emailProof` is missing, wrong, expired, or was issued for a different address (`data: { emailVerificationRequired: true }`)."
                   }
                 ],
                 "examples": [
@@ -6154,6 +6362,138 @@
                     },
                     "result": {
                       "exists": false
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "emailChallenge",
+                "type": "method",
+                "title": "Request an email challenge",
+                "v2Tag": true,
+                "http": "POST /email-challenge",
+                "httpOnly": true,
+                "server": "core",
+                "description": "Mails a one-time code to an address, so the holder can prove it before an account is created.\n\nThis method exists only for platforms that require a verified email address at sign-up (`account.emailVerification.requireAtRegistration`); elsewhere it answers `403`. It is public and takes no access token.\n\nThe code is 8 characters from an unambiguous alphabet, shown to the holder as `XXXX-XXXX`, single-use, and valid for `account.emailVerification.registrationCodeMaxAgeMs` (10 minutes by default). Requesting a new code invalidates the previous one for that address.\n\nRate limits are keyed on the target address, since the endpoint is public: a minimum delay between two codes, a daily cap on codes, and a daily budget of wrong codes. Platforms that need per-IP limiting apply it at the edge.",
+                "params": {
+                  "properties": [
+                    {
+                      "key": "email",
+                      "type": "string",
+                      "description": "The address to prove."
+                    },
+                    {
+                      "key": "language",
+                      "type": "string",
+                      "optional": true,
+                      "description": "Language of the mail, as a 2-letter ISO language code. Defaults to `services.email.defaultLang`."
+                    }
+                  ]
+                },
+                "result": {
+                  "http": "200 OK",
+                  "properties": [
+                    {
+                      "key": "sent",
+                      "type": "boolean",
+                      "description": "Always `true`: the mail was handed to the delivery layer."
+                    }
+                  ]
+                },
+                "errors": [
+                  {
+                    "key": "forbidden",
+                    "http": "403",
+                    "description": "This platform does not require a verified email address at sign-up (`data: { emailVerificationRequired: false }`)."
+                  },
+                  {
+                    "key": "item-already-exists",
+                    "http": "409",
+                    "description": "An account already holds this address (`data: { email }`), so there is nothing to prove on the way to creating one. This is the same answer [check email existence](#check-email-existence) already gives."
+                  },
+                  {
+                    "key": "too-many-attempts",
+                    "http": "429",
+                    "description": "A rate limit for this address was hit (`data: { reason, retryAfterSeconds }`, with `reason` one of `cooldown`, `daily-limit`, `failure-budget`). A `Retry-After` header carries the same delay."
+                  },
+                  {
+                    "key": "unexpected-error",
+                    "http": "500",
+                    "description": "The mail could not be delivered. The challenge is released, so the caller may retry at once."
+                  }
+                ],
+                "examples": [
+                  {
+                    "title": "Requesting a code for an address.",
+                    "params": {
+                      "email": "joseph-brenner@pryv.me",
+                      "language": "en"
+                    },
+                    "result": {
+                      "sent": true
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "emailChallengeVerify",
+                "type": "method",
+                "title": "Verify an email challenge",
+                "v2Tag": true,
+                "http": "POST /email-challenge/verify",
+                "httpOnly": true,
+                "server": "core",
+                "description": "Exchanges a correct code for a proof that [create user](#create-user) accepts.\n\nThe proof is bound to the address, single-use, and valid for `account.emailVerification.registrationProofMaxAgeMs` (30 minutes by default). A code tolerates `account.emailVerification.registrationCodeMaxAttempts` wrong tries (5 by default) before it is discarded and a new one must be requested.\n\nCodes are stored platform-wide, so a code minted by one core verifies on any core of a cluster.",
+                "params": {
+                  "properties": [
+                    {
+                      "key": "email",
+                      "type": "string",
+                      "description": "The address the code was mailed to."
+                    },
+                    {
+                      "key": "code",
+                      "type": "string",
+                      "description": "The code, with or without its `-` separator, in any case."
+                    }
+                  ]
+                },
+                "result": {
+                  "http": "200 OK",
+                  "properties": [
+                    {
+                      "key": "emailProof",
+                      "type": "string",
+                      "description": "Pass this to [create user](#create-user) as `emailProof`."
+                    }
+                  ]
+                },
+                "errors": [
+                  {
+                    "key": "forbidden",
+                    "http": "403",
+                    "description": "This platform does not require a verified email address at sign-up (`data: { emailVerificationRequired: false }`)."
+                  },
+                  {
+                    "key": "invalid-access-token",
+                    "http": "401",
+                    "description": "The code is wrong, unknown or expired. The same status and message covers all three; `data: { attemptsRemaining }` says how many tries the pending code has left, and is `0` when no code is pending."
+                  },
+                  {
+                    "key": "too-many-attempts",
+                    "http": "429",
+                    "description": "The code's attempts are spent and it has been discarded (`data: { reason: \"exhausted\" }`). Request a new code."
+                  }
+                ],
+                "examples": [
+                  {
+                    "title": "Proving an address, then using the proof to create the account.",
+                    "params": {
+                      "email": "joseph-brenner@pryv.me",
+                      "code": "K7M4-P9RX"
+                    },
+                    "result": {
+                      "emailProof": "chtplghfp0000hqjx814u6393"
                     }
                   }
                 ]

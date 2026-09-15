@@ -168,11 +168,13 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ slug: 'guides/account-delegation' },
+						{ slug: 'guides/account-fields' },
 						{ slug: 'guides/app-guidelines' },
 						{ slug: 'guides/audit-logs' },
 						{ slug: 'guides/consent' },
 						{ slug: 'guides/cross-account-messaging' },
 						{ slug: 'guides/custom-auth' },
+						{ slug: 'guides/email-verification' },
 						{ slug: 'guides/privacy-by-design' },
 						{ slug: 'guides/webhooks' },
 					],

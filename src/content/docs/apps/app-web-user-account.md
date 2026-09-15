@@ -21,6 +21,10 @@ starting point you fork and rebrand. If you only need programmatic access, use
 ## Features
 
 - Sign-in, registration and password reset flows.
+- [Email verification](/guides/email-verification/): the registration form adapts to
+  platforms that require a proved address (request a code, paste it back), the profile
+  shows each address as verified or not and can re-send a verification link, and a
+  `/verify-email` page consumes the link the platform mails out.
 - Profile and preferences management.
 - Security: password, multi-factor authentication.
 - Connected apps and access (token) management, with revocation.
