@@ -1,0 +1,13 @@
+module.exports =
+  accesses: require('./accesses.coffee')
+  errors: require('./errors.coffee')
+  events: require('./events.coffee')
+  profileSets: require('./profileSets.coffee')
+  streams: require('./streams.coffee')
+  users: require('./users.coffee')
+  itemDeletions: require('./itemDeletions.coffee')
+  register: require('./register.coffee')
+  webhooks: require('./webhooks.coffee')
+  serviceInfo: require('./serviceInfo.coffee')
+  metadata: require('./metadata.coffee')
+  adminUsers: require('./adminUsers.coffee')

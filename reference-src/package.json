@@ -1,0 +1,4 @@
+{
+  "//": "Scopes reference-src/ as CommonJS. The reference source (index.js, helpers.js, and the CoffeeScript files loaded via coffeescript/register) is CJS and must not be treated as ESM under the repo-root \"type\": \"module\".",
+  "type": "commonjs"
+}
