@@ -55,7 +55,7 @@ Include the permission in `requestedPermissions` exactly as you would for any st
 
 The consent screen resolves the field's configured label, so the holder sees `Read "Email"` rather than a raw stream id.
 
-**Ask for `read`.** Levels above `contribute` are refused on account fields. Write access to the holder's address is rarely what an application wants: an address changed that way goes through no verification at all, so it is worth less than the one already on the account.
+**Ask for `read`.** Levels above `contribute` are refused on account fields, and the email address cannot be set through the events API at all: a write to `:system:email` is refused whatever the permission level. Changing the primary address goes through the account-update flow, which carries the platform's uniqueness and verification handling; an application that needs the holder's address should read it, not try to set it.
 
 A caution on the plain name: requesting `email` with no prefix is currently accepted, but it is a *different*, ordinary stream that merely looks right on the consent screen. It will be empty, and it will stay empty. Always include the prefix.
 
