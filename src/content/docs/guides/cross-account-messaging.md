@@ -269,9 +269,11 @@ const { inviteEventId, capabilityUrl } = await cmc.createInvite(conn, {
   // Optional: 'app' issues a delegable data-grant (the requester can then
   // accesses.create scoped sub-accesses); omit for the default 'shared'.
   // accessType: 'app',
-  // Optional per-invite TTL override — server bounds to [60s, 30d];
-  // omit for the 7-day default. Out-of-range rejects with
-  // cmc-capability-ttl-out-of-range.
+  // Optional per-invite expiry (Unix seconds); omit for the 7-day default.
+  // single-use: must resolve to [60s, 30d]. open-link: at least 60s, no upper
+  // bound, or `expiresAt: null` for a link that never expires (ends with
+  // cmc.invalidateCapability). Out of range: cmc-capability-ttl-out-of-range;
+  // null on single-use: cmc-capability-no-expiry-not-allowed.
   // expiresAt: Math.floor(Date.now() / 1000) + 3600,
   // Optional features negotiation — omitted defaults to true for both.
   // Setting either to false makes that channel binding-disabled for the
@@ -300,6 +302,7 @@ await cmc.revokeAcceptance(bobConn, { scopeStreamId, accessId: dataGrantAccessId
 
 // Frozen catalogue mirroring the server-side error ids.
 cmc.errorIds.CAPABILITY_TTL_OUT_OF_RANGE;     // 'cmc-capability-ttl-out-of-range'
+cmc.errorIds.CAPABILITY_NO_EXPIRY_NOT_ALLOWED; // 'cmc-capability-no-expiry-not-allowed'
 cmc.errorIds.CHAT_DISABLED;                   // 'cmc-chat-disabled'
 cmc.errorIds.SYSTEM_MESSAGING_DISABLED;       // 'cmc-system-messaging-disabled'
 cmc.errorIds.CLIENTDATA_CMC_FORBIDDEN;        // 'cmc-clientdata-cmc-forbidden'
