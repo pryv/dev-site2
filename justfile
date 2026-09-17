@@ -29,6 +29,32 @@ serve:
 clean:
     rm -rf dist .astro
 
+# Import the event-types catalogue from a data-types checkout (its committed dist/):
+#   public/event-types/flat.json         <- dist/flat.json         (the URL cores fetch)
+#   public/event-types/hierarchical.json <- dist/event-types.json
+#   src/data/event-types.json            <- dist/event-types.json  (the reference page)
+# Copies, verifies each file byte for byte, and prints what was imported. It does not
+# build, commit or publish. Publishing changes what every core validates against, and
+# open-pryv.io vendors the catalogue with a drift check, so re-vendor there right after.
+import-event-types data_types="../data-types":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="{{data_types}}"
+    [ -d "$src/dist" ] || { echo "no dist/ in $src (build data-types first)"; exit 1; }
+    if [ -n "$(git -C "$src" status --porcelain -- dist src)" ]; then
+      echo "data-types has uncommitted changes in dist/ or src/: import a committed catalogue"; exit 1
+    fi
+    copy () {
+      cp "$src/dist/$1" "$2.tmp" && mv "$2.tmp" "$2"
+      cmp -s "$src/dist/$1" "$2" || { echo "copy mismatch: $2"; exit 1; }
+    }
+    copy flat.json public/event-types/flat.json
+    copy event-types.json public/event-types/hierarchical.json
+    copy event-types.json src/data/event-types.json
+    node -e 'for (const f of process.argv.slice(1)) { const j = JSON.parse(require("fs").readFileSync(f, "utf8")); if (j === null || typeof j !== "object" || (j.types == null && j.classes == null)) throw new Error(f + ": not an event-types catalogue"); }' public/event-types/flat.json public/event-types/hierarchical.json src/data/event-types.json
+    echo "Imported data-types $(git -C "$src" rev-parse --short HEAD) on $(git -C "$src" rev-parse --abbrev-ref HEAD) ($(node -e 'console.log(Object.keys(require(process.argv[1]).types).length)' "$PWD/public/event-types/flat.json") types)."
+    git status --short -- public/event-types src/data/event-types.json
+
 # Mirrors dist/ into a local checkout of pryv/pryv.github.io under .publish/ (gitignored),
 # adds the required .nojekyll (the site has _astro/ underscore dirs that GitHub Pages'
 # Jekyll step would otherwise drop), commits and pushes to master. Fresh ROOT build first
