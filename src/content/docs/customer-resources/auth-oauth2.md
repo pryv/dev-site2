@@ -62,6 +62,16 @@ The `scope` parameter carries exactly **one consent-offer reference**: `scope=cm
 
 **All-or-nothing by default.** Unless the offer sets `allowUserChoice: true`, the consent is take-it-or-leave-it: the user accepts the whole permission set or denies (no cherry-picking). Set `allowUserChoice: true` in your offer to let the user untick individual permissions — and flag any entry your app cannot run without as `mandatory: true` so it stays locked (the user's only way to withhold it is to deny the whole request). The minted access always carries **exactly the granted subset**, so always read the effective grant (see below) rather than assuming the full offer.
 
+**How each entry opens.** Once the offer allows user choice, an entry can also carry `optIn: true`, which makes the consent screen present it **unticked**, so the user has to choose it. The three states are:
+
+| Entry carries | The user sees |
+|---|---|
+| `mandatory: true` | ticked and locked, with a "required by this app" note |
+| neither flag | ticked, and they may untick it |
+| `optIn: true` | unticked, and they may tick it |
+
+`optIn` is display-only: it decides how the screen opens, never what may be granted, so an opt-in entry the user leaves unticked is simply absent from the grant. An entry may not carry both flags. Where consent is your lawful basis under the GDPR, prefer `optIn`: [Recital 32](https://gdpr.eu/recital-32-conditions-for-consent/) states that pre-ticked boxes do not constitute consent.
+
 Two consequences worth designing for:
 
 - **The grant is a durable consent on the user's account.** The user can revoke it (or narrow it) at any time from their account tooling; revocation makes your next token refresh fail with `invalid_grant` (re-run the authorization flow), and narrowing propagates to the next refreshed access. Revocation targets the durable consent (the data-grant): deleting it breaks the refresh chain, but a session access token already minted stays valid until its own short expiry (≤ 1 hour by default), so account tooling and UIs should revoke the data-grant rather than rely on any single access token expiring.

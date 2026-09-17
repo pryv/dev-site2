@@ -33,7 +33,7 @@ Below are the step-by-step instructions on how to request consent from your user
 
 - **2** Structure your data into streams and events following our [data modelling guide](https://pryv.github.io/guides/data-modelling/).
 
-- **3** You are now ready to authenticate your app and request consent from your users. We have created a sample web application available [on Github](https://github.com/pryv/app-web-user-account) to register and authenticate your app users in a GDPR-compliant way by requesting their consent. You can test it [here](https://pryv.github.io/app-web-access/?pryvServiceInfoUrl=https://reg.pryv.me/service/info).
+- **3** You are now ready to authenticate your app and request consent from your users. We have created a sample web application available [on Github](https://github.com/pryv/app-web-user-account) to register and authenticate your app users in a GDPR-compliant way by requesting their consent. Operators host it themselves, at the address configured as the platform's auth page, and it can be themed to match your own branding.
 
 You will need to customize a few parameters to adapt it to your needs and ensure that you collect data from your users in the right way. In the [auth request](https://pryv.github.io/reference/#auth-request) that the app will perform, the parameter `clientData` will be the one containing the consent information:
 
@@ -67,6 +67,45 @@ The parameter `requestedPermissions` of the auth request contains details about 
 }
 ```
 
+#### Mandatory, opt-in and opt-out permissions
+
+By default an auth request is all or nothing: the user accepts the whole list or refuses it. That is rarely what you want, because a permission your app merely benefits from should not force the user to refuse everything.
+
+The optional `consent` object, sent beside `requestedPermissions`, says how each permission should be presented. Its lists name permission ids: a stream permission's `streamId`, or a feature permission's `feature`.
+
+```json
+{
+    "requestingAppId": "my-app",
+    "requestedPermissions": [
+        { "streamId": "diary",    "defaultName": "Journal",  "level": "read" },
+        { "streamId": "weight",   "defaultName": "Weight",   "level": "read" },
+        { "streamId": "location", "defaultName": "Location", "level": "read" }
+    ],
+    "consent": {
+        "allowUserChoice": true,
+        "mandatory": ["diary"],
+        "optIn": ["location"]
+    }
+}
+```
+
+| The permission is | Write it as | The user sees |
+|---|---|---|
+| required for the app to work at all | listed in `mandatory` | ticked, and locked, with a "required by this app" note |
+| optional, and you expect most users to keep it | in neither list | ticked, and they may untick it |
+| optional, and they should choose it deliberately | listed in `optIn` | **unticked**, and they may tick it |
+
+`allowUserChoice` is what enables per-permission choice at all. Leave it out and the consent stays all or nothing, whatever the lists say. A permission may not be both `mandatory` and `optIn`, and every id you list must match exactly one requested permission, otherwise the request is refused with `invalid-parameters`.
+
+**Which one to use.** Where consent is your lawful basis under the GDPR, prefer `optIn`. [Recital 32](https://gdpr.eu/recital-32-conditions-for-consent/) is explicit that silence, inactivity and **pre-ticked boxes do not constitute consent**, so a permission the user never actively chose is on weak ground. Reserve `mandatory` for permissions without which your app genuinely cannot function, and say in your consent message why each one is needed.
+
+**What the user grants is what your app gets.** When the user unticks an optional permission, the access is created without it, and your app must work with the narrower grant. The server verifies this: an access that does not match what was offered is refused, so you cannot end up with more than the user agreed to.
+
+**Older cores ignore the `consent` object** and fall back to all-or-nothing rather than failing. The response to the auth request tells you which happened: a core that understood it echoes back a `consent` object carrying the resolved form. If your app depends on the distinction, check for it before you show the user the approve link.
+
+:::note
+This requires a core that supports the `consent` object. Check the response to your auth request, as described above, rather than assuming availability.
+:::
 
 - **4** Once the auth request has been sent, the web page will prompt the user to sign in using his Pryv.io credentials (or to create an account if he doesn't have one).
 
