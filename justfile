@@ -29,7 +29,8 @@ serve:
 clean:
     rm -rf dist .astro
 
-# Import the event-types catalogue from a data-types checkout (its committed dist/):
+# Import the event-types catalogue from a data-types checkout (its committed dist/,
+# assumed rebuilt from its src/):
 #   public/event-types/flat.json         <- dist/flat.json         (the URL cores fetch)
 #   public/event-types/hierarchical.json <- dist/event-types.json
 #   src/data/event-types.json            <- dist/event-types.json  (the reference page)
@@ -39,10 +40,15 @@ clean:
 import-event-types data_types="../data-types":
     #!/usr/bin/env bash
     set -euo pipefail
-    src="{{data_types}}"
-    [ -d "$src/dist" ] || { echo "no dist/ in $src (build data-types first)"; exit 1; }
+    src={{quote(data_types)}}
+    trap 'rm -f public/event-types/*.tmp src/data/*.tmp' EXIT
+    git -C "$src" rev-parse --git-dir >/dev/null 2>&1 || { echo "$src is not a data-types git checkout"; exit 1; }
+    [ -f "$src/dist/flat.json" ] && [ -f "$src/dist/event-types.json" ] || { echo "no built dist/ in $src (npm run build there first)"; exit 1; }
     if [ -n "$(git -C "$src" status --porcelain -- dist src)" ]; then
       echo "data-types has uncommitted changes in dist/ or src/: import a committed catalogue"; exit 1
+    fi
+    if ! git -C "$src" merge-base --is-ancestor HEAD origin/master 2>/dev/null; then
+      echo "WARNING: $src HEAD is not contained in origin/master (feature branch or unpushed commits): publishing this import would put unmerged catalogue changes live"
     fi
     copy () {
       cp "$src/dist/$1" "$2.tmp" && mv "$2.tmp" "$2"
