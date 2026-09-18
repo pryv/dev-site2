@@ -719,6 +719,13 @@ module.exports = exports =
             description: """
                         Optional metadata the requesting app wants to attach to the request.
                         """
+          ,
+            key: "credentialHandoff"
+            type: "string"
+            optional: true
+            description: """
+                        Ask that the token be delivered through a one-time shared secret rather than returned in the poll. The only accepted value is `shared-secret`; anything else is a `400 invalid-parameters`. When the server understands it, the `ACCEPTED` poll carries a `handoff` key instead of `token` (see [Poll access request](#poll-access-request)) and the 201 echoes `credentialHandoff` back. An older core drops the field and echoes nothing, so the request degrades to inline `token` delivery.
+                        """
           ]
         result:
           http: "201 Created"
@@ -745,6 +752,13 @@ module.exports = exports =
             type: "number"
             description: """
                         The recommended polling interval in milliseconds.
+                        """
+          ,
+            key: "credentialHandoff"
+            type: "string"
+            optional: true
+            description: """
+                        Echoed as `shared-secret` only when the request carried it and the server understood it. Its absence tells the app it will receive inline `token` delivery.
                         """
           ]
 
@@ -790,13 +804,20 @@ module.exports = exports =
             key: "token"
             type: "string"
             description: """
-                        (When `ACCEPTED`) The personal or app token.
+                        (When `ACCEPTED`, inline delivery) The personal or app token. Absent when the request asked for `credentialHandoff: 'shared-secret'` and the server delivers a `handoff` instead.
                         """
           ,
             key: "apiEndpoint"
             type: "string"
             description: """
-                        (When `ACCEPTED`) The API endpoint for subsequent requests.
+                        (When `ACCEPTED`) The API endpoint for subsequent requests. Token-less when a `handoff` is delivered.
+                        """
+          ,
+            key: "handoff"
+            type: "object"
+            optional: true
+            description: """
+                        (When `ACCEPTED` and the request asked for `credentialHandoff`) A one-time credential hand-off in place of `token`, shaped `{ "type": "shared-secret", "key": "<eventId>.<random>" }`. Retrieve the credential exactly once with `POST {apiEndpoint}shared-secrets/retrieve` (body `{ "key": "<key>" }`, unauthenticated), which returns `{ "secret": { "username", "token", "apiEndpoint" } }`; a second retrieve answers `403 shared-secret-unavailable`. See [Shared secrets](#shared-secrets).
                         """
           ]
 
