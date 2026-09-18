@@ -187,6 +187,18 @@
                 "key": "version",
                 "type": "string",
                 "description": "The API version."
+              },
+              {
+                "key": "account",
+                "type": "string",
+                "optional": true,
+                "description": "The root URL of the platform's account app (self-service account management, e.g. app-web-user-account), when the platform names one. The lib-js sign-in button uses it for its *Manage my account* link."
+              },
+              {
+                "key": "features",
+                "type": "object",
+                "optional": true,
+                "description": "Capabilities of the platform, so clients need not probe for them. Among them: `noHF` (no high-frequency series), `contentQueries` (content queries on [events.get](#get-events)), `mfa.methods` (active multi-factor methods), `emailVerification`, and `delegation` (`true` when [account delegation](/guides/account-delegation/) is available: an auth page may then offer to grant an app access for an account the user controls). An absent key means an older server: treat the capability as unknown."
               }
             ]
           },
