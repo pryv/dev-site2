@@ -379,9 +379,10 @@ module.exports = exports =
       key: "clientData"
       type: "[key-value](##{_getDocId("key-value")})"
       optional: true
-      readOnly: "(except at creation)"
       description: """
-                   Additional client data for the access.
+                   Additional client data for the access. It can be set at creation and changed later with [update access](#methods-accesses-accesses-update), for the accesses that method lets the caller update. An update merges the given keys into the stored ones as described in [key-value](##{_getDocId("key-value")}) (a key set to `null` is removed), and `clientData: null` removes all keys.
+
+                   The `dpop` key is reserved for the sender-constrained (DPoP) key binding that the OAuth token endpoint writes: a create request that supplies it is refused, and an update that would add, change or remove it (including `clientData: null` on a bound access) is refused.
 
                    The `delegation` key is reserved: the server sets it on the accesses [account delegation](/guides/account-delegation/) manages and on the accesses granted through a delegation, a request that supplies it is refused, and it is kept when the rest of `clientData` is updated.
                    """
