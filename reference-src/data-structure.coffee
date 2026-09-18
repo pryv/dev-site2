@@ -382,6 +382,8 @@ module.exports = exports =
       readOnly: "(except at creation)"
       description: """
                    Additional client data for the access.
+
+                   The `delegation` key is reserved: the server sets it on the accesses [account delegation](/guides/account-delegation/) manages and on the accesses granted through a delegation, a request that supplies it is refused, and it is kept when the rest of `clientData` is updated.
                    """
     ,
       key: "integrity"

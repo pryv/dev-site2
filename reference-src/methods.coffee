@@ -1776,6 +1776,51 @@ module.exports = exports =
         key: "user"
         type: "[key-value](##{_getDocId("key-value")})"
         description: "A map of user account properties."
+      ,
+        key: "delegation"
+        type: "object"
+        optional: true
+        description: """
+                     Present only when the access comes from [account delegation](/guides/account-delegation/); absent for every other access. `user.username` stays the account the access lives on.
+
+                     For a delegate token, and for an access granted with one (an app access an auth page created for an account the user controls, and the accesses that app creates in turn): `{ isDelegatedAccess: true, controlledUsername, delegate: { username, hostSlug } }`, plus `grantedVia: "app"` for a granted access. For a control access: `{ kind: "control", controlledUsername, delegate }`.
+
+                     This is the authoritative answer to "is this app acting for a controlled account?": the `delegation` block of an [accepted auth request](#poll-request) is only a display hint.
+                     """
+        properties: [
+          key: "isDelegatedAccess"
+          type: "`true`"
+          optional: true
+          description: """
+                       Set for a delegate token and for an access granted through a delegation.
+                       """
+        ,
+          key: "controlledUsername"
+          type: "string"
+          description: """
+                       The controlled account (the account the access lives on).
+                       """
+        ,
+          key: "delegate"
+          type: "object"
+          description: """
+                       The delegate the access acts for: `username`, and `hostSlug` (its core) when known.
+                       """
+        ,
+          key: "grantedVia"
+          type: "`app`"
+          optional: true
+          description: """
+                       Set when the access was granted through the delegation rather than being the delegate token itself. Such an access is revoked when the delegate is removed from the controlled account.
+                       """
+        ,
+          key: "kind"
+          type: "`control`"
+          optional: true
+          description: """
+                       Set, instead of `isDelegatedAccess`, for a control access.
+                       """
+        ]
       ]
     examples: [
       params: {}

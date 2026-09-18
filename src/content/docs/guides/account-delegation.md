@@ -138,6 +138,93 @@ The delegate token is a **personal-class token**: it can do everything the accou
 
 When a delegate token calls [`access-info`](/reference/#access-info), the result carries an additive `delegation` field so the client knows it is operating a delegated account (see [Recognising a delegated token](#recognising-a-delegated-token)).
 
+The delegate token is meant for the delegate's own, trusted apps (such as the platform's account app). A third-party app never receives it: to let such an app work on a controlled account, the delegate grants it an ordinary app access on that account, as described next.
+
+## Granting an app access for a controlled account
+
+A parent who signs in to an app may want the app to work on their child's account rather than on their own. The standard [auth request](/reference/#auth-request) supports this: after sign-in, the platform's authentication page asks **who the access is for**, and the app receives an app access on the account the parent picked.
+
+**The flow:**
+
+1. The app sends its auth request as usual and opens the returned `authUrl`.
+2. The user (the delegate) signs in with their own credentials.
+3. If the platform runs delegation (`features.delegation: true` in the [service information](/reference/#service-info)), the app did not opt out (see `actAs` below), and the user controls at least one `active` account, the page asks: this account, or one of the accounts it controls.
+4. When the user picks a controlled account, the page obtains a [delegate token](#acting-as-a-controlled-account) for it, keeps it in memory only, and uses it on the controlled account's own core to check for and create the app access with the requested permissions (the same `deviceName`, `expireAfter`, `token` and `clientData` the app asked for). The delegate token is dropped once the access is handed over; it is never stored and never sent to the app.
+5. The page accepts the request. The app's poll returns `ACCEPTED` with the **controlled account's** `username` and `apiEndpoint`, a token for that account, and a `delegation` block describing who granted it:
+
+```json
+{
+  "status": "ACCEPTED",
+  "username": "kim-doe",
+  "apiEndpoint": "https://…@kim-doe.example.com/",
+  "token": "…",
+  "delegation": {
+    "isDelegatedAccess": true,
+    "controlledUsername": "kim-doe",
+    "delegate": { "username": "parent-doe" }
+  }
+}
+```
+
+The `delegation` block of the poll is a **display hint** written by the authentication page (the platform's page does not include `delegate.hostSlug`). Base any decision on the token itself: [`access-info`](/reference/#access-info) called with it returns `delegation` with `grantedVia: 'app'` (see [Recognising a delegated token](#recognising-a-delegated-token)).
+
+With lib-js, the app reads it after connecting:
+
+```js
+const service = await pryv.Browser.setupAuth({
+  spanButtonID: 'pryv-button',
+  authRequest: {
+    requestingAppId: 'kid-health',
+    requestedPermissions: [{ streamId: 'health', defaultName: 'Health', level: 'contribute' }]
+    // actAs: 'deny'   // uncomment to keep the access on the signed-in account
+  },
+  onStateChange: async (state) => {
+    if (state.status === 'ACCEPTED' && state.key != null) {
+      const conn = await pryv.connectFromKey(state.key, serviceInfoUrl);
+      const info = await conn.accessInfo();
+      const actingFor = info.delegation?.grantedVia === 'app' ? info.user.username : null;
+      // actingFor: the controlled account, when a delegate granted this access for it
+    }
+  }
+}, serviceInfoUrl);
+```
+
+### Choosing whether to offer it: `actAs`
+
+The auth request accepts an optional `actAs` field:
+
+| Value | Effect |
+| --- | --- |
+| `'allow'` (also the behaviour when omitted) | The page may offer the accounts the user controls. |
+| `'deny'` | The access is always for the signed-in account; the page does not ask. |
+| a username | That controlled account is preselected; the user can still pick another one. An account the user does not control is simply not preselected. |
+
+Any other value fails the auth request with `400 invalid-parameters`. A core that does not support `actAs` ignores it. Set `'deny'` when your app cannot work on an account other than the signed-in user's.
+
+**Fixed tokens.** If the auth request carries a fixed `token`, the page applies it on whichever account the user picks. An app that uses a fixed token and lets the user switch between accounts therefore holds the same token value on several accounts. That is allowed (a token value only has to be unique within one account), but it is your app's design choice; use `actAs: 'deny'` if it does not suit you.
+
+### What the controlled account sees
+
+The access lives on the controlled account, like any app access its owner could have granted:
+
+- The account's owner (for example a teenager who has taken over their account) sees it among the account's apps and can **revoke** it; the delegate and the app itself can revoke or update it too.
+- The server marks it as granted through the delegation. This marker cannot be set, changed or removed by any client, and it is kept when the access is updated. Accesses the app creates with it (shared accesses) carry the same marker.
+- Everything the app does on the account is recorded in the account's audit trail under the app's access, with the delegate named on the record (see [Auditing](#auditing)).
+- If the account's owner later signs in to the same app on the same device, the existing access is reused, and it still ends with the delegation (below).
+
+### When the delegate is removed
+
+**Removing the delegate revokes what it granted.** [`delegations.detachDelegate`](#remove-a-delegate) deletes, together with the delegate token, every access granted through that delegation: the app accesses the delegate granted and the accesses those apps created. The app's token stops working on its next request. Accesses the account's owner granted are untouched; the owner can grant the app again from their own login.
+
+### Grants a delegate cannot make
+
+Some grant paths write accesses outside `accesses.create` and cannot yet record that they came through a delegation, so those grants would outlive it. A delegate token, and any access granted through a delegation, is refused on them; only the account's owner, signed in genuinely, can make these grants:
+
+| Path | Refusal |
+| --- | --- |
+| OAuth2 consent (`POST /oauth2/authorize/accept`) | `403` with `error: 'access_denied'` |
+| Writing a `consent/accept-cmc`, `consent/scope-update-cmc` or `consent/request-cmc` event ([CMC](/guides/cross-account-messaging/)) | `400 invalid-operation` with `error.data.id === 'delegation-grant-requires-owner'` |
+
 ## Removing a delegate — the genuine-login rule
 
 Every power a delegation grants lives in tokens stored **on the controlled account**. Removing them there is the authoritative teardown, and it is the controlled account's exclusive right.
@@ -153,7 +240,7 @@ await controlledConn.api([{ method: 'delegations.detachDelegate', params: {
 
 Attempting this with a delegate token is rejected with `delegation-genuine-login-required` (403).
 
-A detach immediately and permanently destroys the delegate's token and control channel on the controlled account, so the delegate loses access on its very next request, regardless of network reachability between cores. Delegation resources cannot be deleted through the generic `accesses.*` or `events.*` APIs by any token, so this rule cannot be side-stepped.
+A detach immediately and permanently destroys the delegate's token and control channel on the controlled account, so the delegate loses access on its very next request, regardless of network reachability between cores. It also deletes every access granted through the delegation (see [When the delegate is removed](#when-the-delegate-is-removed)). Delegation resources cannot be deleted through the generic `accesses.*` or `events.*` APIs by any token, so this rule cannot be side-stepped. (Accesses granted *through* a delegation are not delegation resources: they are ordinary accesses that anyone entitled to revoke an access may revoke.)
 
 There is deliberately **no delegate-initiated detach** in this version: a delegate cannot walk away on its own. A parent who created a passwordless child account must not be able to abandon it and strand it with no way in. The way a delegate is released is always through the controlled account logging in genuinely, as in the handover below.
 
@@ -206,12 +293,27 @@ Delegation surfaces additively on [`access-info`](/reference/#access-info); noth
 
 The token acts *as* the controlled account, so `access-info`'s `user.username` remains the controlled account. A client can read the `delegation` field to know it is operating on a delegated account, and to display which delegate is acting.
 
+An app access [granted for a controlled account](#granting-an-app-access-for-a-controlled-account), and any access such an app creates, reports the same shape with `grantedVia: 'app'`:
+
+```json
+{
+  "delegation": {
+    "isDelegatedAccess": true,
+    "controlledUsername": "kim-doe",
+    "delegate": { "username": "parent-doe", "hostSlug": "example-core" },
+    "grantedVia": "app"
+  }
+}
+```
+
+This field is the authoritative signal that an app is acting for a controlled account; the `delegation` block of the auth request's `ACCEPTED` poll is only a display hint.
+
 ## Auditing
 
 Delegation is fully attributable:
 
 - **Per-delegate attribution is automatic.** Each delegate holds its own distinct token on the controlled account, so every action lands under that token in the account's audit trail. A delegate's activity is never blended with the owner's or with another delegate's.
-- **Delegate identity on the record.** Audit events produced by a delegate token carry an additive `content.delegation = { delegateUsername, delegateHostSlug }`, so the acting delegate is legible directly on the record.
+- **Delegate identity on the record.** Audit events produced by a delegate token, or by an access granted through the delegation, carry an additive `content.delegation = { delegateUsername, delegateHostSlug }`, so the acting delegate is legible directly on the record.
 - **Lifecycle events are audited.** Requests, accepts, refusals, token issuances, account creation, and detaches each leave an audit record on the account they execute on.
 
 ## API reference
@@ -422,7 +524,7 @@ Creates a brand-new account controlled by the caller. The relationship is `activ
 | side | controlled account |
 | token | **genuine login** |
 
-Removes a delegate, authoritatively and immediately, on the controlled account. Destroys the delegate's token and control channel so it loses access on its next request. For a pending invite, this cancels it. Requires a genuine login. Result: `HTTP 200 OK`, empty body.
+Removes a delegate, authoritatively and immediately, on the controlled account. Destroys the delegate's token and control channel so it loses access on its next request, and deletes every access granted through the delegation (the app accesses the delegate granted and the accesses those apps created). For a pending invite, this cancels it. Requires a genuine login. Result: `HTTP 200 OK`, empty body.
 
 **Errors**
 
@@ -458,11 +560,13 @@ Removes a `stale` row from the delegate's local list. This is housekeeping only:
   "delegate": { "username": "parent-doe", "hostSlug": "example-core" } } }
 ```
 
+For an access granted through the delegation (an app access granted for the controlled account, or an access such an app created), the same shape plus `"grantedVia": "app"`.
+
 The field is purely additive; existing `access-info` behaviour is unchanged, and `user.username` remains the controlled account.
 
 ### Audit additions
 
-Audit events produced by a delegate token (or a control token) carry an additive `content.delegation`:
+Audit events produced by a delegate token, a control token, or an access granted through the delegation carry an additive `content.delegation`:
 
 ```json
 { "content": { "delegation": { "delegateUsername": "parent-doe", "delegateHostSlug": "example-core" } } }

@@ -689,6 +689,27 @@ module.exports = exports =
                        See [access data structure](##{dataStructure.getDocId("access")})
                        """
         ,
+          key: "token"
+          type: "string"
+          optional: true
+          description: """
+                       A fixed token for the access, applied as is by the authentication page. See [access data structure](##{dataStructure.getDocId("access")}).
+                       When the user grants the access for an account they control (see `actAs`), the same token value is used on that account: an app that sets a fixed token and lets the user choose between accounts holds the same token value on each of them. Set `actAs` to `deny` if that does not suit your app.
+                       """
+        ,
+          key: "actAs"
+          type: "string"
+          optional: true
+          description: """
+                       Who the access may be granted for, when the user controls other accounts through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account):
+
+                       - `allow` (the default behaviour when omitted): after sign-in, the authentication page may ask whether the access is for the signed-in account or for an account it controls;
+                       - `deny`: the signed-in account only;
+                       - a username: preselect that controlled account (the user can still choose another one; an account the user does not control is simply not preselected).
+
+                       Any other value fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field. The page offers the choice only when the platform's [service information](#service-info) reports `features.delegation: true` and the user controls at least one active account.
+                       """
+        ,
           key: "referer"
           type: "string"
           optional: true
@@ -779,11 +800,19 @@ module.exports = exports =
                        The client data provided during the auth request.
                        """
         ,
+          key: "actAs"
+          type: "string"
+          optional: true
+          description: """
+                       The `actAs` value provided during the auth request; absent when the request did not carry one.
+                       """
+        ,
           key: "serviceInfo"
           type: "string"
           optional: true
           description: """
                        The [service information](#service-info).
+                       On a poll, this is the platform's configured service information as is: values the server derives at runtime, such as `features.delegation`, may be missing from it. Read capabilities from [service info](#service-info) itself.
                        """
         ]
       ]
@@ -889,6 +918,15 @@ module.exports = exports =
           type: "string"
           description: """
                        The API endpoint containing the authorization token. See [app guidelines](/guides/app-guidelines/).
+                       """
+        ,
+          key: "delegation"
+          type: "object"
+          optional: true
+          description: """
+                       Present when the user granted the access for an account they control (see `actAs` in the [auth request](#auth-request)); `username` and `apiEndpoint` then name that controlled account. Shape: `{ isDelegatedAccess: true, controlledUsername, delegate: { username, hostSlug? } }`, where `delegate` is the signed-in user who granted it. The platform's authentication page does not send `delegate.hostSlug`.
+
+                       This is a **display hint** posted by the authentication page. The authoritative answer is the `delegation` field of [access-info](#access-info) called with the received token.
                        """
         ,
           key: "serviceInfo"

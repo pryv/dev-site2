@@ -400,6 +400,18 @@
                     "description": "See [access data structure](#data-structure-access)"
                   },
                   {
+                    "key": "token",
+                    "type": "string",
+                    "optional": true,
+                    "description": "A fixed token for the access, applied as is by the authentication page. See [access data structure](#data-structure-access).\nWhen the user grants the access for an account they control (see `actAs`), the same token value is used on that account: an app that sets a fixed token and lets the user choose between accounts holds the same token value on each of them. Set `actAs` to `deny` if that does not suit your app."
+                  },
+                  {
+                    "key": "actAs",
+                    "type": "string",
+                    "optional": true,
+                    "description": "Who the access may be granted for, when the user controls other accounts through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account):\n\n- `allow` (the default behaviour when omitted): after sign-in, the authentication page may ask whether the access is for the signed-in account or for an account it controls;\n- `deny`: the signed-in account only;\n- a username: preselect that controlled account (the user can still choose another one; an account the user does not control is simply not preselected).\n\nAny other value fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field. The page offers the choice only when the platform's [service information](#service-info) reports `features.delegation: true` and the user controls at least one active account."
+                  },
+                  {
                     "key": "referer",
                     "type": "string",
                     "optional": true,
@@ -477,10 +489,16 @@
                       "description": "The client data provided during the auth request."
                     },
                     {
+                      "key": "actAs",
+                      "type": "string",
+                      "optional": true,
+                      "description": "The `actAs` value provided during the auth request; absent when the request did not carry one."
+                    },
+                    {
                       "key": "serviceInfo",
                       "type": "string",
                       "optional": true,
-                      "description": "The [service information](#service-info)."
+                      "description": "The [service information](#service-info).\nOn a poll, this is the platform's configured service information as is: values the server derives at runtime, such as `features.delegation`, may be missing from it. Read capabilities from [service info](#service-info) itself."
                     }
                   ]
                 }
@@ -556,6 +574,12 @@
                       "key": "apiEndpoint",
                       "type": "string",
                       "description": "The API endpoint containing the authorization token. See [app guidelines](/guides/app-guidelines/)."
+                    },
+                    {
+                      "key": "delegation",
+                      "type": "object",
+                      "optional": true,
+                      "description": "Present when the user granted the access for an account they control (see `actAs` in the [auth request](#auth-request)); `username` and `apiEndpoint` then name that controlled account. Shape: `{ isDelegatedAccess: true, controlledUsername, delegate: { username, hostSlug? } }`, where `delegate` is the signed-in user who granted it. The platform's authentication page does not send `delegate.hostSlug`.\n\nThis is a **display hint** posted by the authentication page. The authoritative answer is the `delegation` field of [access-info](#access-info) called with the received token."
                     },
                     {
                       "key": "serviceInfo",
@@ -3225,6 +3249,42 @@
                 "key": "user",
                 "type": "[key-value](#methods-key-value-)",
                 "description": "A map of user account properties."
+              },
+              {
+                "key": "delegation",
+                "type": "object",
+                "optional": true,
+                "description": "Present only when the access comes from [account delegation](/guides/account-delegation/); absent for every other access. `user.username` stays the account the access lives on.\n\nFor a delegate token, and for an access granted with one (an app access an auth page created for an account the user controls, and the accesses that app creates in turn): `{ isDelegatedAccess: true, controlledUsername, delegate: { username, hostSlug } }`, plus `grantedVia: \"app\"` for a granted access. For a control access: `{ kind: \"control\", controlledUsername, delegate }`.\n\nThis is the authoritative answer to \"is this app acting for a controlled account?\": the `delegation` block of an [accepted auth request](#poll-request) is only a display hint.",
+                "properties": [
+                  {
+                    "key": "isDelegatedAccess",
+                    "type": "`true`",
+                    "optional": true,
+                    "description": "Set for a delegate token and for an access granted through a delegation."
+                  },
+                  {
+                    "key": "controlledUsername",
+                    "type": "string",
+                    "description": "The controlled account (the account the access lives on)."
+                  },
+                  {
+                    "key": "delegate",
+                    "type": "object",
+                    "description": "The delegate the access acts for: `username`, and `hostSlug` (its core) when known."
+                  },
+                  {
+                    "key": "grantedVia",
+                    "type": "`app`",
+                    "optional": true,
+                    "description": "Set when the access was granted through the delegation rather than being the delegate token itself. Such an access is revoked when the delegate is removed from the controlled account."
+                  },
+                  {
+                    "key": "kind",
+                    "type": "`control`",
+                    "optional": true,
+                    "description": "Set, instead of `isDelegatedAccess`, for a control access."
+                  }
+                ]
               }
             ]
           },
@@ -5615,7 +5675,7 @@
               "type": "[key-value](#data-structure-key-value)",
               "optional": true,
               "readOnly": "(except at creation)",
-              "description": "Additional client data for the access."
+              "description": "Additional client data for the access.\n\nThe `delegation` key is reserved: the server sets it on the accesses [account delegation](/guides/account-delegation/) manages and on the accesses granted through a delegation, a request that supplies it is refused, and it is kept when the rest of `clientData` is updated."
             },
             {
               "key": "integrity",
