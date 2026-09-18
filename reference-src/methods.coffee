@@ -1524,7 +1524,7 @@ module.exports = exports =
       description: """
                    Creates a new access. You can only create accesses whose permissions are a subset of those granted to your own access token.
 
-                   **v2 behaviour change** (Pryv.io ≥ 2.0.0-pre.X): when an `app` access creates a `shared` access scoped under it, the new shared's `expires` (resolved from `expireAfter` if provided) cannot exceed the managing app's `expires`. Violations return `invalid-operation` with `data: { parentExpires, requestedExpires }`. Personal-issued accesses are not subject to this check (personal accesses typically have no `expires`).
+                   **v2 behaviour change** (Pryv.io ≥ 2.0.0-pre.X): when an `app` access creates a `shared` access scoped under it, the new shared's `expires` (resolved from `expireAfter` if provided) cannot exceed the managing app's `expires`. Violations return `invalid-operation` with `data: { parentExpires, requestedExpires }`. A shared access created by an expiring `app` without `expireAfter` takes the app's `expires`, so it never outlives it. Personal-issued accesses are not subject to this check (personal accesses typically have no `expires`).
                    """
       params:
         description: """
@@ -1582,7 +1582,7 @@ module.exports = exports =
                    **Chain rules enforced on update**:
                    - A managed `shared`'s new `permissions` must remain a subset of its managing `app`'s permissions.
                    - Narrowing an `app`'s permissions (or `expires`) is strict-rejected if any managed `shared` would now sit outside the new scope or outlive the new expiry. The error includes `data.offendingChildren: [ids]` so the caller can resolve children first and retry.
-                   - A managed `shared`'s `expires` cannot exceed its managing `app`'s `expires` (parent with `expires: null` imposes no cap).
+                   - A managed `shared`'s `expires` cannot exceed its managing `app`'s `expires` (parent with `expires: null` imposes no cap). A managed `shared` without expiry counts as outliving any expiry: clearing a managed `shared`'s expiry (`expires: null`) under an expiring `app` is refused (`data.requestedExpires: null`), and giving an `app` an expiry while a `shared` it manages has none is refused with `data.offendingChildren`. At authentication, a `shared` without expiry is refused once its managing `app` has expired.
 
                    **Expiry**: `expireAfter` (seconds, not negative) sets `expires` to the time of the update plus that many seconds; `expires: null` removes the expiry. `deviceName` applies to `app` accesses only, and an OAuth session access (named `oauth:<clientId>`) cannot be renamed.
 
