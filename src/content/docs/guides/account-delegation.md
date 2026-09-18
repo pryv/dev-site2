@@ -207,7 +207,7 @@ Any other value fails the auth request with `400 invalid-parameters`. A core tha
 
 The access lives on the controlled account, like any app access its owner could have granted:
 
-- The account's owner (for example a teenager who has taken over their account) sees it among the account's apps and can **revoke** it; the delegate and the app itself can revoke or update it too.
+- The account's owner (for example a teenager who has taken over their account) sees it among the account's apps and can **revoke** or update it; the delegate can too, and the app can revoke itself. No access can update itself.
 - The server marks it as granted through the delegation. This marker cannot be set, changed or removed by any client, and it is kept when the access is updated. Accesses the app creates with it (shared accesses) carry the same marker.
 - Everything the app does on the account is recorded in the account's audit trail under the app's access, with the delegate named on the record (see [Auditing](#auditing)).
 - If the account's owner later signs in to the same app on the same device, the existing access is reused, and it still ends with the delegation (below).
