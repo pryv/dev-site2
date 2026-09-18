@@ -292,25 +292,24 @@ module.exports = exports =
       key: "name"
       type: "string"
       unique: "per type and device"
-      readOnly: "(except at creation)"
       description: """
                    The name identifying the access for the user. (For personal and app access, the name is used as a technical identifier and not shown as-is to the user.)
+
+                   Can be changed with [update access](#methods-accesses-accesses-update), except on an OAuth session access (named `oauth:<clientId>`).
                    """
     ,
       key: "deviceName"
       type: "string"
       optional: true
-      readOnly: "(except at creation)"
       unique: "per type and name"
       description: """
-                   For app accesses only. The name of the client device running the app, if applicable.
+                   For app accesses only. The name of the client device running the app, if applicable. Can be changed with [update access](#methods-accesses-accesses-update).
                    """
     ,
       key: "permissions"
       type: "array of permission objects"
-      readOnly: "(except at creation)"
       description: """
-                   Ignored for personal accesses. If permission levels conflict (e.g. stream set to "manage" and child stream set to "contribute"), the child stream level applies. Each permission object has the following structure:
+                   Ignored for personal accesses. If permission levels conflict (e.g. stream set to "manage" and child stream set to "contribute"), the child stream level applies. Can be changed with [update access](#methods-accesses-accesses-update), within the chain rules it enforces. Each permission object has the following structure:
                    """
       properties: [
         key: [ "streamId", "tag"]
@@ -353,19 +352,19 @@ module.exports = exports =
       key: "expireAfter"
       type: "number"
       optional: true
-      readOnly: "(except at creation)"
       description: """
         If set, controls access expiry in seconds.
         When given a number in this attribute (positive or zero), the access will expire (and not be usable anymore) after this many seconds.
+        [Update access](#methods-accesses-accesses-update) also accepts it and sets `expires` to the time of the update plus this many seconds.
         """
     ,
       key: "expires"
       type: "[timestamp](#data-structure-timestamp)"
       optional: true
-      readOnly: true
       description: """
         If the access was set to expire: The timestamp after which the access
         will be deactivated.
+        It is computed from `expireAfter`; [update access](#methods-accesses-accesses-update) accepts only `null` here, which removes the expiry.
         """
     ,
       key: "deleted"

@@ -3039,7 +3039,7 @@
               "title": "Update access",
               "v2Tag": true,
               "http": "PUT /accesses/{id}",
-              "description": "Updates the access identified by `{id}`. Each successful update mutates the head row, snapshots the prior state into history, and bumps the access's `serial`. The returned access carries the new wire-format composite id `<base>:<serial>` (or bare `<base>` when never updated).\n\n**Mutable fields** (whitelist): `name`, `deviceName`, `permissions`, `expireAfter` / `expires`, `clientData`. Anything else returns `invalid-parameters-format`.\n\n**Caller-vs-target matrix**:\n- `personal` accesses are immutable (no caller can update them).\n- An `app` access can update only the `shared` accesses it directly manages.\n- `shared` accesses cannot update anything.\n- No self-update via this method (self-revoke stays available via `accesses.delete`).\n\n**Chain rules enforced on update**:\n- A managed `shared`'s new `permissions` must remain a subset of its managing `app`'s permissions.\n- Narrowing an `app`'s permissions (or `expires`) is strict-rejected if any managed `shared` would now sit outside the new scope or outlive the new expiry. The error includes `data.offendingChildren: [ids]` so the caller can resolve children first and retry.\n- A managed `shared`'s `expires` cannot exceed its managing `app`'s `expires` (parent with `expires: null` imposes no cap).\n\n**Composite-id conflict**: the `{id}` must match the current head's `serial`. A stale composite returns `409 stale-resource` with `data: { provided, currentSerial }`; refetch the access via [Get one access](#methods-accesses-accesses-getOne) and retry with the current head id. Bare `<base>` is only valid on a never-updated access.\n\nOn success, the server emits an `accessesChanged` socket.io event (coarse-grained) and an `accessUpdated` event with payload `{ type: 'access-updated', accessId, serial }` (fine-grained).",
+              "description": "Updates the access identified by `{id}`. Each successful update mutates the head row, snapshots the prior state into history, and bumps the access's `serial`. The returned access carries the new wire-format composite id `<base>:<serial>` (or bare `<base>` when never updated).\n\n**Mutable fields** (whitelist): `name`, `deviceName`, `permissions`, `expireAfter` / `expires`, `clientData`. Anything else returns `invalid-parameters-format`.\n\n**Caller-vs-target matrix**:\n- `personal` accesses are immutable (no caller can update them).\n- A `personal` access can update any `app` or `shared` access.\n- An `app` access can update only the `shared` accesses it directly manages.\n- `shared` accesses cannot update anything.\n- No self-update via this method (self-revoke stays available via `accesses.delete`).\n\n**Chain rules enforced on update**:\n- A managed `shared`'s new `permissions` must remain a subset of its managing `app`'s permissions.\n- Narrowing an `app`'s permissions (or `expires`) is strict-rejected if any managed `shared` would now sit outside the new scope or outlive the new expiry. The error includes `data.offendingChildren: [ids]` so the caller can resolve children first and retry.\n- A managed `shared`'s `expires` cannot exceed its managing `app`'s `expires` (parent with `expires: null` imposes no cap).\n\n**Expiry**: `expireAfter` (seconds, not negative) sets `expires` to the time of the update plus that many seconds; `expires: null` removes the expiry. `deviceName` applies to `app` accesses only, and an OAuth session access (named `oauth:<clientId>`) cannot be renamed.\n\n**Composite-id conflict**: the `{id}` must match the current head's `serial`. A stale composite returns `409 stale-resource` with `data: { provided, currentSerial }`; refetch the access via [Get one access](#methods-accesses-accesses-getOne) and retry with the current head id. Bare `<base>` is only valid on a never-updated access.\n\nOn success, the server emits an `accessesChanged` socket.io event (coarse-grained) and an `accessUpdated` event with payload `{ type: 'access-updated', accessId, serial }` (fine-grained).",
               "params": {
                 "properties": [
                   {
@@ -5598,22 +5598,19 @@
               "key": "name",
               "type": "string",
               "unique": "per type and device",
-              "readOnly": "(except at creation)",
-              "description": "The name identifying the access for the user. (For personal and app access, the name is used as a technical identifier and not shown as-is to the user.)"
+              "description": "The name identifying the access for the user. (For personal and app access, the name is used as a technical identifier and not shown as-is to the user.)\n\nCan be changed with [update access](#methods-accesses-accesses-update), except on an OAuth session access (named `oauth:<clientId>`)."
             },
             {
               "key": "deviceName",
               "type": "string",
               "optional": true,
-              "readOnly": "(except at creation)",
               "unique": "per type and name",
-              "description": "For app accesses only. The name of the client device running the app, if applicable."
+              "description": "For app accesses only. The name of the client device running the app, if applicable. Can be changed with [update access](#methods-accesses-accesses-update)."
             },
             {
               "key": "permissions",
               "type": "array of permission objects",
-              "readOnly": "(except at creation)",
-              "description": "Ignored for personal accesses. If permission levels conflict (e.g. stream set to \"manage\" and child stream set to \"contribute\"), the child stream level applies. Each permission object has the following structure:",
+              "description": "Ignored for personal accesses. If permission levels conflict (e.g. stream set to \"manage\" and child stream set to \"contribute\"), the child stream level applies. Can be changed with [update access](#methods-accesses-accesses-update), within the chain rules it enforces. Each permission object has the following structure:",
               "properties": [
                 {
                   "key": [
@@ -5653,15 +5650,13 @@
               "key": "expireAfter",
               "type": "number",
               "optional": true,
-              "readOnly": "(except at creation)",
-              "description": "If set, controls access expiry in seconds.\nWhen given a number in this attribute (positive or zero), the access will expire (and not be usable anymore) after this many seconds."
+              "description": "If set, controls access expiry in seconds.\nWhen given a number in this attribute (positive or zero), the access will expire (and not be usable anymore) after this many seconds.\n[Update access](#methods-accesses-accesses-update) also accepts it and sets `expires` to the time of the update plus this many seconds."
             },
             {
               "key": "expires",
               "type": "[timestamp](#data-structure-timestamp)",
               "optional": true,
-              "readOnly": true,
-              "description": "If the access was set to expire: The timestamp after which the access\nwill be deactivated."
+              "description": "If the access was set to expire: The timestamp after which the access\nwill be deactivated.\nIt is computed from `expireAfter`; [update access](#methods-accesses-accesses-update) accepts only `null` here, which removes the expiry."
             },
             {
               "key": "deleted",

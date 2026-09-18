@@ -1574,6 +1574,7 @@ module.exports = exports =
 
                    **Caller-vs-target matrix**:
                    - `personal` accesses are immutable (no caller can update them).
+                   - A `personal` access can update any `app` or `shared` access.
                    - An `app` access can update only the `shared` accesses it directly manages.
                    - `shared` accesses cannot update anything.
                    - No self-update via this method (self-revoke stays available via `accesses.delete`).
@@ -1582,6 +1583,8 @@ module.exports = exports =
                    - A managed `shared`'s new `permissions` must remain a subset of its managing `app`'s permissions.
                    - Narrowing an `app`'s permissions (or `expires`) is strict-rejected if any managed `shared` would now sit outside the new scope or outlive the new expiry. The error includes `data.offendingChildren: [ids]` so the caller can resolve children first and retry.
                    - A managed `shared`'s `expires` cannot exceed its managing `app`'s `expires` (parent with `expires: null` imposes no cap).
+
+                   **Expiry**: `expireAfter` (seconds, not negative) sets `expires` to the time of the update plus that many seconds; `expires: null` removes the expiry. `deviceName` applies to `app` accesses only, and an OAuth session access (named `oauth:<clientId>`) cannot be renamed.
 
                    **Composite-id conflict**: the `{id}` must match the current head's `serial`. A stale composite returns `409 stale-resource` with `data: { provided, currentSerial }`; refetch the access via [Get one access](##{_getDocId("accesses", "accesses.getOne")}) and retry with the current head id. Bare `<base>` is only valid on a never-updated access.
 
