@@ -383,6 +383,20 @@ module.exports = exports =
         description: """
                     The API version.
                     """
+      ,
+        key: "account"
+        type: "string"
+        optional: true
+        description: """
+                    The root URL of the platform's account app (self-service account management, e.g. app-web-user-account), when the platform names one. The lib-js sign-in button uses it for its *Manage my account* link.
+                    """
+      ,
+        key: "features"
+        type: "object"
+        optional: true
+        description: """
+                    Capabilities of the platform, so clients need not probe for them. Among them: `noHF` (no high-frequency series), `contentQueries` (content queries on [events.get](#get-events)), `mfa.methods` (active multi-factor methods), `emailVerification`, and `delegation` (`true` when [account delegation](/guides/account-delegation/) is available: an auth page may then offer to grant an app access for an account the user controls). An absent key means an older server: treat the capability as unknown.
+                    """
       ]
     examples: [
           title: "Retrieving service information."
@@ -582,6 +596,47 @@ module.exports = exports =
                          """
           ]
         ,
+          key: "consent"
+          type: "object"
+          optional: true
+          description: """
+                       How the authentication page should present each requested permission. Its lists name permission ids: a stream permission's `streamId`, or a feature permission's `feature`.
+
+                       | The permission is | Write it as | The user sees |
+                       |---|---|---|
+                       | required for the app to work | listed in `mandatory` | ticked and locked, with a "required by this app" note |
+                       | optional, expected to be kept | in neither list | ticked, and they may untick it |
+                       | optional, chosen deliberately | listed in `optIn` | **unticked**, and they may tick it |
+
+                       Where consent is your lawful basis under the GDPR, prefer `optIn`: [Recital 32](https://gdpr.eu/recital-32-conditions-for-consent/) states that pre-ticked boxes do not constitute consent.
+
+                       A core that does not support this ignores the whole object, so the authentication falls back to all-or-nothing rather than failing. The result below echoes `consent` only when the core understood it, which is how you detect support.
+
+                       The request fails with `invalid-parameters` (HTTP 400) if an id matches no requested permission or matches more than one, if an id appears in both lists, or if a requested permission uses level `none`.
+                       """
+          properties: [
+            key: "allowUserChoice"
+            type: "boolean"
+            optional: true
+            description: """
+                         Whether the user may grant a subset. Default `false`: the consent is all or nothing, whatever the lists below say.
+                         """
+          ,
+            key: "mandatory"
+            type: "array of strings"
+            optional: true
+            description: """
+                         Ids of permissions the user cannot leave out.
+                         """
+          ,
+            key: "optIn"
+            type: "array of strings"
+            optional: true
+            description: """
+                         Ids of permissions presented NOT pre-selected, so the user has to choose them.
+                         """
+          ]
+        ,
           key: "languageCode"
           type: "string"
           optional: true
@@ -694,6 +749,13 @@ module.exports = exports =
           type: "string"
           description: """
                        The permissions provided during the auth request.
+                       """
+        ,
+          key: "consent"
+          type: "object"
+          optional: true
+          description: """
+                       The resolved consent form: the requested permissions with their annotations attached, as the authentication page renders them. Present ONLY when the request carried a `consent` object that this core understood, so its absence means the authentication will be all-or-nothing. Carries `allowUserChoice` and `permissions`, each entry being the requested permission plus `mandatory: true` or `optIn: true` where they apply.
                        """
         ,
           key: "lang"
