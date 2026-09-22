@@ -80,6 +80,10 @@ nothing else.
    secrets) and renders a "Sign in with <label>" button per provider.
 2. The button sends the browser to `GET /auth/sso/<provider>/start`. The core
    sets a signed state cookie and 302s to the provider's authorization endpoint.
+   The auth app may add `?ssoReturn=<opaque string>` (at most 2048 characters, in
+   the form-urlencoded alphabet) to remember its own return context; the core
+   stores it in the signed state cookie without reading it, and never sends it to
+   the provider. A value that is too long or malformed is refused with `400`.
 3. The user authenticates at the provider; the provider 302s back to
    `/auth/sso/<provider>/callback` with a code.
 4. The core exchanges the code, validates the id_token, and resolves the account
@@ -92,6 +96,14 @@ nothing else.
      when the account has MFA active;
    - `#ssoError=<code>` on refusal (`no-account`, `email-not-verified`,
      `sso-failed`).
+
+   When the start carried `ssoReturn`, it is appended unchanged as
+   `&ssoReturn=<string>` on every one of those outcomes, so the landing page can
+   finish the flow the user started (an auth-flow `returnURL`, or an in-app
+   hand-off page). It is echoed only once the state cookie has verified, so a
+   value that did not come from a genuine start of this sign-in is never
+   reflected. Put nothing secret in it: the start URL is a GET and is written to
+   the core's request log.
 5. The landing page reads the fragment, clears it, and:
    - on `login`, POSTs the key to `/<username>/shared-secrets/retrieve` (no
      credentials needed) and receives the session token once; the token was
