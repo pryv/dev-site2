@@ -322,7 +322,7 @@ Full surface + JSDoc: [`@pryv/cmc/src/index.js`](https://github.com/pryv/lib-js/
 ```js
 // URL-only — caller drives navigation (custom popup, mobile deep-link, etc.).
 const url = cmc.requestAcceptUrl({
-  authUrl: 'https://access.pryv.me/access/v3/cmc-accept', // /cmc-accept route on the auth pages
+  authUrl: 'https://pryv.github.io/app-web-user-account/cmc-accept', // /cmc-accept route on the auth pages
   pryvApi: 'https://reg.pryv.me/',                         // accepter's Pryv API base
   capabilityUrl,                                            // from the requester's invite (out-of-band)
   scopeStreamId: ':_cmc:apps:my-study',                    // accepter's own :_cmc:apps:* stream
@@ -334,7 +334,7 @@ const result = await cmc.requestAccept({
   authUrl, pryvApi, capabilityUrl,
   scopeStreamId: ':_cmc:apps:my-study'
 });
-// result = { ok: true, dataGrantApiEndpoint, acceptEventId }
+// result = { ok: true, acceptEventId }  (acceptEventId is an id on the accepter's account)
 // Rejects with CmcError on popup-closed / popup-blocked / timeout / server failure.
 
 // Redirect mode (full-page navigation; the auth page redirects back via location.assign).
@@ -346,13 +346,13 @@ await cmc.requestAccept({
 });
 ```
 
-The `/cmc-accept` page renders the offer details (requester identity, requested permissions, consent message), prompts the user to sign in with their Pryv credentials, writes the consent/accept-cmc trigger with the fresh personal token, and returns the data-grant apiEndpoint to your app via popup `postMessage` (default) or `returnUrl` redirect.
+The `/cmc-accept` page renders the offer details (requester identity, requested permissions, consent message), prompts the user to sign in with their Pryv credentials, writes the consent/accept-cmc trigger with the fresh personal token, and returns the outcome to your app via popup `postMessage` (default) or `returnUrl` redirect. The outcome carries no credential: the requester gets the data-grant endpoint on its own side, from `cmc.waitForAccept` (`grantedAccessApiEndpoint`).
 
 Same shape for scope-update:
 
 ```js
 const result = await cmc.requestScopeUpdate({
-  authUrl: 'https://access.pryv.me/access/v3/cmc-scope-update',
+  authUrl: 'https://pryv.github.io/app-web-user-account/cmc-scope-update',
   pryvApi,
   scopeRequestEventId: 'evt-scope-req-abc123',         // from the collector's proposal on YOUR account
   // scopeStreamId is optional — defaults to the scope-request event's home stream
