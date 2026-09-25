@@ -227,6 +227,12 @@ module.exports = exports =
         description: """
                      Invalid MFA session token.
                      """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed second factors for this account: the attempt is delayed. Retry after the number of seconds given by the `Retry-After` header and `error.data.retryAfterSeconds`. See [MFA security notes](/customer-resources/mfa/#authenticator-app-totp).
+                     """
       ]
       examples: [
         title: "Finalizing the MFA activation."
@@ -273,6 +279,12 @@ module.exports = exports =
         description: """
                      Invalid MFA session token.
                      """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed second factors for this account: no challenge is sent until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`).
+                     """
       ]
     ,
 
@@ -304,6 +316,12 @@ module.exports = exports =
         http: "403"
         description: """
                      Invalid MFA session token.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed second factors for this account: the code is not checked until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`). The delay grows with each further failure up to a cap set by the platform; it never locks the account.
                      """
       ]
       examples: [

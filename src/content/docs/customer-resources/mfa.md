@@ -76,11 +76,20 @@ services:
         active: false       # optionally offer SMS as well (see below)
     sessions:
       ttlSeconds: 1800
+    attempts:
+      perSession: 5         # wrong codes allowed in one pending MFA session
+      perAccountWindowSeconds: 900   # a failure older than this starts the tally afresh
+      backoff:              # per-account delay after repeated failures, never a lockout
+        freeFailures: 3     # failures before any delay
+        baseSeconds: 2      # first delay, doubling on each further failure
+        maxSeconds: 300     # cap; 0 disables the per-account backoff
 ```
 
 **Flow.** Call [activate MFA](/reference/#activate-mfa) with a personal token and `{ "method": "totp" }`. The response carries the `mfaToken` plus an `otpauthUri` (render it as a QR code) and the Base32 `secret` (for manual entry). The user adds it to their authenticator app and you [confirm activation](/reference/#confirm-mfa-activation) with the first 6-digit code; you receive the `recoveryCodes`. At [login](/reference/#login-with-mfa) the response includes `mfaMethod: "totp"` next to the `mfaToken` so your UI prompts for an app code; [verify](/reference/#verify-mfa-challenge) it. There is no challenge to send for TOTP (the code is on the user's device), so [trigger MFA challenge](/reference/#trigger-mfa-challenge) is a no-op that just echoes the method.
 
-**Security notes.** TOTP secrets are stored encrypted at rest; a used code cannot be replayed; repeated wrong codes invalidate the pending MFA session; enrolment fails closed if no `secretsKey`/`adminAccessKey` is available. Server clocks should be NTP-synchronised (the `driftSteps` window absorbs small skew).
+**Security notes.** TOTP secrets are stored encrypted at rest; a used code cannot be replayed, even when the same code is submitted twice at the same moment; enrolment fails closed if no `secretsKey`/`adminAccessKey` is available. Server clocks should be NTP-synchronised (the `driftSteps` window absorbs small skew).
+
+Wrong codes are limited twice. `perSession` wrong codes invalidate the pending MFA session, so the user logs in again. Failures also accrue on the account across logins: past `backoff.freeFailures` of them, each further failure delays the next attempt, doubling from `baseSeconds` up to `maxSeconds`. During a delay the MFA endpoints answer `429 too-many-attempts` with a `Retry-After` header and `error.data.retryAfterSeconds`, and a code sent then is not checked. This is a delay, never a lockout: someone who knows the password cannot lock the real user out, who waits at most `maxSeconds`, and a successful second factor clears the tally. The `attempts` block is platform-wide policy: set the same values on every core. Settings that cannot work (an unknown `defaultMethod`, a malformed `secretsKey`, out-of-range TOTP parameters, SMS without its endpoints) stop the core at boot with the key named.
 
 
 ## Configuration
