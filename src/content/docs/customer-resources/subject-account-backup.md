@@ -64,9 +64,9 @@ The dedicated `/audit/logs` route was **removed** from open-pryv.io on 2026-06-1
 
 ## Operator security note
 
-The bundle carries `profile_private.json`, which includes the subject's MFA recovery codes (`profile.mfa.recoveryCodes` — 10 SMS-bypass tokens) when MFA is enabled. **Treat downloaded bundles as a secret on par with a password-reset link.** Transport over a secure channel; document destruction policy; consider asking the subject to rotate MFA recovery codes after the disclosure is complete.
+The bundle is the subject's whole account: **treat downloaded bundles as confidential personal data.** Transport over a secure channel and document a destruction policy. This applies to BOTH the CLI and webapp output.
 
-This applies to BOTH the CLI and webapp output. The recovery codes ride verbatim because the subject is entitled to their full MFA state — but a leaked bundle becomes a MFA-bypass vector.
+`profile_private.json` carries the subject's MFA enrolment as the private profile read returns it: the method, its content (for SMS, the phone number it texts) and the TOTP parameters. No MFA secret leaves the core: the TOTP secret stays encrypted server-side and recovery codes are stored hashed, so a leaked bundle cannot be used to pass the second factor. (Cores released before this change also exported the encrypted TOTP secret and the recovery-code hashes, equally unusable outside the core.)
 
 ## MFA-enabled subjects
 
