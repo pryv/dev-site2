@@ -3,6 +3,15 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.27
+
+- **Security: MFA per-account limit is a backoff, not a lockout.** After `services.mfa.attempts.backoff.freeFailures` (default 3) failed second factors, each further failure delays the next attempt, doubling up to `maxSeconds` (default 300); during a delay [verify](/reference/#verify-mfa-challenge), [confirm](/reference/#confirm-mfa-activation) and [trigger](/reference/#trigger-mfa-challenge) answer `429 too-many-attempts` with `Retry-After` and `error.data.retryAfterSeconds`. Someone who knows the password can no longer lock the real user out, and a success clears the tally. `attempts.perAccount` and `attempts.lockoutSeconds` are no longer read (boot warning). The `attempts` block is platform-wide: set the same values on every core. See [MFA](/customer-resources/mfa/#authenticator-app-totp).
+- **Security: a TOTP code is consumed atomically.** The same code verified at the same moment on two sessions releases exactly one token.
+- **MFA settings are checked at boot:** settings that cannot work stop the core with the key named instead of failing each request.
+- **Security: the private profile keeps MFA state to the MFA methods.** [Get private profile](/reference/#get-private-profile) shows `mfa` without its secrets (`method`, `content`, TOTP parameters) and never the failed-attempt tally; [update private profile](/reference/#update-private-profile) refuses `mfa` and `mfaThrottle` (`400 invalid-operation`). An app access named `private` or `public` has no app profile (`400 invalid-operation`): such an access could previously reach the user's own profiles.
+- **New accounts get the CMC reserved streams at creation**, so a fresh account's stream list already shows `:_cmc:`, `:_cmc:inbox` and `:_cmc:apps`.
+- **Embedded DNS answers over TCP too, and conforms to the DNS RFCs** (authoritative flag, SOA on negative answers, REFUSED out of zone). **Operator action:** open TCP/53 inbound alongside UDP/53. See [DNS configuration](/customer-resources/dns-config/).
+
 ## 2.0.0-rc.23
 
 - **Grant an app access for an account you control.** On platforms with [account delegation](/guides/account-delegation/), the authentication page asks, after sign-in, whom the access is for; an access granted for a controlled account is marked on the server (`accessInfo().delegation.grantedVia: 'app'`) and the [auth request](/reference/#auth-request) takes an `actAs` field (`'allow'`, `'deny'` or a username). **Breaking:** ending a delegation now also revokes the accesses granted through it. A delegate's token can no longer accept an OAuth2 consent (`403 access_denied`) or a cross-account consent (`400`, `delegation-grant-requires-owner`) on the controlled account. `GET /service/info` gains `account` (the account app's URL) and `features.delegation`.
