@@ -157,7 +157,7 @@ Inbound — from clients:
 | Port     | Protocol | When                                                                   |
 | -------- | -------- | ---------------------------------------------------------------------- |
 | 443      | tcp      | HTTPS (built-in SSL or behind your reverse proxy)                      |
-| 53       | udp      | Only in multi-core deployments using the embedded DNS server           |
+| 53       | udp, tcp | Only in multi-core deployments using the embedded DNS server (open both protocols) |
 
 Inter-core (multi-core only):
 

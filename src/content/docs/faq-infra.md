@@ -152,7 +152,7 @@ ports:
 	- "EXTERNAL_INTERFACE_IP_ADDRESS:53:5353/udp"
 ```
 
-In **v2**, the embedded DNS server runs in-process inside the core (when `dnsLess.isActive: false` / multi-core). The DNS port is taken by the core process itself; conflicts with Docker's embedded DNS no longer apply.
+In **v2**, the embedded DNS server runs in-process inside the core (when `dnsLess.isActive: false` / multi-core). The DNS port is taken by the core process itself, on both UDP and TCP; conflicts with Docker's embedded DNS no longer apply. If another process holds port 53 (UDP or TCP), the core stops at boot with a `DNS server failed to bind` error: free the port or bind the core's DNS to a specific interface (`dns.ip`).
 
 ### `docker login` X11 error
 

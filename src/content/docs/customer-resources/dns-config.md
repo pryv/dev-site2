@@ -32,7 +32,7 @@ Before any record is served, the core must be configured to run the embedded DNS
 dns:
   domain: example.com     # your primary domain — do not include a leading dot
   active: true            # start the embedded DNS server
-  port: 53                # in prod, bind DNS to 53 (docker typically maps host 53/udp → container 53/udp)
+  port: 53                # UDP and TCP; in prod bind to 53 (docker maps host 53/udp and 53/tcp → container)
   ip: '0.0.0.0'           # bind address
   defaultTTL: 300         # seconds
 ```

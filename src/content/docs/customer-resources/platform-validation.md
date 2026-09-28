@@ -157,7 +157,7 @@ Only in multi-core mode. Symptoms: `/reg/*` returns 500, registrations fail, `/s
 
 Only in multi-core mode with embedded DNS (`dns.active: true`).
 
-- Check that the core process binds port 53 (`ss -ulnp | grep :53`). If Docker's embedded DNS or `systemd-resolved` is holding the port, free it or bind the core's DNS to a specific interface.
+- Check that the core process binds port 53 on both protocols (`ss -tulnp | grep :53` should list a `udp` and a `tcp` line). Also check that the firewall / security group allows TCP and UDP 53 inbound. If Docker's embedded DNS or `systemd-resolved` is holding the port, free it or bind the core's DNS to a specific interface.
 - Query the core directly, bypassing recursive resolvers: `dig @<core-ip> someuser.${DOMAIN}`.
 - If the direct query works but public resolvers don't, the domain's NS records at the registrar are wrong.
 
