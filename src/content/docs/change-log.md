@@ -3,6 +3,11 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.28
+
+- **Hosted sites.** A platform can serve a small web app itself under a reserved name, for example the account app on `account.${DOMAIN}`: either from a static folder on each core (a root-based build, which each app-web-user-account release ships as a tarball) or as a fixed proxy to an upstream URL. In DNS mode the site gets its own subdomain and origin, covered by the platform certificate; in dnsLess mode it is served under `/<name>/` on the core's public URL (the API's own origin). The name is reserved, so no account can take it. See [FAQ infrastructure](/faq-infra/). The Pryv Lab now serves its account app at [https://account.pryv.me/](https://account.pryv.me/), and its `service/info` publishes `account` accordingly.
+- **The master stops its rqlited when it exits early**, and refuses to start when another rqlited already answers on its port, instead of silently using it.
+
 ## 2.0.0-rc.27
 
 - **Security: MFA per-account limit is a backoff, not a lockout.** After `services.mfa.attempts.backoff.freeFailures` (default 3) failed second factors, each further failure delays the next attempt, doubling up to `maxSeconds` (default 300); during a delay [verify](/reference/#verify-mfa-challenge), [confirm](/reference/#confirm-mfa-activation) and [trigger](/reference/#trigger-mfa-challenge) answer `429 too-many-attempts` with `Retry-After` and `error.data.retryAfterSeconds`. Someone who knows the password can no longer lock the real user out, and a success clears the tally. `attempts.perAccount` and `attempts.lockoutSeconds` are no longer read (boot warning). The `attempts` block is platform-wide: set the same values on every core. See [MFA](/customer-resources/mfa/#authenticator-app-totp).
