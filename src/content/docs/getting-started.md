@@ -25,7 +25,7 @@ In addition, you can download the [OpenAPI document](/open-api/3.0/api.yaml) des
 
 By registering on our Lab platform, you will have access to a Pryv.io user account in a fully-functional environment perfect for your first tests.
 
-1. Go to the [registration page](https://pryv.github.io/app-web-user-account/register?pryvServiceInfoUrl=https://reg.pryv.me/service/info).
+1. Go to the [registration page](https://account.pryv.me/register?pryvServiceInfoUrl=https://reg.pryv.me/service/info).
 <br />
 <p align="center">
 <img src="/assets/images/getting-started/register-lab.png" alt="register-lab" style="zoom:33%;" />
@@ -45,7 +45,7 @@ Note that the email is optional for the account creation, but is required to res
 
 Once this is done, you will receive a welcome email from the **Pryv Lab** with your account details.
 
-You can sign in to your Pryv.io account on the following link: [https://pryv.github.io/app-web-user-account/signin?pryvServiceInfoUrl=https://reg.pryv.me/service/info](https://pryv.github.io/app-web-user-account/signin?pryvServiceInfoUrl=https://reg.pryv.me/service/info).
+You can sign in to your Pryv.io account on the following link: [https://account.pryv.me/signin?pryvServiceInfoUrl=https://reg.pryv.me/service/info](https://account.pryv.me/signin?pryvServiceInfoUrl=https://reg.pryv.me/service/info).
 
 <p align="center">
 <img src="/assets/images/getting-started/sign-in.png" alt="sign-in" style="zoom:40%;" />

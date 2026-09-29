@@ -97,6 +97,8 @@ You then need to point the `/access/` path of your Pryv.io deployment at your fo
 
   Then set `access.defaultAuthUrl` in your platform configuration to the deployed consent page (e.g. `https://${DOMAIN}/access/auth`) so that auth requests return the right `authUrl`.
 
+  Alternatively, skip the external proxy: the core can serve the built app itself on its own origin (e.g. `https://account.${DOMAIN}/`) through the `hostedSites` setting, either from a local folder holding the build or as a fixed proxy to your GitHub Pages fork. See [INSTALL — Hosted sites](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#hosted-sites-static-folder-or-fixed-proxy-on-a-reserved-name). This is how the Pryv Lab serves [https://account.pryv.me/](https://account.pryv.me/); set `access.defaultAuthUrl` to `https://account.${DOMAIN}/auth` and `service.account` to `https://account.${DOMAIN}/` accordingly.
+
 - **v1** — edit the bundled NGINX config at `pryv/nginx/site.conf`. Change:
 
   ```

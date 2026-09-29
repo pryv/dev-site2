@@ -843,7 +843,7 @@ module.exports = exports =
                  """
         result:
           status: 'NEED_SIGNIN'
-          authUrl: 'https://pryv.github.io/app-web-user-account/auth?lang=fr&key=6CInm4R2TLaoqtl4&requestingAppId=test-app-id&poll=https%3A%2F%2Faccess.pryv.me%2Faccess%2F6CInm4R2TLaoqtl4&poll_rate_ms=1000&serviceInfo=https%3A%2F%2Freg.pryv.me%2Fservice%2Finfo'
+          authUrl: 'https://account.pryv.me/auth?lang=fr&key=6CInm4R2TLaoqtl4&requestingAppId=test-app-id&poll=https%3A%2F%2Faccess.pryv.me%2Faccess%2F6CInm4R2TLaoqtl4&poll_rate_ms=1000&serviceInfo=https%3A%2F%2Freg.pryv.me%2Fservice%2Finfo'
           key: '6CInm4R2TLaoqtl4'
           poll: 'https://access.pryv.me/access/6CInm4R2TLaoqtl4',
           poll_rate_ms: 1000,

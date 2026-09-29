@@ -322,7 +322,7 @@ Full surface + JSDoc: [`@pryv/cmc/src/index.js`](https://github.com/pryv/lib-js/
 ```js
 // URL-only — caller drives navigation (custom popup, mobile deep-link, etc.).
 const url = cmc.requestAcceptUrl({
-  authUrl: 'https://pryv.github.io/app-web-user-account/cmc-accept', // /cmc-accept route on the auth pages
+  authUrl: 'https://account.pryv.me/cmc-accept',          // /cmc-accept route on the auth pages
   pryvApi: 'https://reg.pryv.me/',                         // accepter's Pryv API base
   capabilityUrl,                                            // from the requester's invite (out-of-band)
   scopeStreamId: ':_cmc:apps:my-study',                    // accepter's own :_cmc:apps:* stream
@@ -352,7 +352,7 @@ Same shape for scope-update:
 
 ```js
 const result = await cmc.requestScopeUpdate({
-  authUrl: 'https://pryv.github.io/app-web-user-account/cmc-scope-update',
+  authUrl: 'https://account.pryv.me/cmc-scope-update',
   pryvApi,
   scopeRequestEventId: 'evt-scope-req-abc123',         // from the collector's proposal on YOUR account
   // scopeStreamId is optional — defaults to the scope-request event's home stream
