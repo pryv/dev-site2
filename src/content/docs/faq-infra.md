@@ -89,15 +89,19 @@ You then need to point the `/access/` path of your Pryv.io deployment at your fo
   ```nginx
   location /access/ {
     proxy_pass https://${CUSTOMER_ACCOUNT}.github.io/app-web-user-account/;
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    add_header X-Frame-Options "DENY" always;
   }
   if ($request_uri !~* "^/access/static/.*$") {
     rewrite ^/access/.*$ /access/index.html;
   }
   ```
 
+  Keep the two `add_header` lines (and repeat there any `add_header` your server block sets, such as HSTS: nginx drops the server-level ones in a `location` that has its own): the consent pages (`/auth`, `/oauth2-authorize`, `/cmc-accept`, `/cmc-scope-update`) must not be framable by another site, or it can hide them under a decoy and trick a click on Accept (clickjacking). GitHub Pages does not send these headers, and a `<meta>` tag cannot set `frame-ancestors`, so your proxy must. For the same reason, do not list the GitHub Pages URL itself in `access:trustedAuthUrls`.
+
   Then set `access.defaultAuthUrl` in your platform configuration to the deployed consent page (e.g. `https://${DOMAIN}/access/auth`) so that auth requests return the right `authUrl`.
 
-  Alternatively, skip the external proxy: in DNS mode the core can serve the app itself on its own origin (e.g. `https://account.${DOMAIN}/`) through the `hostedSites` setting, either from a local folder holding a root-based build (`npm run build:root`, which each app-web-user-account release also ships as a tarball) or as a fixed proxy to an upstream serving such a root-based build. In dnsLess mode the site is served under `/account/` on the core's public URL, which is the API's own origin rather than a separate one. See the Hosted sites section of [INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#hosted-sites-static-folder-or-fixed-proxy-on-a-reserved-name). This is how the Pryv Lab serves [https://account.pryv.me/](https://account.pryv.me/); set `access.defaultAuthUrl` to `https://account.${DOMAIN}/auth` and `service.account` to `https://account.${DOMAIN}/` accordingly.
+  Alternatively, skip the external proxy: in DNS mode the core can serve the app itself on its own origin (e.g. `https://account.${DOMAIN}/`) through the `hostedSites` setting, either from a local folder holding a root-based build (`npm run build:root`, which each app-web-user-account release also ships as a tarball) or as a fixed proxy to an upstream serving such a root-based build. In dnsLess mode the site is served under `/account/` on the core's public URL, which is the API's own origin rather than a separate one. See the Hosted sites section of [INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#hosted-sites-static-folder-or-fixed-proxy-on-a-reserved-name). Hosted sites refuse framing for you from open-pryv.io 2.0.0-rc.29 on. This is how the Pryv Lab serves [https://account.pryv.me/](https://account.pryv.me/); set `access.defaultAuthUrl` to `https://account.${DOMAIN}/auth` and `service.account` to `https://account.${DOMAIN}/` accordingly.
 
 - **v1** — edit the bundled NGINX config at `pryv/nginx/site.conf`. Change:
 
@@ -118,6 +122,8 @@ You then need to point the `/access/` path of your Pryv.io deployment at your fo
     rewrite ^.*$ /access/index.html;
   }
   ```
+
+  In the same location as the `proxy_pass`, also add `add_header Content-Security-Policy "frame-ancestors 'none'" always;` and `add_header X-Frame-Options "DENY" always;` so that the consent pages cannot be framed by another site (see v2 above).
 
 The following pages will show the changes that you apply to this repository:
 
