@@ -258,7 +258,21 @@ Only the delegate token itself may do this. An app or shared access the delegate
 
 **Removing the delegate withdraws those consents.** [`delegations.detachDelegate`](#remove-a-delegate) deletes the consent grants given through the relationship, together with the other accesses granted through it, before it answers. Each requester then receives `consent/revoke-cmc` in its inbox, as for a consent withdrawn with `accesses.delete`, instead of meeting a dead token. This notification is best-effort and never holds up the detach. The requester may invite the account again, and the account owner may accept.
 
-In a later release, the account owner will be able to review these consents when removing a delegate and choose to keep some of them.
+**The owner reviews these consents when removing the delegate.** Since open-pryv.io 2.0.0-rc.31, [`delegations.detachDelegate`](#remove-a-delegate) takes an optional `keepAccessIds`: the ids of the consent grants given through this relationship that the account owner keeps. Nothing is kept by default.
+
+```js
+// Genuine login on the controlled account: keep one consent, withdraw the others.
+await controlledConn.api([{ method: 'delegations.detachDelegate', params: {
+  username: 'carla-care',
+  keepAccessIds: ['ckeptgrant0001']
+}}]);
+```
+
+- **A kept grant** becomes the owner's own consent: `clientData.delegation` is removed, [`access-info`](/reference/#access-info) with its token no longer reports a delegation, and the requester is told nothing. Its accept event records `content.ownerConfirmedAt` (the detach time, in seconds); `approvedBy` stays as history.
+- **A grant not kept** is deleted and its requester receives `consent/revoke-cmc`, as above. Its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }`.
+- **Every id must be a consent grant given through the relationship being removed.** Otherwise the whole call is refused before anything is written, with `400 delegation-invalid-keep-list` (`error.data.accessId` names the first id refused). A `keepAccessIds` that is not an array of ids is refused the same way.
+
+`approvedBy`, `ownerConfirmedAt` and `withdrawal` are written by the server only: a client-supplied value is dropped on create, whatever the token, and an update keeps the stored value. The other accesses granted through the delegation are deleted whatever the keep list holds.
 
 ## Removing a delegate — the genuine-login rule
 
@@ -275,7 +289,7 @@ await controlledConn.api([{ method: 'delegations.detachDelegate', params: {
 
 Attempting this with a delegate token is rejected with `delegation-genuine-login-required` (403).
 
-A detach immediately and permanently destroys the delegate's token and control channel on the controlled account, so the delegate loses access on its very next request, regardless of network reachability between cores. It also deletes every access granted through the delegation (see [When the delegate is removed](#when-the-delegate-is-removed)). Delegation resources cannot be deleted through the generic `accesses.*` or `events.*` APIs by any token, so this rule cannot be side-stepped. (Accesses granted *through* a delegation are not delegation resources: they are ordinary accesses that anyone entitled to revoke an access may revoke.)
+A detach immediately and permanently destroys the delegate's token and control channel on the controlled account, so the delegate loses access on its very next request, regardless of network reachability between cores. It also deletes every access granted through the delegation (see [When the delegate is removed](#when-the-delegate-is-removed)). When the delegate gave consents for the account, the owner chooses which of them to keep (see [Consent given by a delegate](#consent-given-by-a-delegate)). Delegation resources cannot be deleted through the generic `accesses.*` or `events.*` APIs by any token, so this rule cannot be side-stepped. (Accesses granted *through* a delegation are not delegation resources: they are ordinary accesses that anyone entitled to revoke an access may revoke.)
 
 There is deliberately **no delegate-initiated detach** in this version: a delegate cannot walk away on its own. A parent who created a passwordless child account must not be able to abandon it and strand it with no way in. The way a delegate is released is always through the controlled account logging in genuinely, as in the handover below.
 
@@ -561,10 +575,17 @@ Creates a brand-new account controlled by the caller. The relationship is `activ
 
 Removes a delegate, authoritatively and immediately, on the controlled account. Destroys the delegate's token and control channel so it loses access on its next request, and deletes every access granted through the delegation (the app accesses the delegate granted, the accesses those apps created, and the CMC consent grants the delegate gave, whose requesters receive `consent/revoke-cmc`; see [Consent given by a delegate](#consent-given-by-a-delegate)). For a pending invite, this cancels it. Requires a genuine login. Result: `HTTP 200 OK`, empty body.
 
+**Parameters**
+
+| | |
+| --- | --- |
+| `keepAccessIds` | array of access ids (optional, open-pryv.io 2.0.0-rc.31 or later): the consent grants the delegate gave that the owner keeps. Over HTTP, repeat the query parameter: `?keepAccessIds=<id>&keepAccessIds=<id>`. Nothing is kept by default. |
+
 **Errors**
 
 | Status | Error id | |
 | --- | --- | --- |
+| 400 | `delegation-invalid-keep-list` | `keepAccessIds` is not an array of ids, or names an id that is not a consent grant given through this relationship; nothing is written, and `error.data.accessId` names the first id refused. |
 | 403 | `delegation-genuine-login-required` | Called with a delegated (or non-personal) token. |
 | 404 | `delegation-not-found` | No relationship with this delegate. |
 

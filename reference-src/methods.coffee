@@ -3013,13 +3013,13 @@ module.exports = exports =
       type: "method"
       title: "Accept a delegation"
       v2Tag: true
-      http: "POST /delegations/controlled/{controlled}/accept"
+      http: "POST /delegations/controlled/{username}/accept"
       description: """
-                   Called by an invited delegate to accept a pending delegation from the controlled account `{controlled}`. Idempotent: re-accepting an already active relationship returns the settled record. Requires a personal access token.
+                   Called by an invited delegate to accept a pending delegation from the controlled account `{username}`. Idempotent: re-accepting an already active relationship returns the settled record. Requires a personal access token.
                    """
       params:
         properties: [
-          key: "controlled"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
@@ -3057,7 +3057,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          controlled: "childaccount"
+          username: "childaccount"
         result:
           delegation:
             relId: "ckz3n8x7k0000qzrmf9a1b2c3"
@@ -3074,13 +3074,13 @@ module.exports = exports =
       type: "method"
       title: "Refuse a delegation"
       v2Tag: true
-      http: "POST /delegations/controlled/{controlled}/refuse"
+      http: "POST /delegations/controlled/{username}/refuse"
       description: """
-                   Called by an invited delegate to decline a pending delegation from the controlled account `{controlled}`. Requires a personal access token.
+                   Called by an invited delegate to decline a pending delegation from the controlled account `{username}`. Requires a personal access token.
                    """
       params:
         properties: [
-          key: "controlled"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
@@ -3099,7 +3099,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          controlled: "childaccount"
+          username: "childaccount"
         result: {}
       ]
 
@@ -3109,13 +3109,13 @@ module.exports = exports =
       type: "method"
       title: "Cancel a sent invite"
       v2Tag: true
-      http: "POST /delegations/delegates/{delegate}/cancel"
+      http: "POST /delegations/delegates/{username}/cancel"
       description: """
-                   Called by a controlled account to cancel a pending invite it sent to `{delegate}`. Because cancelling removes a relationship record, it requires a *genuine* direct login on the controlled account: a delegate token is refused.
+                   Called by a controlled account to cancel a pending invite it sent to `{username}`. Because cancelling removes a relationship record, it requires a *genuine* direct login on the controlled account: a delegate token is refused.
                    """
       params:
         properties: [
-          key: "delegate"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
@@ -3134,7 +3134,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          delegate: "parent"
+          username: "parent"
         result: {}
       ]
 
@@ -3311,13 +3311,13 @@ module.exports = exports =
       type: "method"
       title: "Get a delegate token"
       v2Tag: true
-      http: "POST /delegations/controlled/{controlled}/token"
+      http: "POST /delegations/controlled/{username}/token"
       description: """
-                   Called by a delegate to obtain a delegate access token for an active controlled account `{controlled}`. The returned token is a personal-class token over the controlled account, and its `apiEndpoint` points at the controlled account's core so the delegate's client talks to that core directly. Re-issuing while the session is alive returns the same token. Requires a personal access token.
+                   Called by a delegate to obtain a delegate access token for an active controlled account `{username}`. The returned token is a personal-class token over the controlled account, and its `apiEndpoint` points at the controlled account's core so the delegate's client talks to that core directly. Re-issuing while the session is alive returns the same token. Requires a personal access token.
                    """
       params:
         properties: [
-          key: "controlled"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
@@ -3361,7 +3361,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          controlled: "childaccount"
+          username: "childaccount"
         result:
           token: "cwyz8k2p90000356mexampletok"
           apiEndpoint: "https://cwyz8k2p90000356mexampletok@childaccount.pryv.me/"
@@ -3373,23 +3373,38 @@ module.exports = exports =
       type: "method"
       title: "Detach a delegate"
       v2Tag: true
-      http: "DELETE /delegations/delegates/{delegate}"
+      http: "DELETE /delegations/delegates/{username}"
       description: """
-                   Called by a controlled account to remove a delegate `{delegate}`. This is the authoritative teardown: it kills the delegate's token and control access on this account, then best-effort notifies the delegate; a still-pending invite is cancelled instead. Because it removes a delegation relationship, it requires a *genuine* direct login on the controlled account: a delegate token is refused.
+                   Called by a controlled account to remove a delegate `{username}`. This is the authoritative teardown: it kills the delegate's token and control access on this account, then best-effort notifies the delegate; a still-pending invite is cancelled instead. Because it removes a delegation relationship, it requires a *genuine* direct login on the controlled account: a delegate token is refused.
                    """
       params:
         properties: [
-          key: "delegate"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
           description: """
                        The username of the delegate to detach.
                        """
+        ,
+          key: "keepAccessIds"
+          type: "array of strings"
+          optional: true
+          description: """
+                       The ids of the consent grants (cross-account messaging data grants) the delegate gave for this account that the account owner keeps. Over HTTP, repeat the query parameter: `?keepAccessIds=<id>&keepAccessIds=<id>`. Nothing is kept by default.
+
+                       A kept grant becomes the account owner's own consent: its delegation lineage (`clientData.delegation`) is removed, `access-info` no longer reports a delegation, the requester is told nothing, and its accept event records `content.ownerConfirmedAt` (seconds). A grant not kept is deleted, its requester receives `consent/revoke-cmc`, and its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }`. The other accesses granted through the delegation are deleted whatever this list holds.
+                       """
         ]
       result:
         http: "200 OK"
       errors: [
+        key: "delegation-invalid-keep-list"
+        http: "400"
+        description: """
+                     `keepAccessIds` is not an array of ids, or one of its ids is not a consent grant given through the relationship being removed. Nothing is written; `error.data.accessId` names the first id refused.
+                     """
+      ,
         key: "delegation-genuine-login-required"
         http: "403"
         description: """
@@ -3404,7 +3419,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          delegate: "parent"
+          username: "parent"
         result: {}
       ]
 
@@ -3414,13 +3429,13 @@ module.exports = exports =
       type: "method"
       title: "Dismiss a stale controlled entry"
       v2Tag: true
-      http: "DELETE /delegations/controlled/{controlled}"
+      http: "DELETE /delegations/controlled/{username}"
       description: """
                    Called by a delegate to remove a `stale` controlled-account entry from its own list (local housekeeping after the relationship ended on the controlled account). This removes no authority and never touches the controlled account. Only a `stale` entry may be dismissed. Requires a personal access token.
                    """
       params:
         properties: [
-          key: "controlled"
+          key: "username"
           type: "string"
           http:
             text: "set in request path"
@@ -3445,7 +3460,7 @@ module.exports = exports =
       ]
       examples: [
         params:
-          controlled: "childaccount"
+          username: "childaccount"
         result: {}
       ]
     ]
