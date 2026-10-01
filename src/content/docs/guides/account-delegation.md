@@ -34,7 +34,7 @@ An account can have **several delegates at once** (for example both parents of a
 
 ## The trust model — what a delegate can do
 
-A delegate holds an **owner-equivalent** token over the controlled account. There is exactly one thing it cannot do: remove a delegation relationship. Everything else an account owner can do, a delegate can do.
+A delegate holds an **owner-equivalent** token over the controlled account. It cannot remove a delegation relationship, and a few consent grants stay reserved to the account owner (see [Grants a delegate cannot make](#grants-a-delegate-cannot-make)). Everything else an account owner can do, a delegate can do.
 
 > **A delegate has full control of the controlled account.** A delegate can read and change all of its data; manage its streams and accesses; change its password, email and MFA; delete the account entirely; and add further delegates. Because a delegate can set the account's password, a delegate can also log in to the account directly, which includes the power to remove other delegates. Removing any delegate requires logging in to the controlled account itself. Every credential change, login, and removal is recorded in the account's audit trail.
 
@@ -223,7 +223,42 @@ Some grant paths write accesses outside `accesses.create` and cannot yet record 
 | Path | Refusal |
 | --- | --- |
 | OAuth2 consent (`POST /oauth2/authorize/accept`) | `403` with `error: 'access_denied'` |
-| Writing a `consent/accept-cmc`, `consent/scope-update-cmc` or `consent/request-cmc` event ([CMC](/guides/cross-account-messaging/)) | `400 invalid-operation` with `error.data.id === 'delegation-grant-requires-owner'` |
+| Writing a `consent/request-cmc` or `consent/scope-update-cmc` event ([CMC](/guides/cross-account-messaging/)) | `400 invalid-operation` with `error.data.id === 'delegation-grant-requires-owner'` |
+
+Accepting a CMC consent (`consent/accept-cmc`) is not on this list: since open-pryv.io 2.0.0-rc.30 a delegate token may accept for the account it manages, and the grant records the delegation (see [Consent given by a delegate](#consent-given-by-a-delegate)).
+
+## Consent given by a delegate
+
+A delegate can give the consent a [cross-account messaging](/guides/cross-account-messaging/) request asks for, on behalf of the account it manages: with its [delegate token](#acting-as-a-controlled-account), it writes the `consent/accept-cmc` event on the controlled account as the owner would. This requires open-pryv.io 2.0.0-rc.30 or later on the controlled account's core.
+
+Only the delegate token itself may do this. An app or shared access the delegate granted stays refused by the CMC personal-token rule (`cmc-accept-requires-personal-token`), as for any app. Publishing an offer (`consent/request-cmc`) and widening a grant (`consent/scope-update-cmc`) stay reserved to the account owner (see [Grants a delegate cannot make](#grants-a-delegate-cannot-make)).
+
+**The data grant carries the delegation lineage.** The access minted for the accept carries `clientData.delegation = { kind: 'delegated-child', relId, delegate, viaAccessId }`, taken by the server from the authenticated delegate token (never from the request), like an access a delegate creates with `accesses.create`. [`access-info`](/reference/#access-info) called with the grant's token reports it, so the requester can tell the consent was given by a delegate:
+
+```json
+{
+  "delegation": {
+    "isDelegatedAccess": true,
+    "controlledUsername": "kim-doe",
+    "delegate": { "username": "parent-doe", "hostSlug": "example-core" },
+    "grantedVia": "app"
+  }
+}
+```
+
+**The accept event records who approved.** The server stamps `content.approvedBy` on the `consent/accept-cmc` event when it is written:
+
+```json
+{ "content": { "approvedBy": { "delegate": { "username": "parent-doe", "hostSlug": "example-core" }, "relId": "…" } } }
+```
+
+`hostSlug` is present when known. A client-supplied `approvedBy` is dropped on create, whatever the token, and an update keeps the stored value. An accept written by the account owner has no `approvedBy`.
+
+**An accept in progress when the delegation ends does not complete.** The relationship is checked when the accept is processed and again once the grant exists. If the delegate was removed in between, no grant is left and the accept trigger fails with `content.failure.reason: 'cmc-handler-delegation-ended'`. The failure is permanent (not retried); the account owner may accept again.
+
+**Removing the delegate withdraws those consents.** [`delegations.detachDelegate`](#remove-a-delegate) deletes the consent grants given through the relationship, together with the other accesses granted through it, before it answers. Each requester then receives `consent/revoke-cmc` in its inbox, as for a consent withdrawn with `accesses.delete`, instead of meeting a dead token. This notification is best-effort and never holds up the detach. The requester may invite the account again, and the account owner may accept.
+
+In a later release, the account owner will be able to review these consents when removing a delegate and choose to keep some of them.
 
 ## Removing a delegate — the genuine-login rule
 
@@ -524,7 +559,7 @@ Creates a brand-new account controlled by the caller. The relationship is `activ
 | side | controlled account |
 | token | **genuine login** |
 
-Removes a delegate, authoritatively and immediately, on the controlled account. Destroys the delegate's token and control channel so it loses access on its next request, and deletes every access granted through the delegation (the app accesses the delegate granted and the accesses those apps created). For a pending invite, this cancels it. Requires a genuine login. Result: `HTTP 200 OK`, empty body.
+Removes a delegate, authoritatively and immediately, on the controlled account. Destroys the delegate's token and control channel so it loses access on its next request, and deletes every access granted through the delegation (the app accesses the delegate granted, the accesses those apps created, and the CMC consent grants the delegate gave, whose requesters receive `consent/revoke-cmc`; see [Consent given by a delegate](#consent-given-by-a-delegate)). For a pending invite, this cancels it. Requires a genuine login. Result: `HTTP 200 OK`, empty body.
 
 **Errors**
 
@@ -560,7 +595,7 @@ Removes a `stale` row from the delegate's local list. This is housekeeping only:
   "delegate": { "username": "parent-doe", "hostSlug": "example-core" } } }
 ```
 
-For an access granted through the delegation (an app access granted for the controlled account, or an access such an app created), the same shape plus `"grantedVia": "app"`.
+For an access granted through the delegation (an app access granted for the controlled account, an access such an app created, or a CMC consent grant the delegate gave), the same shape plus `"grantedVia": "app"`.
 
 The field is purely additive; existing `access-info` behaviour is unchanged, and `user.username` remains the controlled account.
 

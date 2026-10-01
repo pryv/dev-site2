@@ -140,6 +140,8 @@ The plugin stamps `content.capabilityUrl` on the trigger event within millisecon
 
 > Bob's `bobConn` must be authenticated with a **personal** access token. Pryv.io rejects `consent/accept-cmc` writes from app- or shared-access tokens (`400 invalid-operation` + `error.data.id === 'cmc-accept-requires-personal-token'`) because the trigger event is treated as the user's authoritative consent — the personal-token requirement enforces user-presence at the moment of acceptance. Apps that hold only an app/shared token use the [accept hand-off](#accept-hand-off-app-without-a-personal-token) below; the lib helper opens an auth page where Bob signs in and the trigger is written with the fresh personal token.
 
+> **A delegate may accept for an account it manages.** With [account delegation](/guides/account-delegation/), a carer's delegate token for the managed account counts as personal and may write this `consent/accept-cmc` (open-pryv.io 2.0.0-rc.30 or later). The data grant then records the delegation, the accept event carries a server-stamped `content.approvedBy`, and removing the delegate withdraws the grant with a `consent/revoke-cmc` to the requester. See [Consent given by a delegate](/guides/account-delegation/#consent-given-by-a-delegate).
+
 ```js
 await bobConn.api([{ method: 'events.create', params: {
   streamIds: [':_cmc:apps:my-study'],   // Bob's local app-scope stream
