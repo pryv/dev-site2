@@ -710,6 +710,36 @@ module.exports = exports =
                        Any other value fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field. The page offers the choice only when the platform's [service information](#service-info) reports `features.delegation: true` and the user controls at least one active account.
                        """
         ,
+          key: "cmcInvites"
+          type: "array of invite objects"
+          optional: true
+          description: """
+                       [Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the authentication page, next to the app access: 1 to 8 entries, each with no other key than the properties below. The page shows each invite with its own Approve and Decline, accepts the approved ones (mandatory first) before it creates the app access or hands over one the app already holds, sends a refusal to the requester of each readable declined invite, and reports one outcome per invite in the `ACCEPTED` result (see [Poll request](#poll-request)). The reference authentication page supports it from app-web-user-account 0.11.0.
+
+                       A malformed list fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field; the result below echoes `cmcInvites` only when the core understood it, which is how you detect support. Requires open-pryv.io 2.0.0-rc.32 or later.
+                       """
+          properties: [
+            key: "capabilityUrl"
+            type: "string"
+            description: """
+                         The invite's capability URL: an absolute `http` or `https` URL of at most 2048 characters.
+                         """
+          ,
+            key: "mandatory"
+            type: "boolean"
+            optional: true
+            description: """
+                         Default `false`. When `true`, declining this invite ends the request `REFUSED` with `reasonId: 'REFUSED_MANDATORY_CONSENT'`, before the page writes anything, and failing to accept it ends the request `REFUSED` with `reasonId: 'MANDATORY_CONSENT_FAILED'` (invites accepted before it stay accepted). Enforced by the authentication page.
+                         """
+          ,
+            key: "for"
+            type: "`self`|`target`"
+            optional: true
+            description: """
+                         Default `self`: the signed-in account accepts. `target`: the account the access is granted for accepts, when the user grants it for an account they manage (see `actAs`); the page then accepts with its delegate token for that account.
+                         """
+          ]
+        ,
           key: "referer"
           type: "string"
           optional: true
@@ -805,6 +835,13 @@ module.exports = exports =
           optional: true
           description: """
                        The `actAs` value provided during the auth request; absent when the request did not carry one.
+                       """
+        ,
+          key: "cmcInvites"
+          type: "array of invite objects"
+          optional: true
+          description: """
+                       The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request.
                        """
         ,
           key: "serviceInfo"
@@ -929,6 +966,15 @@ module.exports = exports =
                        This is a **display hint** posted by the authentication page. The authoritative answer is the `delegation` field of [access-info](#access-info) called with the received token.
                        """
         ,
+          key: "cmcInvites"
+          type: "array of outcome objects"
+          optional: true
+          description: """
+                       Present when the request carried `cmcInvites` and the authentication page processed them: one outcome per invite, in the order of the request, each one of `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }` (accepted; `acceptedFor: 'self'` marks a `for: 'target'` invite accepted by the signed-in account), `{ declined: true }` or `{ reason }` (an optional invite the page could not accept, or an accept still pending when the wait ended, `cmc-capability-timeout`). Carried whether the token is delivered inline or through a `handoff`.
+
+                       This is a **hint** posted by the authentication page, not verified by the core. The requester of each invite learns the truth from its own inbox (the `consent/accept-cmc` delivered there). See [Consent invites in the authorisation request](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request).
+                       """
+        ,
           key: "serviceInfo"
           type: "object"
           optional: true
@@ -946,10 +992,10 @@ module.exports = exports =
                        Authentication failed.
                        """
         ,
-          key: "reasonID"
+          key: "reasonId"
           type: "string"
           description: """
-                       A code indicating the reason for the failure.
+                       A code indicating the reason for the failure. For a request with `cmcInvites`: `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite, `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted (the `message` then names the invite and the platform's error id).
                        """
         ,
           key: "message"
@@ -1002,7 +1048,7 @@ module.exports = exports =
                  ```json
                  {
                     "status": "REFUSED",
-                    "resonID": "REASON_UNDEFINED",
+                    "reasonId": "REASON_UNDEFINED",
                     "message": "...."
                     "serviceInfo": {...}
                 }

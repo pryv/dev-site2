@@ -366,6 +366,85 @@ const result = await cmc.requestScopeUpdate({
 
 **Revoke does NOT need a hand-off.** `consent/revoke-cmc` is access-permission-gated server-side (via `AccessLogic.canDeleteAccess` — the standard rule `accesses.delete` uses), which honours the `selfRevoke` feature permission on the target. Apps holding the relationship's data-grant access can self-revoke directly via `cmc.revokeAcceptance(...)` / `cmc.revokeRelationship(...)` from any token class. Unauthorised attempts fail with `error.data.id === 'cmc-revoke-forbidden'`.
 
+## Consent invites in the authorisation request
+
+An app that holds invites for the user (capability URLs that requesters sent it, for example with an onboarding link) can ask the user to answer them in the same [auth request](/reference/#auth-request) (`POST /reg/access`) that grants the app its own access. The user signs in once and decides on the app access and on every invite on one page, instead of going through one [accept hand-off](#accept-hand-off-app-without-a-personal-token) per invite. This requires open-pryv.io 2.0.0-rc.32 or later, and an authentication page that supports it, such as app-web-user-account 0.11.0 or later.
+
+### What the app sends
+
+The auth request carries an optional `cmcInvites` list beside `requestedPermissions`:
+
+```json
+{
+  "requestingAppId": "kid-health",
+  "requestedPermissions": [
+    { "streamId": "health", "level": "contribute", "defaultName": "Health" }
+  ],
+  "cmcInvites": [
+    { "capabilityUrl": "https://cmc.example.com/…", "mandatory": true },
+    { "capabilityUrl": "https://cmc.other.example/…", "for": "target" }
+  ]
+}
+```
+
+| Field | Value |
+|---|---|
+| `capabilityUrl` | The invite's capability URL, as the requester shared it: an absolute `http` or `https` URL of at most 2048 characters. |
+| `mandatory` | Optional boolean, default `false`. `true` when your app cannot work without this consent: declining it ends the whole request (see below). |
+| `for` | Optional, `'self'` (default) or `'target'`. `'self'`: the signed-in account accepts. `'target'`: the account the access is granted for accepts, when the user grants it for an account they manage through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account). |
+
+The list holds 1 to 8 entries, and an entry carries no other key. A malformed list is refused with `400 invalid-parameters` and no request is created. The request's overall size ceiling (`access:maxRequestBytes`) still applies. With lib-js, set `cmcInvites` in `authRequest`: it is sent as is.
+
+**Detecting support.** The `201` answer echoes `cmcInvites`, normalised (`mandatory` and `for` filled in), only when the core understood the field; an older core drops it and echoes nothing. The `NEED_SIGNIN` poll carries the same list, which is how the authentication page reads it. Without the echo, send the user through the [accept hand-off](#accept-hand-off-app-without-a-personal-token) for each invite instead.
+
+### What the authentication page does
+
+The platform's reference authentication page, [app-web-user-account](https://github.com/pryv/app-web-user-account) 0.11.0 or later, handles the invites as follows.
+
+1. **It shows the app access first, then each invite as its own block**: who asks, the consent text and the requested permissions, with the block's own Approve and Decline. Approving the app access never approves an invite. Approve and Decline only record the choice, which the user can still change; the page's Continue acts, and it is available once every invite has a decision.
+2. **Some invites can only be declined.** The page accepts an invite on the requester's offer scope: the offer's origin stream, else `:_cmc:apps:<appId>` from the requester's metadata. An invite whose offer cannot be read, or whose scope cannot be determined, offers Decline only.
+3. **On Continue, it decides, then accepts, then grants.**
+   - A declined **mandatory** invite ends the request before anything is written: the page posts `REFUSED` with `reasonId: 'REFUSED_MANDATORY_CONSENT'`, and neither the app access nor any consent is created. Your poll receives that `REFUSED`.
+   - A declined invite whose offer is readable gets a `consent/refuse-cmc` sent to the requester. This is best-effort: a refusal that cannot be sent never blocks, and the outcome stays `{ declined: true }`.
+   - The approved invites are accepted (a `consent/accept-cmc` event, as in [the handshake](#the-handshake--a-worked-example)), mandatory ones first, then optional ones, each group in the request's order. An invite with `for: 'self'` is accepted with the signed-in user's own personal token; one with `for: 'target'` with the delegate token the page holds for the managed account, on that account's core, which makes it a [consent given by a delegate](/guides/account-delegation/#consent-given-by-a-delegate). When the user grants the access for their own account, a `for: 'target'` invite is accepted with their own token and reported as `acceptedFor: 'self'`.
+   - A mandatory invite that cannot be accepted ends the request `REFUSED` with `reasonId: 'MANDATORY_CONSENT_FAILED'`; its `message` names the invite and the platform's error id, and the app access is not created. Invites accepted before it stay accepted: nothing is rolled back.
+   - An optional invite that cannot be accepted is reported as `{ reason }` and the page goes on. So is an accept whose wait ends before the platform records the outcome (`cmc-capability-timeout`), mandatory or not: it is never a refusal, as the accept may still complete.
+   - The app access is created or updated **last**. When the app already holds the access the user is asked for, the page shows it beside the invites and hands it over unchanged, only after the invites are answered, so holding the access never bypasses a mandatory invite. The page then posts `ACCEPTED` with one outcome per invite, in the request's order.
+4. **Delivery to the requester follows.** The accept is complete on the user's account when the page posts; the plugin delivers it to the requester, retrying if needed.
+
+An authentication page that does not support invites ignores them: the request is answered for the app access alone, and the `ACCEPTED` body carries no `cmcInvites`.
+
+### Outcomes in the `ACCEPTED` body
+
+The `ACCEPTED` body carries `cmcInvites`: one outcome per invite, in the order of the request. It is present in the answer to the page's post and in every `ACCEPTED` poll, whether the token is delivered inline or through a [credential hand-off](/reference/#poll-request).
+
+```json
+{
+  "status": "ACCEPTED",
+  "username": "kim-doe",
+  "apiEndpoint": "https://…@kim-doe.example.com/",
+  "token": "…",
+  "cmcInvites": [
+    { "acceptEventId": "cacceptevent0001", "dataGrantAccessId": "cdatagrant00001" },
+    { "declined": true }
+  ]
+}
+```
+
+| Outcome | Meaning |
+|---|---|
+| `{ acceptEventId, dataGrantAccessId?, acceptedFor? }` | Accepted. `acceptEventId` is the `consent/accept-cmc` event on the accepting account, `dataGrantAccessId` the data grant minted there when known. `acceptedFor: 'self'` marks a `for: 'target'` invite accepted by the signed-in account. |
+| `{ declined: true }` | The user declined this (optional) invite. |
+| `{ reason }` | The page could not complete this optional invite, or its accept was still pending when the wait ended (`cmc-capability-timeout`); `reason` says why. |
+
+The core checks the list the page posts: the same number of entries as the request's invites and these shapes only, sent with `ACCEPTED` on a request that carried invites. Anything else is refused with `400 invalid-parameters` before anything is written.
+
+**The outcomes are a hint, not a proof.** They are what the authentication page reports; the core does not verify them, and `mandatory` is enforced by the page, not by the core. Use them to update your interface. The requester learns the truth from its own inbox: the `consent/accept-cmc` that arrives there (`cmc.waitForAccept`).
+
+### Where the capability URLs are kept
+
+A capability URL lets whoever holds it read the offer. The URLs stay in the access request, which lives only in the memory of the core that created it: at most one hour, and 120 seconds after its outcome is first read. Whoever holds the request's poll key can read them, as the rest of the request (the `NEED_SIGNIN` poll carries the list). Share the poll URL no more widely than the invites themselves.
+
 ## Further reading
 
 - [Implementer's Guide (open-pryv.io)](https://github.com/pryv/open-pryv.io/blob/master/components/cmc/IMPLEMENTERS-GUIDE.md) — the deep-dive reference for app developers integrating CMC.

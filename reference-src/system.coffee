@@ -726,6 +726,13 @@ module.exports = exports =
             description: """
                         Ask that the token be delivered through a one-time shared secret rather than returned in the poll. The only accepted value is `shared-secret`; anything else is a `400 invalid-parameters`. When the server understands it, the `ACCEPTED` poll carries a `handoff` key instead of `token` (see [Poll access request](#poll-access-request)) and the 201 echoes `credentialHandoff` back. An older core drops the field and echoes nothing, so the request degrades to inline `token` delivery.
                         """
+          ,
+            key: "cmcInvites"
+            type: "array of invite objects"
+            optional: true
+            description: """
+                        [Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the auth page, next to the app access: 1 to 8 entries `{ capabilityUrl, mandatory?, for? }`, with no other key. `capabilityUrl` is an absolute `http` or `https` URL of at most 2048 characters; `mandatory` a boolean (default `false`); `for` `self` (default) or `target` (the account the access is granted for, when the user acts for an account they manage). A malformed list is a `400 invalid-parameters`. The request's size ceiling (`access:maxRequestBytes`) still applies. The 201 echoes the normalised list only when the server understood it; an older core drops the field. Requires open-pryv.io 2.0.0-rc.32 or later.
+                        """
           ]
         result:
           http: "201 Created"
@@ -759,6 +766,13 @@ module.exports = exports =
             optional: true
             description: """
                         Echoed as `shared-secret` only when the request carried it and the server understood it. Its absence tells the app it will receive inline `token` delivery.
+                        """
+          ,
+            key: "cmcInvites"
+            type: "array of invite objects"
+            optional: true
+            description: """
+                        Echoed, normalised (`mandatory` and `for` filled in), only when the request carried `cmcInvites` and the server understood them. The `NEED_SIGNIN` poll carries the same list for the auth page.
                         """
           ]
 
@@ -819,6 +833,20 @@ module.exports = exports =
             description: """
                         (When `ACCEPTED` and the request asked for `credentialHandoff`) A one-time credential hand-off in place of `token`, shaped `{ "type": "shared-secret", "key": "<eventId>.<random>" }`. Retrieve the credential exactly once with `POST {apiEndpoint}shared-secrets/retrieve` (body `{ "key": "<key>" }`, unauthenticated), which returns `{ "secret": { "username", "token", "apiEndpoint" } }`; a second retrieve answers `403 shared-secret-unavailable`. See [Shared secrets](#shared-secrets).
                         """
+          ,
+            key: "cmcInvites"
+            type: "array"
+            optional: true
+            description: """
+                        (When `NEED_SIGNIN`) The request's normalised `cmcInvites`, for the auth page. (When `ACCEPTED`) The outcome the auth page posted for each invite, in the request's order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }`, carried with inline and hand-off delivery alike. The outcomes are a hint from the auth page, not verified by the server; each requester learns the truth from its own inbox. Absent when the request carried no invites or the page posted no outcomes.
+                        """
+          ,
+            key: "reasonId"
+            type: "string"
+            optional: true
+            description: """
+                        (When `REFUSED` or `ERROR`) The reason code the auth page posted. `REFUSED_MANDATORY_CONSENT` means the user declined a mandatory invite of `cmcInvites`; `MANDATORY_CONSENT_FAILED` that a mandatory invite could not be accepted (`message` names the invite and the error id).
+                        """
           ]
 
       ,
@@ -859,6 +887,20 @@ module.exports = exports =
             type: "string"
             description: """
                         (Required when `ACCEPTED`) The token for the access.
+                        """
+          ,
+            key: "cmcInvites"
+            type: "array of outcome objects"
+            optional: true
+            description: """
+                        (Only with `ACCEPTED`, only on a request that carried `cmcInvites`) One outcome per invite of the request, in its order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }` (ids and reasons at most 256 characters). A list of the wrong length or shape, or one sent with another status or on a request without invites, is a `400 invalid-parameters` and the request is left unchanged. Served back as `cmcInvites` in the `ACCEPTED` bodies.
+                        """
+          ,
+            key: "reasonId"
+            type: "string"
+            optional: true
+            description: """
+                        (With `REFUSED` or `ERROR`) A reason code, stored as given. The reference auth page posts `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite of `cmcInvites`, before it writes anything, and `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted, with a `message` naming the invite and the platform's error id.
                         """
           ]
         result:

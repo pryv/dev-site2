@@ -412,6 +412,31 @@
                     "description": "Who the access may be granted for, when the user controls other accounts through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account):\n\n- `allow` (the default behaviour when omitted): after sign-in, the authentication page may ask whether the access is for the signed-in account or for an account it controls;\n- `deny`: the signed-in account only;\n- a username: preselect that controlled account (the user can still choose another one; an account the user does not control is simply not preselected).\n\nAny other value fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field. The page offers the choice only when the platform's [service information](#service-info) reports `features.delegation: true` and the user controls at least one active account."
                   },
                   {
+                    "key": "cmcInvites",
+                    "type": "array of invite objects",
+                    "optional": true,
+                    "description": "[Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the authentication page, next to the app access: 1 to 8 entries, each with no other key than the properties below. The page shows each invite with its own Approve and Decline, accepts the approved ones (mandatory first) before it creates the app access or hands over one the app already holds, sends a refusal to the requester of each readable declined invite, and reports one outcome per invite in the `ACCEPTED` result (see [Poll request](#poll-request)). The reference authentication page supports it from app-web-user-account 0.11.0.\n\nA malformed list fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field; the result below echoes `cmcInvites` only when the core understood it, which is how you detect support. Requires open-pryv.io 2.0.0-rc.32 or later.",
+                    "properties": [
+                      {
+                        "key": "capabilityUrl",
+                        "type": "string",
+                        "description": "The invite's capability URL: an absolute `http` or `https` URL of at most 2048 characters."
+                      },
+                      {
+                        "key": "mandatory",
+                        "type": "boolean",
+                        "optional": true,
+                        "description": "Default `false`. When `true`, declining this invite ends the request `REFUSED` with `reasonId: 'REFUSED_MANDATORY_CONSENT'`, before the page writes anything, and failing to accept it ends the request `REFUSED` with `reasonId: 'MANDATORY_CONSENT_FAILED'` (invites accepted before it stay accepted). Enforced by the authentication page."
+                      },
+                      {
+                        "key": "for",
+                        "type": "`self`|`target`",
+                        "optional": true,
+                        "description": "Default `self`: the signed-in account accepts. `target`: the account the access is granted for accepts, when the user grants it for an account they manage (see `actAs`); the page then accepts with its delegate token for that account."
+                      }
+                    ]
+                  },
+                  {
                     "key": "referer",
                     "type": "string",
                     "optional": true,
@@ -493,6 +518,12 @@
                       "type": "string",
                       "optional": true,
                       "description": "The `actAs` value provided during the auth request; absent when the request did not carry one."
+                    },
+                    {
+                      "key": "cmcInvites",
+                      "type": "array of invite objects",
+                      "optional": true,
+                      "description": "The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request."
                     },
                     {
                       "key": "serviceInfo",
@@ -582,6 +613,12 @@
                       "description": "Present when the user granted the access for an account they control (see `actAs` in the [auth request](#auth-request)); `username` and `apiEndpoint` then name that controlled account. Shape: `{ isDelegatedAccess: true, controlledUsername, delegate: { username, hostSlug? } }`, where `delegate` is the signed-in user who granted it. The platform's authentication page does not send `delegate.hostSlug`.\n\nThis is a **display hint** posted by the authentication page. The authoritative answer is the `delegation` field of [access-info](#access-info) called with the received token."
                     },
                     {
+                      "key": "cmcInvites",
+                      "type": "array of outcome objects",
+                      "optional": true,
+                      "description": "Present when the request carried `cmcInvites` and the authentication page processed them: one outcome per invite, in the order of the request, each one of `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }` (accepted; `acceptedFor: 'self'` marks a `for: 'target'` invite accepted by the signed-in account), `{ declined: true }` or `{ reason }` (an optional invite the page could not accept, or an accept still pending when the wait ended, `cmc-capability-timeout`). Carried whether the token is delivered inline or through a `handoff`.\n\nThis is a **hint** posted by the authentication page, not verified by the core. The requester of each invite learns the truth from its own inbox (the `consent/accept-cmc` delivered there). See [Consent invites in the authorisation request](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request)."
+                    },
+                    {
                       "key": "serviceInfo",
                       "type": "object",
                       "optional": true,
@@ -599,9 +636,9 @@
                       "description": "Authentication failed."
                     },
                     {
-                      "key": "reasonID",
+                      "key": "reasonId",
                       "type": "string",
-                      "description": "A code indicating the reason for the failure."
+                      "description": "A code indicating the reason for the failure. For a request with `cmcInvites`: `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite, `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted (the `message` then names the invite and the platform's error id)."
                     },
                     {
                       "key": "message",
@@ -632,7 +669,7 @@
                 },
                 {
                   "title": "**\"Refused\"** response",
-                  "content": " ```json\n {\n    \"status\": \"REFUSED\",\n    \"resonID\": \"REASON_UNDEFINED\",\n    \"message\": \"....\"\n    \"serviceInfo\": {...}\n}\n ```"
+                  "content": " ```json\n {\n    \"status\": \"REFUSED\",\n    \"reasonId\": \"REASON_UNDEFINED\",\n    \"message\": \"....\"\n    \"serviceInfo\": {...}\n}\n ```"
                 }
               ]
             }
@@ -7007,6 +7044,12 @@
                       "type": "string",
                       "optional": true,
                       "description": "Ask that the token be delivered through a one-time shared secret rather than returned in the poll. The only accepted value is `shared-secret`; anything else is a `400 invalid-parameters`. When the server understands it, the `ACCEPTED` poll carries a `handoff` key instead of `token` (see [Poll access request](#poll-access-request)) and the 201 echoes `credentialHandoff` back. An older core drops the field and echoes nothing, so the request degrades to inline `token` delivery."
+                    },
+                    {
+                      "key": "cmcInvites",
+                      "type": "array of invite objects",
+                      "optional": true,
+                      "description": "[Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the auth page, next to the app access: 1 to 8 entries `{ capabilityUrl, mandatory?, for? }`, with no other key. `capabilityUrl` is an absolute `http` or `https` URL of at most 2048 characters; `mandatory` a boolean (default `false`); `for` `self` (default) or `target` (the account the access is granted for, when the user acts for an account they manage). A malformed list is a `400 invalid-parameters`. The request's size ceiling (`access:maxRequestBytes`) still applies. The 201 echoes the normalised list only when the server understood it; an older core drops the field. Requires open-pryv.io 2.0.0-rc.32 or later."
                     }
                   ]
                 },
@@ -7038,6 +7081,12 @@
                       "type": "string",
                       "optional": true,
                       "description": "Echoed as `shared-secret` only when the request carried it and the server understood it. Its absence tells the app it will receive inline `token` delivery."
+                    },
+                    {
+                      "key": "cmcInvites",
+                      "type": "array of invite objects",
+                      "optional": true,
+                      "description": "Echoed, normalised (`mandatory` and `for` filled in), only when the request carried `cmcInvites` and the server understood them. The `NEED_SIGNIN` poll carries the same list for the auth page."
                     }
                   ]
                 }
@@ -7090,6 +7139,18 @@
                       "type": "object",
                       "optional": true,
                       "description": "(When `ACCEPTED` and the request asked for `credentialHandoff`) A one-time credential hand-off in place of `token`, shaped `{ \"type\": \"shared-secret\", \"key\": \"<eventId>.<random>\" }`. Retrieve the credential exactly once with `POST {apiEndpoint}shared-secrets/retrieve` (body `{ \"key\": \"<key>\" }`, unauthenticated), which returns `{ \"secret\": { \"username\", \"token\", \"apiEndpoint\" } }`; a second retrieve answers `403 shared-secret-unavailable`. See [Shared secrets](#shared-secrets)."
+                    },
+                    {
+                      "key": "cmcInvites",
+                      "type": "array",
+                      "optional": true,
+                      "description": "(When `NEED_SIGNIN`) The request's normalised `cmcInvites`, for the auth page. (When `ACCEPTED`) The outcome the auth page posted for each invite, in the request's order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }`, carried with inline and hand-off delivery alike. The outcomes are a hint from the auth page, not verified by the server; each requester learns the truth from its own inbox. Absent when the request carried no invites or the page posted no outcomes."
+                    },
+                    {
+                      "key": "reasonId",
+                      "type": "string",
+                      "optional": true,
+                      "description": "(When `REFUSED` or `ERROR`) The reason code the auth page posted. `REFUSED_MANDATORY_CONSENT` means the user declined a mandatory invite of `cmcInvites`; `MANDATORY_CONSENT_FAILED` that a mandatory invite could not be accepted (`message` names the invite and the error id)."
                     }
                   ]
                 }
@@ -7126,6 +7187,18 @@
                       "key": "token",
                       "type": "string",
                       "description": "(Required when `ACCEPTED`) The token for the access."
+                    },
+                    {
+                      "key": "cmcInvites",
+                      "type": "array of outcome objects",
+                      "optional": true,
+                      "description": "(Only with `ACCEPTED`, only on a request that carried `cmcInvites`) One outcome per invite of the request, in its order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }` (ids and reasons at most 256 characters). A list of the wrong length or shape, or one sent with another status or on a request without invites, is a `400 invalid-parameters` and the request is left unchanged. Served back as `cmcInvites` in the `ACCEPTED` bodies."
+                    },
+                    {
+                      "key": "reasonId",
+                      "type": "string",
+                      "optional": true,
+                      "description": "(With `REFUSED` or `ERROR`) A reason code, stored as given. The reference auth page posts `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite of `cmcInvites`, before it writes anything, and `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted, with a `message` naming the invite and the platform's error id."
                     }
                   ]
                 },
