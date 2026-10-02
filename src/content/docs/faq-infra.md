@@ -82,6 +82,14 @@ We provide default web apps for registration, login, password-reset and auth req
 
 To customize it, fork the repository and activate [GitHub Pages](https://pages.github.com/) on the `gh-pages` branch (an empty commit is enough to kick the build off).
 
+To serve the app under the `/access/` path of your domain (the proxy recipes below), build the copy you publish with that base path, not with `npm run build:pages` (whose `/app-web-user-account/` base would make the browser request the assets outside `/access/`, so the page stays blank):
+
+```sh
+npx tsc -b && npx vite build --base=/access/ && cp dist/index.html dist/404.html && touch dist/.nojekyll
+```
+
+Then publish `dist/` to your fork's `gh-pages` branch. The app's routes then live under `/access/` (`/access/register`, `/access/auth`, …).
+
 You then need to point the `/access/` path of your Pryv.io deployment at your fork:
 
 - **v2** — this is handled by your own reverse proxy. Add an `/access/` location to the NGINX config shown in [INSTALL — Running behind nginx](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#running--behind-nginx):
