@@ -305,7 +305,7 @@ Pug templates receive a `locals` object at render time. Names are upper-case. Us
 | Local | Example |
 |---|---|
 | `RESET_TOKEN` | opaque one-time token |
-| `RESET_URL` | `https://sw.example.com/access/reset-password.html`, from `auth.passwordResetPageURL` |
+| `RESET_URL` | `https://account.example.com/reset-password`, from `auth.passwordResetPageURL` |
 | `RESET_LINK` | `RESET_URL` with the token appended |
 
 ### `verify-email`

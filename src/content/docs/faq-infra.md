@@ -125,11 +125,11 @@ You then need to point the `/access/` path of your Pryv.io deployment at your fo
 
   In the same location as the `proxy_pass`, also add `add_header Content-Security-Policy "frame-ancestors 'none'" always;` and `add_header X-Frame-Options "DENY" always;` so that the consent pages cannot be framed by another site (see v2 above).
 
-The following pages will show the changes that you apply to this repository:
+The following pages will show the changes that you apply to this repository (behind the `/access/` path; on a hosted site, the same paths on its own origin, e.g. `https://account.${DOMAIN}/register`):
 
-- Registration: https://${DOMAIN}/access/register.html
-- Reset password: https://${DOMAIN}/access/reset-password.html
-- Consent authorization: https://${DOMAIN}/access/access.html
+- Registration: https://${DOMAIN}/access/register
+- Reset password: https://${DOMAIN}/access/reset-password
+- Consent authorization: https://${DOMAIN}/access/auth
 
 
 ## Host apps, resources on the same domain and reuse the SSL certificate

@@ -81,7 +81,7 @@ You should first setup the installation of your own Open Pryv.io platform by fol
 Once your platform is up and running, you can create a user account and launch the authentication process.
 
 1. Launch your Open Pryv.io locally
-2. Open the registration page on the following link : [https://my-computer.backloop.dev:4443/www/access/register.html](https://my-computer.backloop.dev:4443/www/access/register.html).
+2. Open the registration page of your platform's account app: `/register` under the URL set as `service.account` in your platform configuration (the install wizard `bin/init.js` asks for it; e.g. `https://account.example.com/register`).
 <p align="center">
 <img src="/assets/images/getting-started/register-open.png" alt="register-open" style="zoom:33%;" />
 </p>
