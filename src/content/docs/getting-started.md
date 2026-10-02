@@ -86,7 +86,7 @@ Once your platform is up and running, you can create a user account and launch t
 <img src="/assets/images/getting-started/register-open.png" alt="register-open" style="zoom:33%;" />
 </p>
 <br />
-3. Fill in the form and click on the '**Create**' button.
+3. Fill in the form and click on the '**Create account**' button.
 
 
 ## Obtain an Access Token
