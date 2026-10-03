@@ -1972,7 +1972,7 @@
               },
               "result": {
                 "http": "200 OK",
-                "description": "The file's content, with a **Digest** header with SHA-256 hash of the file, encoded in base64, `SHA-256=....` to check file integrity see [RFC3230](https://www.ietf.org/rfc/rfc3230.txt) and [RFC5843](https://datatracker.ietf.org/doc/html/rfc5843)"
+                "description": "The file's content, with a **Digest** header with SHA-256 hash of the file, encoded in base64, `SHA-256=....` to check file integrity see [RFC3230](https://www.ietf.org/rfc/rfc3230.txt) and [RFC5843](https://datatracker.ietf.org/doc/html/rfc5843)\n\nThe file is always sent with `Content-Disposition: attachment`. Since open-pryv.io 2.0.0-rc.34, a file whose content type a browser executes or renders as a document (HTML, XHTML, SVG, XML, XSL, any `+xml` type, `multipart/x-mixed-replace`, JavaScript) is also sent with `Content-Security-Policy: sandbox; default-src 'none'`: opened on the API's origin, it cannot run scripts, load resources or call the API with the viewer's session. To display such a file, fetch its content and render it in your app's own sandbox. An SVG used as an `<img src>` is not affected."
               }
             },
             {

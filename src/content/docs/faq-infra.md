@@ -205,6 +205,19 @@ Error: EACCES: permission denied
 
 Yes — single-core **dnsLess** deployments in full PostgreSQL mode can keep every durable byte off the app host: set `storages.platform.engine: postgresql` (platform data joins the user data in PostgreSQL; no rqlite process runs) and `storages.file.engine: s3` (event attachments on any S3-compatible object store — AWS S3, MinIO, Ceph RGW). The remaining configured paths are caches that can live on tmpfs, so the app container runs with a read-only root filesystem. The install wizard offers both options when you pick dnsLess + postgresql, and `bin/config-to-env.js` can convert the generated config into an env file for fully config-file-free `docker run --env-file` deployments. Multi-core platforms keep rqlite (Raft replication); `bin/migrate-platform.js` moves platform data between the two engines when a deployment changes shape. See [INSTALL — Diskless](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#diskless-postgresql--s3--nothing-to-persist-on-the-app-host).
 
+### How do I upgrade the platform DB's rqlite to 10.x?
+
+From open-pryv.io 2.0.0-rc.34, the Docker image and the native setup bundle rqlite 10.5.1 (previously 9.4.5) for the platform DB. rqlite 10 is crash-safe where 9.x could, after a node was killed during a snapshot, restore stale data into its copy of the platform DB.
+
+The first start on 10.x converts the rqlite data directory **one way**: an older release cannot open it afterwards, so a rollback needs the data directory restored from a backup. Before upgrading:
+
+- run 2.0.0-rc.33 or later first (older releases could interrupt rqlite's snapshot when stopped);
+- back up every node (`/db/backup`, plus an archive of the data directory taken while the core is stopped);
+- check the snapshot store after a clean stop;
+- in a multi-core platform, upgrade the follower cores first and every core back to back.
+
+The step-by-step procedure, including the checks and the rollback, is in [INSTALL — Upgrading the bundled rqlite (9.x to 10.x)](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#upgrading-the-bundled-rqlite-9x-to-10x). Single-core deployments that keep their platform data in PostgreSQL (`storages.platform.engine: postgresql`) run no rqlite and are not affected.
+
 ### How do I reset data on my Pryv.io platform?
 
 This step will erase all data from your platform. Perform this at your own risk and make sure that you know what you are doing.
@@ -242,7 +255,7 @@ Yes.
 **v2** — the core has three modes, all covered in [INSTALL](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md):
 
 1. **Built-in HTTPS** (the quick / out-of-the-box path): let the core terminate TLS by setting `http.ssl.keyFile` / `http.ssl.certFile` in the override config, or use the `letsEncrypt.*` block for managed ACME. High-frequency series traffic is also routed in-process from the public port to the HFS worker on `:4000` — set `cluster.hfsWorkers: 1` (or more) to enable HFS; no extra ingress required.
-2. **Behind your own reverse proxy (recommended for high-throughput / production)**: leave `http.ssl` unset, run the core on plain HTTP (`http.port: 3000`), and terminate TLS in your nginx / Caddy / ALB. nginx is more efficient than the in-process dispatcher and unlocks edge features (rate-limiting, header munging, static assets). A ready-to-use nginx vhost — including the HFS path rules and Socket.IO WebSocket upgrade — is at [`docs/nginx-ingress-sample.conf`](https://github.com/pryv/open-pryv.io/blob/master/docs/nginx-ingress-sample.conf).
+2. **Behind your own reverse proxy (recommended for high-throughput / production)**: leave `http.ssl` unset, run the core on plain HTTP (`http.port: 3000`), and terminate TLS in your nginx / Caddy / ALB. nginx is more efficient than the in-process dispatcher and unlocks edge features (rate-limiting, header munging, static assets). A ready-to-use nginx vhost — including the HFS path rules and Socket.IO WebSocket upgrade — is at [`docs/nginx-ingress-sample.conf`](https://github.com/pryv/open-pryv.io/blob/master/docs/nginx-ingress-sample.conf). If the core also serves [hosted sites](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#hosted-sites-static-folder-or-fixed-proxy-on-a-reserved-name) (such as the account app) behind that proxy, it sees plain HTTP and therefore sends no `Strict-Transport-Security` on their answers: from open-pryv.io 2.0.0-rc.34, set `hostedSites.<name>.hsts: always` for an HTTPS-only site (or add the header in your proxy).
 3. **backloop.dev** for dev/test.
 
 For HFS specifically, SDKs read `features.noHF` on `/service/info` to decide whether the deployment serves HF — this is auto-derived from `cluster.hfsWorkers` (set to `true` when `hfsWorkers === 0`), so SDKs short-circuit cleanly on no-HF deployments instead of failing opaquely. Operators can hand-override with `service.features.noHF: true|false` in the override config.
