@@ -239,6 +239,26 @@ await aliceConn.api([{ method: 'events.create', params: {
 
 The plugin tears down both sides of the access pair. The chat / collectors history is preserved (events are not deleted) but no further messages will be delivered.
 
+**The withdrawal is recorded on the person's consent.** However the consent ends, the `consent/accept-cmc` event the person wrote to accept it (in their `:_cmc:apps:<app>` scope) records it in `content.withdrawal = { at, by, accessId, revokeEventId? }`, `at` in seconds and `accessId` the data grant that was deleted. Requires open-pryv.io 2.0.0-rc.36 or later.
+
+```json
+{ "content": { "withdrawal": { "at": 1791200000, "by": "revoke-cmc", "accessId": "cdatagrant00001", "revokeEventId": "crevoke0000001" } } }
+```
+
+| `by` | How the consent ended |
+|---|---|
+| `accesses.delete` | The data grant was deleted with [`accesses.delete`](/reference/#methods-accesses-accesses-delete). |
+| `revoke-cmc` | The person wrote a `consent/revoke-cmc`, as above; `revokeEventId` is that event. |
+| `peer-revoke` | The requester revoked; `revokeEventId` is the `consent/revoke-cmc` that arrived in the person's inbox. |
+| `delegation-detach` | The consent was given by a delegate who was then removed, and the owner did not keep it (see [account delegation](/guides/account-delegation/#consent-given-by-a-delegate)). This record is `{ at, by, relId }`, `relId` naming the delegation. |
+
+- The record is written by the server only: a client-supplied `withdrawal` is dropped on create, an update keeps the stored value, and once set it is never overwritten (the first record stays).
+- It is written on the accepting side only, on the event that gave the consent.
+- After `accesses.delete`, it lands shortly after the call answers, and the user's socket clients receive `eventsChanged` when it does.
+- A consent accepted on an older core whose data grant does not point back to its accept event has nothing to mark: the audit log remains its record.
+
+**Listing consents.** An app that lists the person's consents should treat an accept event carrying `withdrawal` as ended. From the next `@pryv/cmc` release, `cmc.listAcceptedRelationships` leaves withdrawn relationships out by default; pass `includeWithdrawn: true` to list them too. Every record carries `withdrawal`, `null` while the relationship is active. On an older core, which records only the `delegation-detach` withdrawal, the other ended relationships still look active.
+
 ## Lib-js helpers
 
 CMC client helpers live in the **sibling package** [`@pryv/cmc`](https://www.npmjs.com/package/@pryv/cmc) — install alongside `pryv`:
@@ -382,7 +402,7 @@ The auth request carries an optional `cmcInvites` list beside `requestedPermissi
   ],
   "cmcInvites": [
     { "capabilityUrl": "https://cmc.example.com/…", "mandatory": true },
-    { "capabilityUrl": "https://cmc.other.example/…", "for": "target" }
+    { "capabilityUrl": "https://cmc.other.example/…", "for": "target", "accessName": "Kid Health sharing" }
   ]
 }
 ```
@@ -392,10 +412,11 @@ The auth request carries an optional `cmcInvites` list beside `requestedPermissi
 | `capabilityUrl` | The invite's capability URL, as the requester shared it: an absolute `http` or `https` URL of at most 2048 characters. |
 | `mandatory` | Optional boolean, default `false`. `true` when your app cannot work without this consent: declining it ends the whole request (see below). |
 | `for` | Optional, `'self'` (default) or `'target'`. `'self'`: the signed-in account accepts. `'target'`: the account the access is granted for accepts, when the user grants it for an account they manage through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account). |
+| `accessName` | Optional, 1 to 256 characters: the name of the data grant the person mints by accepting this invite, stored as sent. The core does not use it; the authentication page passes it to the accept. Without it, the grant takes the platform's default name. Requires open-pryv.io 2.0.0-rc.36 or later: an older core refuses an entry carrying it with `400 invalid-parameters`, and no request is created. |
 
 The list holds 1 to 8 entries, and an entry carries no other key. A malformed list is refused with `400 invalid-parameters` and no request is created. The request's overall size ceiling (`access:maxRequestBytes`) still applies. With lib-js, set `cmcInvites` in `authRequest`: it is sent as is.
 
-**Detecting support.** The `201` answer echoes `cmcInvites`, normalised (`mandatory` and `for` filled in), only when the core understood the field; an older core drops it and echoes nothing. The `NEED_SIGNIN` poll carries the same list, which is how the authentication page reads it. Without the echo, send the user through the [accept hand-off](#accept-hand-off-app-without-a-personal-token) for each invite instead.
+**Detecting support.** The `201` answer echoes `cmcInvites`, normalised (`mandatory` and `for` filled in, `accessName` kept on the entries that carried it), only when the core understood the field; an older core drops it and echoes nothing. The `NEED_SIGNIN` poll carries the same list, which is how the authentication page reads it. Without the echo, send the user through the [accept hand-off](#accept-hand-off-app-without-a-personal-token) for each invite instead.
 
 ### What the authentication page does
 
@@ -406,7 +427,7 @@ The platform's reference authentication page, [app-web-user-account](https://git
 3. **On Continue, it decides, then accepts, then grants.**
    - A declined **mandatory** invite ends the request before anything is written: the page posts `REFUSED` with `reasonId: 'REFUSED_MANDATORY_CONSENT'`, and neither the app access nor any consent is created. Your poll receives that `REFUSED`.
    - A declined invite whose offer is readable gets a `consent/refuse-cmc` sent to the requester. This is best-effort: a refusal that cannot be sent never blocks, and the outcome stays `{ declined: true }`.
-   - The approved invites are accepted (a `consent/accept-cmc` event, as in [the handshake](#the-handshake--a-worked-example)), mandatory ones first, then optional ones, each group in the request's order. An invite with `for: 'self'` is accepted with the signed-in user's own personal token; one with `for: 'target'` with the delegate token the page holds for the managed account, on that account's core, which makes it a [consent given by a delegate](/guides/account-delegation/#consent-given-by-a-delegate). When the user grants the access for their own account, a `for: 'target'` invite is accepted with their own token and reported as `acceptedFor: 'self'`.
+   - The approved invites are accepted (a `consent/accept-cmc` event, as in [the handshake](#the-handshake--a-worked-example)), mandatory ones first, then optional ones, each group in the request's order. An invite with `for: 'self'` is accepted with the signed-in user's own personal token; one with `for: 'target'` with the delegate token the page holds for the managed account, on that account's core, which makes it a [consent given by a delegate](/guides/account-delegation/#consent-given-by-a-delegate). When the user grants the access for their own account, a `for: 'target'` invite is accepted with their own token and reported as `acceptedFor: 'self'`. The data grant is named with the invite's `accessName` when it carries one (a page that does not know the field ignores it, and the grant takes the default name).
    - A mandatory invite that cannot be accepted ends the request `REFUSED` with `reasonId: 'MANDATORY_CONSENT_FAILED'`; its `message` names the invite and the platform's error id, and the app access is not created. Invites accepted before it stay accepted: nothing is rolled back.
    - An optional invite that cannot be accepted is reported as `{ reason }` and the page goes on. So is an accept whose wait ends before the platform records the outcome (`cmc-capability-timeout`), mandatory or not: it is never a refusal, as the accept may still complete.
    - The app access is created or updated **last**. When the app already holds the access the user is asked for, the page shows it beside the invites and hands it over unchanged, only after the invites are answered, so holding the access never bypasses a mandatory invite. The page then posts `ACCEPTED` with one outcome per invite, in the request's order.

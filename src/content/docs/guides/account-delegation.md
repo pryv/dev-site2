@@ -203,6 +203,26 @@ Any other value fails the auth request with `400 invalid-parameters`. A core tha
 
 **Fixed tokens.** If the auth request carries a fixed `token`, the page applies it on whichever account the user picks. An app that uses a fixed token and lets the user switch between accounts therefore holds the same token value on several accounts. That is allowed (a token value only has to be unique within one account), but it is your app's design choice; use `actAs: 'deny'` if it does not suit you.
 
+### Requiring a managed account: `actAsManagedOnly`
+
+An app built for the people a user looks after (a parent's app for their child's health data, for example) can ask that the access be granted for a managed account only, never for the signed-in account itself, with `actAsManagedOnly: true` beside `actAs`:
+
+```js
+authRequest: {
+  requestingAppId: 'kid-health',
+  requestedPermissions: [{ streamId: 'health', defaultName: 'Health', level: 'contribute' }],
+  actAs: 'allow',          // or the username of the account to preselect
+  actAsManagedOnly: true
+}
+```
+
+- It requires `actAs` set to `'allow'` or a username. `actAsManagedOnly: true` without `actAs`, or with `actAs: 'deny'`, fails the auth request with `400 invalid-parameters`, and so does a value that is not a boolean. `false` is the same as not sending it.
+- The platform's authentication page then never offers the signed-in account: it lists the active accounts the user manages, preselects the one `actAs` names when it is among them (else the account the session was already acting for), and waits for a choice otherwise. When the user manages no account yet, it opens the form to create one, and the account created receives the access.
+- When no managed account can be used (for example on a platform without delegation), the page says why and offers Cancel only: the request ends `REFUSED` with `reasonId: 'MANAGED_ACCOUNT_UNAVAILABLE'` and a `message` naming the cause.
+- `cmcInvites` with `for: 'target'` are then always answered on the managed account (see [Consent invites in the authorisation request](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request)).
+
+**Detecting support.** The `201` answer and the `NEED_SIGNIN` poll echo `actAsManagedOnly: true` only when the core understood the field; an older core drops it and echoes nothing, and an older authentication page ignores it. In both cases the page behaves per `actAs` alone, which is why `actAs` is required: with `'allow'`, the user can still pick their own account, so check the account you receive (the `delegation` block of the `ACCEPTED` poll, or [`access-info`](/reference/#access-info)). Like `actAs`, this is a hint the authentication page enforces, not the core. Requires open-pryv.io 2.0.0-rc.36 or later.
+
 ### What the controlled account sees
 
 The access lives on the controlled account, like any app access its owner could have granted:
@@ -269,7 +289,7 @@ await controlledConn.api([{ method: 'delegations.detachDelegate', params: {
 ```
 
 - **A kept grant** becomes the owner's own consent: `clientData.delegation` is removed, [`access-info`](/reference/#access-info) with its token no longer reports a delegation, and the requester is told nothing. Its accept event records `content.ownerConfirmedAt` (the detach time, in seconds); `approvedBy` stays as history.
-- **A grant not kept** is deleted and its requester receives `consent/revoke-cmc`, as above. Its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }`.
+- **A grant not kept** is deleted and its requester receives `consent/revoke-cmc`, as above. Its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }`, the same record the other ways of ending a consent write (see [Revoking](/guides/cross-account-messaging/#revoking)).
 - **Every id must be a consent grant given through the relationship being removed.** Otherwise the whole call is refused before anything is written, with `400 delegation-invalid-keep-list` (`error.data.accessId` names the first id refused). A `keepAccessIds` that is not an array of ids is refused the same way.
 
 `approvedBy`, `ownerConfirmedAt` and `withdrawal` are written by the server only: a client-supplied value is dropped on create, whatever the token, and an update keeps the stored value. The other accesses granted through the delegation are deleted whatever the keep list holds.

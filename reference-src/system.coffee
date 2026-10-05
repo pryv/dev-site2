@@ -731,7 +731,21 @@ module.exports = exports =
             type: "array of invite objects"
             optional: true
             description: """
-                        [Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the auth page, next to the app access: 1 to 8 entries `{ capabilityUrl, mandatory?, for? }`, with no other key. `capabilityUrl` is an absolute `http` or `https` URL of at most 2048 characters; `mandatory` a boolean (default `false`); `for` `self` (default) or `target` (the account the access is granted for, when the user acts for an account they manage). A malformed list is a `400 invalid-parameters`. The request's size ceiling (`access:maxRequestBytes`) still applies. The 201 echoes the normalised list only when the server understood it; an older core drops the field. Requires open-pryv.io 2.0.0-rc.32 or later.
+                        [Cross-account messaging](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request) invites the user should answer on the auth page, next to the app access: 1 to 8 entries `{ capabilityUrl, mandatory?, for?, accessName? }`, with no other key. `capabilityUrl` is an absolute `http` or `https` URL of at most 2048 characters; `mandatory` a boolean (default `false`); `for` `self` (default) or `target` (the account the access is granted for, when the user acts for an account they manage); `accessName` the name of the data grant minted by accepting the invite, 1 to 256 characters, stored as sent (the server does not use it; the auth page passes it to the accept). A malformed list is a `400 invalid-parameters`. The request's size ceiling (`access:maxRequestBytes`) still applies. The 201 echoes the normalised list only when the server understood it; an older core drops the field. Requires open-pryv.io 2.0.0-rc.32 or later; `accessName` requires open-pryv.io 2.0.0-rc.36 or later, and an older core refuses an entry carrying it with `400 invalid-parameters`.
+                        """
+          ,
+            key: "actAs"
+            type: "string"
+            optional: true
+            description: """
+                        Who the access may be granted for, when the user controls other accounts through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account): `allow` (the default behaviour when omitted), `deny` (the signed-in account only) or a username to preselect. Any other value is a `400 invalid-parameters`.
+                        """
+          ,
+            key: "actAsManagedOnly"
+            type: "boolean"
+            optional: true
+            description: """
+                        `true` when the access must be granted for an account the user manages, never for the signed-in account. Requires `actAs` (`allow` or a username): `true` without `actAs` or with `actAs: 'deny'`, or a value that is not a boolean, is a `400 invalid-parameters`; `false` is the same as not sending it. A hint the auth page enforces, not the server: the reference auth page lists only managed accounts and, when none can be used, refuses with `reasonId: 'MANAGED_ACCOUNT_UNAVAILABLE'`. The 201 echoes `actAsManagedOnly: true` only when the server understood it; an older core drops the field. Requires open-pryv.io 2.0.0-rc.36 or later.
                         """
           ]
         result:
@@ -772,7 +786,14 @@ module.exports = exports =
             type: "array of invite objects"
             optional: true
             description: """
-                        Echoed, normalised (`mandatory` and `for` filled in), only when the request carried `cmcInvites` and the server understood them. The `NEED_SIGNIN` poll carries the same list for the auth page.
+                        Echoed, normalised (`mandatory` and `for` filled in, `accessName` only on an entry that carried it), only when the request carried `cmcInvites` and the server understood them. The `NEED_SIGNIN` poll carries the same list for the auth page.
+                        """
+          ,
+            key: "actAsManagedOnly"
+            type: "`true`"
+            optional: true
+            description: """
+                        Echoed as `true` only when the request carried `actAsManagedOnly: true` and the server understood it. The `NEED_SIGNIN` poll carries it too, for the auth page.
                         """
           ]
 
@@ -838,14 +859,21 @@ module.exports = exports =
             type: "array"
             optional: true
             description: """
-                        (When `NEED_SIGNIN`) The request's normalised `cmcInvites`, for the auth page. (When `ACCEPTED`) The outcome the auth page posted for each invite, in the request's order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }`, carried with inline and hand-off delivery alike. The outcomes are a hint from the auth page, not verified by the server; each requester learns the truth from its own inbox. Absent when the request carried no invites or the page posted no outcomes.
+                        (When `NEED_SIGNIN`) The request's normalised `cmcInvites`, with `accessName` on the entries that carried it, for the auth page. (When `ACCEPTED`) The outcome the auth page posted for each invite, in the request's order: `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }`, `{ declined: true }` or `{ reason }`, carried with inline and hand-off delivery alike. The outcomes are a hint from the auth page, not verified by the server; each requester learns the truth from its own inbox. Absent when the request carried no invites or the page posted no outcomes.
+                        """
+          ,
+            key: "actAsManagedOnly"
+            type: "`true`"
+            optional: true
+            description: """
+                        (When `NEED_SIGNIN`) `true` when the request asked that the access be granted for an account the user manages only. Absent otherwise, and never on `ACCEPTED`.
                         """
           ,
             key: "reasonId"
             type: "string"
             optional: true
             description: """
-                        (When `REFUSED` or `ERROR`) The reason code the auth page posted. `REFUSED_MANDATORY_CONSENT` means the user declined a mandatory invite of `cmcInvites`; `MANDATORY_CONSENT_FAILED` that a mandatory invite could not be accepted (`message` names the invite and the error id).
+                        (When `REFUSED` or `ERROR`) The reason code the auth page posted. `REFUSED_MANDATORY_CONSENT` means the user declined a mandatory invite of `cmcInvites`; `MANDATORY_CONSENT_FAILED` that a mandatory invite could not be accepted (`message` names the invite and the error id); `MANAGED_ACCOUNT_UNAVAILABLE` that the request asked for `actAsManagedOnly` and the user had no managed account to grant the access for (`message` names the cause).
                         """
           ]
 
@@ -874,7 +902,7 @@ module.exports = exports =
             key: "status"
             type: "string"
             description: """
-                        The new status: `ACCEPTED`, `REFUSED`, `ERROR`, or `REDIRECTED`.
+                        The new status: `ACCEPTED`, `REFUSED` or `ERROR`. Any other value is refused with `invalid-parameters` (HTTP 400); `REDIRECTED` is no longer accepted since open-pryv.io 2.0.0-rc.36.
                         """
           ,
             key: "username"
@@ -900,7 +928,7 @@ module.exports = exports =
             type: "string"
             optional: true
             description: """
-                        (With `REFUSED` or `ERROR`) A reason code, stored as given. The reference auth page posts `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite of `cmcInvites`, before it writes anything, and `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted, with a `message` naming the invite and the platform's error id.
+                        (With `REFUSED` or `ERROR`) A reason code, stored as given. The reference auth page posts `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite of `cmcInvites`, before it writes anything, `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted, with a `message` naming the invite and the platform's error id, and `MANAGED_ACCOUNT_UNAVAILABLE` when the request carried `actAsManagedOnly` and no account the user manages could be used, with a `message` naming the cause.
                         """
           ]
         result:

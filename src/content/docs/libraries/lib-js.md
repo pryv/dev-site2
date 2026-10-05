@@ -62,6 +62,30 @@ const service = await pryv.Browser.setupAuth({
 }, serviceInfoUrl);
 ```
 
+### A refused sign-in
+
+From the next lib-js release, a sign-in refused on the authentication page reaches
+`onStateChange` as a `REFUSED` state carrying the page's `reasonId` and `message` (and
+`serviceInfo`), on both the popup and the redirect paths, so the app can tell why:
+
+```js
+onStateChange: async (state) => {
+  if (state.status === 'REFUSED') {
+    // 'REFUSED_BY_USER': the person cancelled
+    // 'REFUSED_MANDATORY_CONSENT' / 'MANDATORY_CONSENT_FAILED': a mandatory cmcInvites entry
+    // 'MANAGED_ACCOUNT_UNAVAILABLE': actAsManagedOnly, and no managed account could be used
+    showWhy(state.reasonId, state.message);
+  }
+}
+```
+
+`REFUSED` is followed by `INITIALIZED`: the sign-in button resets as before, and a listener
+that only waits for `INITIALIZED` is unaffected. The reason codes are listed with the
+[auth request](/reference/#poll-request) results. In the same release, the `ACCEPTED` state of
+a popup sign-in keeps `cmcInvites` (the outcome of each
+[consent invite](/guides/cross-account-messaging/#outcomes-in-the-accepted-body)) and
+`delegation`, as the redirect path already did.
+
 ### Account menu
 
 From lib-js 3.13, clicking the button while signed in opens a small **account menu**

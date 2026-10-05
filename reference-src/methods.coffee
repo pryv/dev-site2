@@ -1681,6 +1681,8 @@ module.exports = exports =
                    Deletes the specified access. Personal accesses can delete any access. App accesses can delete shared accesses they created. Deleting an app access deletes the shared ones it created.
                    All accesses can also perform a self-delete unless a forbidden `selfRevoke` permission has been set.
 
+                   Deleting the data grant of a [cross-account messaging](/guides/cross-account-messaging/#revoking) consent withdraws that consent, and the requester is sent `consent/revoke-cmc` (best-effort). The person's `consent/accept-cmc` event then records the withdrawal, `content.withdrawal = { at, by: 'accesses.delete', accessId }`, shortly after this call answers. Requires open-pryv.io 2.0.0-rc.36 or later for the withdrawal record.
+
                    **v2 behaviour change** (Pryv.io ≥ 2.0.0-pre.X): the `{id}` is composite-aware, pass the composite `<base>:<serial>` you last observed via [Get accesses](##{_getDocId("accesses", "accesses.get")}) or [Get one access](##{_getDocId("accesses", "accesses.getOne")}). A stale composite returns `409 stale-resource` with `data: { provided, currentSerial }`; refetch and retry. Bare `<base>` is only valid on a never-updated access.
                    """
       params:
@@ -3395,7 +3397,7 @@ module.exports = exports =
           description: """
                        The ids of the consent grants (cross-account messaging data grants) the delegate gave for this account that the account owner keeps. Over HTTP, repeat the query parameter: `?keepAccessIds=<id>&keepAccessIds=<id>`. Nothing is kept by default.
 
-                       A kept grant becomes the account owner's own consent: its delegation lineage (`clientData.delegation`) is removed, `access-info` no longer reports a delegation, the requester is told nothing, and its accept event records `content.ownerConfirmedAt` (seconds). A grant not kept is deleted, its requester receives `consent/revoke-cmc`, and its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }`. The other accesses granted through the delegation are deleted whatever this list holds.
+                       A kept grant becomes the account owner's own consent: its delegation lineage (`clientData.delegation`) is removed, `access-info` no longer reports a delegation, the requester is told nothing, and its accept event records `content.ownerConfirmedAt` (seconds). A grant not kept is deleted, its requester receives `consent/revoke-cmc`, and its accept event records `content.withdrawal = { at, by: 'delegation-detach', relId }` (the same server-owned record the other ways of ending a consent write, see [Revoking](/guides/cross-account-messaging/#revoking)). The other accesses granted through the delegation are deleted whatever this list holds.
                        """
         ]
       result:

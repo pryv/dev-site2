@@ -710,6 +710,15 @@ module.exports = exports =
                        Any other value fails the request with `invalid-parameters` (HTTP 400). A core that does not support it ignores the field. The page offers the choice only when the platform's [service information](#service-info) reports `features.delegation: true` and the user controls at least one active account.
                        """
         ,
+          key: "actAsManagedOnly"
+          type: "boolean"
+          optional: true
+          description: """
+                       `true` when the access must be granted for an account the user manages through [account delegation](/guides/account-delegation/#granting-an-app-access-for-a-controlled-account), never for the signed-in account itself. Requires `actAs` set to `allow` or a username: `true` without `actAs`, or with `actAs: 'deny'`, fails the request with `invalid-parameters` (HTTP 400), and so does a value that is not a boolean. `false` is the same as not sending the field.
+
+                       The authentication page enforces it, not the core: the reference page lists only the active accounts the user manages and opens the account creation form when there is none yet; when no managed account can be used (for example on a platform without delegation), it says why and offers Cancel only, which ends the request `REFUSED` with `reasonId: 'MANAGED_ACCOUNT_UNAVAILABLE'`. The result below echoes `actAsManagedOnly: true` only when the core understood it, which is how you detect support: an older core drops the field, and an older authentication page ignores it and behaves per `actAs`. Requires open-pryv.io 2.0.0-rc.36 or later.
+                       """
+        ,
           key: "cmcInvites"
           type: "array of invite objects"
           optional: true
@@ -737,6 +746,13 @@ module.exports = exports =
             optional: true
             description: """
                          Default `self`: the signed-in account accepts. `target`: the account the access is granted for accepts, when the user grants it for an account they manage (see `actAs`); the page then accepts with its delegate token for that account.
+                         """
+          ,
+            key: "accessName"
+            type: "string"
+            optional: true
+            description: """
+                         The name of the data grant the user mints by accepting this invite: 1 to 256 characters, stored as sent and echoed with the invite. The core does not use it; the authentication page passes it to the accept. Without it, the grant takes the platform's default name. An older core refuses an entry carrying it with `invalid-parameters` (HTTP 400). Requires open-pryv.io 2.0.0-rc.36 or later.
                          """
           ]
         ,
@@ -837,11 +853,18 @@ module.exports = exports =
                        The `actAs` value provided during the auth request; absent when the request did not carry one.
                        """
         ,
+          key: "actAsManagedOnly"
+          type: "`true`"
+          optional: true
+          description: """
+                       Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `actAsManagedOnly: true` and this core understood it. Never on `ACCEPTED`.
+                       """
+        ,
           key: "cmcInvites"
           type: "array of invite objects"
           optional: true
           description: """
-                       The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request.
+                       The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults, `accessName` present only on an entry that carried it). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request.
                        """
         ,
           key: "serviceInfo"
@@ -995,7 +1018,7 @@ module.exports = exports =
           key: "reasonId"
           type: "string"
           description: """
-                       A code indicating the reason for the failure. For a request with `cmcInvites`: `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite, `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted (the `message` then names the invite and the platform's error id).
+                       A code indicating the reason for the failure. For a request with `cmcInvites`: `REFUSED_MANDATORY_CONSENT` when the user declined a mandatory invite, `MANDATORY_CONSENT_FAILED` when a mandatory invite could not be accepted (the `message` then names the invite and the platform's error id). For a request with `actAsManagedOnly`: `MANAGED_ACCOUNT_UNAVAILABLE` when the user had no account they manage to grant the access for (the `message` then names the cause).
                        """
         ,
           key: "message"
