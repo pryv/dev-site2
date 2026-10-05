@@ -29,7 +29,7 @@ This guide describes how to upgrade a running single-core Pryv.io deployment to 
 | ------------------- | ------------------------------ | --------------------------------------------------------------------- |
 | Cores               | 1 (single node)                | 2+ (one existing + one or more new)                                   |
 | Platform DB         | rqlite (single, embedded)      | rqlite (clustered, embedded on every core, joined via DNS discovery)  |
-| Base storage        | 1 (PostgreSQL or MongoDB)      | 1 per core — cores never share the base DB                            |
+| Base storage        | 1 (PostgreSQL or SQLite)       | 1 per core — cores never share the base DB                            |
 | User routing        | All users on one instance      | Each core hosts a subset; discovery via `/reg/cores?username=`        |
 | Public URL          | `https://api.example.com` (dnsLess) or single domain | `{username}.mc.example.com` or per-core URLs (DNSless)  |
 | Raft channel        | local only (loopback)          | mutually-authenticated TLS between cores                              |
