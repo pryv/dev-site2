@@ -53,10 +53,12 @@ A core serves user routes in one of two URL shapes, and the rules below match bo
 
 **How Pryv reads a token.** From the `Authorization` header (the bare token, `Bearer <token>`, or HTTP Basic with the token as user name), otherwise from the `auth` query parameter. The configuration below normalises the header the same way, so a token sent bare, as `Bearer`, with a trailing caller id, or as `?auth=` counts against one bucket. nginx cannot decode Basic credentials, so a token sent as HTTP Basic is keyed on its encoded form and gets a bucket of its own; that only matters for a client that mixes Basic with the other forms.
 
-**How Pryv reads the client IP.** From the `X-Forwarded-For` request header, taken as is, otherwise from the TCP peer. It records that value as the request source in the audit log. Pryv does not keep a list of trusted proxies, so:
+**How Pryv reads the client IP.** From the `X-Forwarded-For` request header only when the request comes from a proxy listed in `http.trustedProxies` (default `['loopback']`, which covers nginx on the same host), otherwise from the TCP peer. It records that value as the request source in the audit log. So:
 
-- nginx must **overwrite** the header with the address it sees (`proxy_set_header X-Forwarded-For $remote_addr;`). Do not use `$proxy_add_x_forwarded_for`: it keeps whatever the client sent, and that client-chosen value is what would reach the audit log.
-- The core's ports must not be reachable except through nginx. Keep `http.ip: 127.0.0.1` (the default) when nginx runs on the same host, or firewall ports 3000 and 4000 to the nginx host otherwise.
+- nginx must **overwrite** the forwarding headers with what it sees: `proxy_set_header X-Forwarded-For $remote_addr;`, `X-Forwarded-Host $http_host;` and `X-Forwarded-Proto $scheme;`. Do not use `$proxy_add_x_forwarded_for`, and do not pass a client's own `X-Forwarded-Host` through: coming from a trusted proxy, it would let that client pick the host a DPoP proof is checked against.
+- nginx on another host, or reaching the core over a Docker bridge (Dokku's nginx arrives from `172.17.0.1`), must be listed in `http.trustedProxies`, or every request is recorded with nginx's address. See [INSTALL, client addresses behind a proxy](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#client-addresses-behind-a-proxy-httptrustedproxies).
+- The core's ports must not be reachable except through nginx, or clients bypass the limits. Keep `http.ip: 127.0.0.1` (the default) when nginx runs on the same host, or firewall ports 3000 and 4000 to the nginx host otherwise.
+- Cores before open-pryv.io 2.0.0-rc.36 take `X-Forwarded-For` as is from any peer: there, overwriting it and closing the core's ports are the only protection of the recorded address.
 - If nginx itself sits behind a load balancer or CDN, use nginx's `real_ip` module (shown below) so that `$remote_addr`, and every per-IP limit, is the real client.
 
 
@@ -237,6 +239,7 @@ server {
     proxy_set_header Connection        "";
     proxy_set_header Host              $http_host;   # hosted sites and user subdomains are recognised by Host
     proxy_set_header X-Forwarded-For   $remote_addr; # overwrite, never append: Pryv records it as the client IP
+    proxy_set_header X-Forwarded-Host  $http_host;   # overwrite too: a client-sent value would pick the DPoP host
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Port  $server_port;
 
@@ -323,6 +326,7 @@ server {
         proxy_set_header Connection        "";
         proxy_set_header Host              127.0.0.1:4000;
         proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Host  $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port  $server_port;
     }
@@ -336,6 +340,7 @@ server {
         proxy_set_header Connection        "upgrade";
         proxy_set_header Host              $http_host;
         proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Host  $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
@@ -411,7 +416,7 @@ Other proxies (HAProxy stick tables, Traefik or Caddy rate-limit middlewares, a 
 
 1. **Move TLS to nginx** (recommended). Switch Pryv to `http.ip: 127.0.0.1`, `http.port: 3000`, remove the `http.ssl` block, and follow the bullet points above to keep the built-in renewer. This is the only option that gives per-route and per-token limits.
 2. **TCP passthrough** with nginx's `stream` module in front of port 443. nginx can then cap concurrent connections per IP (`limit_conn` in the `stream` context) and nothing else: no routes, no tokens, no 429. Worse, Pryv then sees nginx's address as the client of every request, in its audit log too; Pryv does not read the PROXY protocol. Use this only as a stopgap.
-3. **No proxy.** You keep Pryv's in-process limits listed at the top, plus whatever the host firewall can do per IP at the connection level. In this setup any client can send its own `X-Forwarded-For` header and choose the IP that Pryv records for its requests; treat the audit log's source IP as unverified.
+3. **No proxy.** You keep Pryv's in-process limits listed at the top, plus whatever the host firewall can do per IP at the connection level. Keep `http.trustedProxies` at its default: the core then ignores a client's own `X-Forwarded-For` and records the TCP peer. On cores before open-pryv.io 2.0.0-rc.36, any client could choose the IP recorded for its requests; there, treat the audit log's source IP as unverified.
 
 
 ## fail2ban

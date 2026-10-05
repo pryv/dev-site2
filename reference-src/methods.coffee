@@ -841,6 +841,55 @@ module.exports = exports =
                      """
     ,
 
+      id: "events.getPreview"
+      type: "method"
+      title: "Get event preview"
+      httpOnly: true
+      http: "GET /previews/events/{id}[.jpg|.jpeg]"
+      description: """
+                   Gets a JPEG preview of a `picture/attached` event's image, resized from its first attachment. Previews are generated on first request and cached until the event is modified. Authenticate with the [access token](##{dataStructure.getDocId("access")}) in the `Authorization` header or the `auth` query parameter; the access needs read permission on one of the event's streams.
+
+                   Previews are served by the core's previews worker (on by default). Since open-pryv.io 2.0.0-rc.36 this URL is answered on the API's public port, like every other API call; before, it was reachable only through a reverse proxy routing it to the worker.
+                   """
+      params:
+        properties: [
+          key: "id"
+          type: "[identifier](##{dataStructure.getDocId("identifier")})"
+          http:
+            text: "set in request path"
+          description: """
+                       The id of the event. An optional `.jpg` or `.jpeg` suffix is accepted.
+                       """
+        ,
+          key: "w"
+          type: "number"
+          optional: true
+          description: """
+                       The desired width in pixels (alias: `width`). Rounded up to 256, 512, 768 or 1024 (the maximum); the height follows the image's aspect ratio.
+                       """
+        ,
+          key: "h"
+          type: "number"
+          optional: true
+          description: """
+                       The desired height in pixels (alias: `height`), rounded the same way. When both are set, the preview fits within them. When neither is set, the preview is 256 × 256.
+                       """
+        ]
+      result: [
+        title: "Preview"
+        http: "200 OK"
+        description: """
+                     The preview image, `Content-Type: image/jpeg`.
+                     """
+      ,
+        title: "No preview"
+        http: "204 No Content"
+        description: """
+                     The event is not of type `picture/attached`.
+                     """
+      ]
+    ,
+
       id: "events.deleteAttachment"
       type: "method"
       title: "Delete attachment"
