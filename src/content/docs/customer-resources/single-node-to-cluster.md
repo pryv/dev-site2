@@ -17,9 +17,10 @@ This guide describes how to upgrade a running single-core Pryv.io deployment to 
 - A running single-core Pryv.io v2 install with real users and data.
 - DNS control for the target shared domain (you need to publish wildcard A records and an `lsc.{domain}` A record; or, in DNSless mode, NS+A records only).
 - At least one more machine or Dokku app for the second core.
-- A base-storage database (PostgreSQL or MongoDB) for the second core — separate from the first core's.
+- A base-storage database (PostgreSQL by default, or SQLite) for the second core — separate from the first core's.
 - The wildcard (or per-core) SSL certificate covering the new domain.
 - `openssl` available on the existing core (used by the bootstrap CLI to mint the cluster CA on first run — already a system dep on any Pryv.io host).
+- A synchronized clock on every host (chronyd / ntpd): the join is refused when the new core's clock differs from the existing core's by more than 30 s.
 
 
 ## Outcome at a glance
@@ -179,10 +180,15 @@ node bin/master.js \
     --bootstrap-passphrase-file /root/core-b.pass
 ```
 
+If the existing core's API is fronted by a public (Let's Encrypt) certificate, the normal internet-facing case, add `--bootstrap-ack-trust-system-ca`: the ack is then verified against the system CA store instead of the pinned cluster CA, and the one-shot join token remains the authenticator.
+
+**Clock check.** Before the ack, the new core reads the existing core's time (`meta.serverTime` of its API root, else the HTTP `Date` header) and refuses the join when the two clocks differ by more than 30 s: the master exits 1, the join token is not used and the bundle file is kept, so fix the clock and run the same command again. `--bootstrap-clock-skew-seconds <n>` changes the threshold (`0` disables the check).
+
 The master process:
 - decrypts and validates the bundle,
 - writes `override-config.yml` to its config directory and `/etc/pryv/tls/{ca,node}.{crt,key}` (mode 0600 for the key),
-- POSTs an ack to the URL embedded in the bundle, with TLS pinned to the bundled CA,
+- checks its clock against the existing core's and refuses the join on more than 30 s of skew,
+- POSTs an ack to the URL embedded in the bundle, with TLS pinned to the bundled CA (or, with `--bootstrap-ack-trust-system-ca`, verified against the system CA store),
 - on success, deletes the bundle file (the token is single-use; replay attempts get a 401 from the ack endpoint),
 - continues into normal startup — `rqlited` joins the cluster over mTLS.
 
@@ -192,7 +198,7 @@ The ack response includes a snapshot of the cluster's cores so you can sanity-ch
 
 Most single-to-multi-core runs on an **existing** zone with a **valid wildcard cert** are uneventful. The gotchas below tend to bite the operator once, when the cluster is being brought up on a **new** domain before DNS delegation has reached the registrar and before Let's Encrypt has issued the new wildcard:
 
-1. **Bootstrap ack fails TLS verification.** The ack POST uses HTTPS with the cluster CA pinned. If the existing core is serving a public CA (Let's Encrypt) cert for its `dns.domain` instead of a cluster-CA-signed cert, the new core will refuse to connect. The clean way around this is to run the existing core on **plain HTTP** during the bootstrap window: set `core.url: http://<existing-core-ip>` and `http.port: 80`, remove `http.ssl`, restart, issue the bundle (its `ackUrl` is now `http://…`), run `--bootstrap` on the new core, then revert to 443/HTTPS and restart.
+1. **Bootstrap ack fails TLS verification.** The ack POST uses HTTPS with the cluster CA pinned. If the existing core is serving a public CA (Let's Encrypt) cert for its `dns.domain` instead of a cluster-CA-signed cert, the new core will refuse to connect. Pass `--bootstrap-ack-trust-system-ca` to verify the ack against the system CA store (see Step 5). Without it, the other way around this is to run the existing core on **plain HTTP** during the bootstrap window: set `core.url: http://<existing-core-ip>` and `http.port: 80`, remove `http.ssl`, restart, issue the bundle (its `ackUrl` is now `http://…`), run `--bootstrap` on the new core, then revert to 443/HTTPS and restart.
 2. **`rqlited` can't start because `lsc.{domain}` is NXDOMAIN.** Master spawns `rqlited` with `-disco-mode dns -disco-config {"name":"lsc.<dns.domain>",...}`. On a zone that is not yet delegated at the registrar, that lookup fails and rqlite never bootstraps — the master times out after 30 s with "rqlited did not become ready". Add an `/etc/hosts` entry on each core pointing `lsc.<domain>` at the first core's IP. It can be removed as soon as the NS change has propagated and `dig lsc.<domain>` resolves publicly.
 3. **`bootstrap-tokens.json` permission trap.** `bin/bootstrap.js new-core` must run as the same user that runs `bin/master.js`, **not** as root. The default token store is `/var/lib/pryv/bootstrap-tokens.json` and the default CA dir is `/etc/pryv/ca`. If you ran bootstrap with `sudo` on a first-time install, chown those paths to the master's user (`chown -R pryv: /var/lib/pryv /etc/pryv`) — otherwise the ack endpoint returns HTTP 500 with `EACCES` when it tries to consume the token. (Alternatively, override `cluster.ca.path` and `cluster.tokens.path` to locations under the master's home directory.)
 4. **`pkill -f "node bin/master"` self-match over SSH.** When you run a remote kill command inside `ssh host bash -c '…'`, the remote `bash -c` cmdline contains the pattern text and pkill kills the shell itself mid-script. Use `killall <binary>` (matches on binary name only) or put the kill in a script file on the remote.
