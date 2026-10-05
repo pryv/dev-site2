@@ -113,6 +113,10 @@ If you are migrating a v1 register service, the historical [register migration g
 
   This document describes the optional telemetry layer — what it emits and what it cannot emit, how to point it at any OTLP backend (including a collector you host yourself), and how to enable, tune the reporting interval, rotate credentials and disable it.
 
+- Rate limiting and DoS protection: [HTML](/customer-resources/rate-limiting/)
+
+  This document gives a reference nginx and fail2ban setup that throttles login, registration, access requests and per-token API traffic, with limits per workload profile and a load test to verify them.
+
 
 ## Contact and support
 

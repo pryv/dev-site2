@@ -207,6 +207,7 @@ export default defineConfig({
 						{ slug: 'customer-resources/system-streams' },
 						{ slug: 'customer-resources/audit-setup' },
 						{ slug: 'customer-resources/observability' },
+						{ slug: 'customer-resources/rate-limiting' },
 						{ slug: 'customer-resources/healthchecks' },
 						{ slug: 'customer-resources/platform-validation' },
 						{ slug: 'customer-resources/backup' },
