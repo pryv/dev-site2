@@ -3,6 +3,11 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.37
+
+- **Security: trusted-proxy matching (CVE-2026-90711).** The library that matches `http.trustedProxies` is updated: before, an IPv4-mapped IPv6 entry with a short prefix (for example `::ffff:10.0.0.0/8` instead of `::ffff:10.0.0.0/104`) matched every IPv4 client, so any client could choose the address recorded for it. Lists in plain IPv4 notation, the names `loopback` / `linklocal` / `uniquelocal`, and the default were not affected. **Boot check:** a list that would trust every client (for example `::/1`) or a subnet that matches no client now refuses the boot, naming the entry; write IPv4 subnets in IPv4 notation (`10.0.0.0/8`).
+- **SQLite storage engine.** A busy account file no longer blocks the server while it waits, and a data store's per-account key-value storage can remove an entry (`set(key, null)`).
+
 ## 2.0.0-rc.36
 
 - **Breaking (security): no more `REDIRECTED` outcome for an auth request.** `POST /reg/access/{key}` refuses `status: 'REDIRECTED'` with `400 invalid-parameters` like any unknown status, no outcome post stores a `redirectUrl`, and the [poll](/reference/#poll-request) never answers `REDIRECTED`. The status let anyone holding a request key store an unvalidated URL served to the authentication page. No shipped authentication page sent it: a request stays on the core that created it, and an account on another core is served through the shared-secret hand-off. A custom page that posted it must stop.
