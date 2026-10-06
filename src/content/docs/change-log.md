@@ -3,6 +3,14 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.39
+
+- **Security: image previews (CVE-2026-96889).** The image library behind event previews is updated: it bundled a `librsvg` with a memory flaw in SVG decoding that can lead to code execution, and previews detect an attachment's format from its content, so an SVG file attached to a `picture/attached` event was decoded when its preview was requested. Every earlier Docker image is affected; update promptly. No API or configuration change.
+- **Security: cross-account consent, an accept is only taken through the capability.** A `consent/accept-cmc` or `consent/refuse-cmc` written to `:_cmc:inbox` with a relationship token is refused with `400`, `data.id: 'cmc-event-type-not-allowed'`. Before, a peer could open a relationship under any app scope of the requester's account, or mark one of its invites refused. Accepts and refusals reach the requester through the capability's responses stream, as every released version delivers them, so no client or peer change is needed.
+- **Security: previews cache clean-up requires the admin key.** The previews worker's `clean-up-cache` routes now require `Authorization: <auth.adminAccessKey>`. The worker's port is internal and the public port never routed them.
+- **Server-written event fields are applied onto the stored event.** Following 2.0.0-rc.38, the fields the server itself writes onto an existing event (CMC trigger status, consent withdrawal, invite state, delegation and email records, a series event's `duration`, an attachment added or removed) no longer overwrite a client `events.update` that lands in between.
+- **Event types 1.1.3.** `consent/accept-cmc` declares `content.features`, the field the platform reads; `content.extra` is deprecated. No behaviour change.
+
 ## 2.0.0-rc.38
 
 - **Cross-account consent: the offer's `features` decide the chat channel.** A relationship's `features` (`chat`, `systemMessaging`) are now resolved by the server from the offer; the accept may only narrow them (a `true` against an offer that turned the feature off is ignored). The resolved pair is recorded on the accept event (kept on update), on both relationship accesses and on the requester's inbox mirror. A relationship without chat gets no `chats:<counterparty-slug>` stream and no chat permission on either side, and a counterparty writing or editing a `message/chat-cmc` directly is refused with `403`, `data.id: 'cmc-chat-disabled'` (likewise alerts and acks without system messaging). Relationships accepted earlier keep their chat stream: read `features`, not the stream, to decide whether to offer chat. `consent/accept-cmc` `content.features` is validated. See [Sending chat messages](/guides/cross-account-messaging/#sending-chat-messages).
