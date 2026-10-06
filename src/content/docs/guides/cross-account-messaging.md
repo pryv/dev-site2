@@ -196,7 +196,7 @@ await aliceConn.api([{ method: 'events.create', params: {
 
 The plugin delivers the chat to Bob's matching chat stream within ~100ms. Bob's app subscribes to the same stream-id pattern (with Alice's slug) to read incoming chats.
 
-**Features gating.** If the original invite was issued with `content.request.features.chat: false`, both sides' `events.create` rejects with `cmc-chat-disabled` and no delivery happens. The flag is binding on the relationship's lifetime; default-permit on omission. Use `cmc.sendChat()` for the lifecycle-aware wrapper that surfaces the rejection as a `CmcError({ id: cmc.errorIds.CHAT_DISABLED })`.
+**Features gating.** A relationship's `features` are resolved by the server from the offer (`content.request.features`, each one true unless set to `false`); the accept may only narrow them. The resolved pair is recorded on the accept event and on both relationship accesses (`clientData.cmc.features`): read it there, not the existence of a chat stream, to decide whether to offer chat. A relationship without chat has no `chats:<counterparty-slug>` stream and no chat permission on either side (the `chats` parent stays), so a chat write gets `unknown-referenced-resource`, and a counterparty writing a `message/chat-cmc` directly with its relationship token is refused with `403`, `data.id: 'cmc-chat-disabled'`. Relationships accepted before open-pryv.io 2.0.0-rc.38 keep their chat stream; on them sends reject with `cmc-chat-disabled` when `features.chat` is false, surfaced by `cmc.sendChat()` as a `CmcError({ id: cmc.errorIds.CHAT_DISABLED })`.
 
 ## Sending system notifications
 
@@ -297,10 +297,10 @@ const { inviteEventId, capabilityUrl } = await cmc.createInvite(conn, {
   // cmc.invalidateCapability). Out of range: cmc-capability-ttl-out-of-range;
   // null on single-use: cmc-capability-no-expiry-not-allowed.
   // expiresAt: Math.floor(Date.now() / 1000) + 3600,
-  // Optional features negotiation — omitted defaults to true for both.
-  // Setting either to false makes that channel binding-disabled for the
-  // resulting relationship; sends will reject with cmc-chat-disabled /
-  // cmc-system-messaging-disabled.
+  // Optional features negotiation: omitted defaults to true for both.
+  // Setting either to false disables that channel for the resulting
+  // relationship (the accept can only narrow): without chat there is no
+  // chat stream at all; system sends reject with cmc-system-messaging-disabled.
   features: { chat: true, systemMessaging: true },
 });
 
@@ -369,6 +369,8 @@ await cmc.requestAccept({
 ```
 
 The `/cmc-accept` page renders the offer details (requester identity, requested permissions, consent message), prompts the user to sign in with their Pryv credentials, writes the consent/accept-cmc trigger with the fresh personal token, and returns the outcome to your app via popup `postMessage` (default) or `returnUrl` redirect. The outcome carries no credential: the requester gets the data-grant endpoint on its own side, from `cmc.waitForAccept` (`grantedAccessApiEndpoint`).
+
+**An account cannot accept its own invite.** An open link can be opened by anyone, including the account that created it (for example on a device where the requester is signed in). Since open-pryv.io 2.0.0-rc.38 such an accept fails with `failure.reason: 'cmc-self-accept-forbidden'` before anything is provisioned; `acceptInvite` throws a `CmcError` with that id. Have the person the invite was meant for answer it from their own account.
 
 Same shape for scope-update:
 
