@@ -257,7 +257,7 @@ The plugin tears down both sides of the access pair. The chat / collectors histo
 - After `accesses.delete`, it lands shortly after the call answers, and the user's socket clients receive `eventsChanged` when it does.
 - A consent accepted on an older core whose data grant does not point back to its accept event has nothing to mark: the audit log remains its record.
 
-**Listing consents.** An app that lists the person's consents should treat an accept event carrying `withdrawal` as ended. From the next `@pryv/cmc` release, `cmc.listAcceptedRelationships` leaves withdrawn relationships out by default; pass `includeWithdrawn: true` to list them too. Every record carries `withdrawal`, `null` while the relationship is active. On an older core, which records only the `delegation-detach` withdrawal, the other ended relationships still look active.
+**Listing consents.** An app that lists the person's consents should treat an accept event carrying `withdrawal` as ended. Since `@pryv/cmc` 3.18.0, `cmc.listAcceptedRelationships` leaves withdrawn relationships out by default; pass `includeWithdrawn: true` to list them too. Every record carries `withdrawal`, `null` while the relationship is active. On an older core, which records only the `delegation-detach` withdrawal, the other ended relationships still look active.
 
 ## Lib-js helpers
 

@@ -64,7 +64,7 @@ const service = await pryv.Browser.setupAuth({
 
 ### A refused sign-in
 
-From the next lib-js release, a sign-in refused on the authentication page reaches
+Since `pryv` 3.16.0, a sign-in refused on the authentication page reaches
 `onStateChange` as a `REFUSED` state carrying the page's `reasonId` and `message` (and
 `serviceInfo`), on both the popup and the redirect paths, so the app can tell why:
 
