@@ -3,6 +3,19 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.41
+
+Security release: upgrade promptly. No configuration change is needed for the security fixes; Docker operators, read the non-root note below.
+
+- **Security: SMS MFA in `single` mode.** The pending code is shared by the API workers, and `mfa.verify` / `mfa.confirm` refuse unless that exact code is sent. TOTP and SMS `challenge-verify` setups were not concerned. A correct code is also no longer refused when the request reaches another worker.
+- **Security: MFA changes need the account's own login.** `mfa.activate` and `mfa.deactivate` called with a delegated personal access (account delegation) get `403`, `data.id: 'delegation-genuine-login-required'`.
+- **Security: access aliases are set by the server only.** Use `randomAlias: true`; an `alias` in `accesses.create` is refused with `403`. Deleting an access releases only an alias of the same account.
+- **Security: a delegated personal access does not see the owner's tokens.** In `accesses.get`, `accesses.getOne`, `accesses.update` and `accesses.checkApp`, it gets the `token` and `apiEndpoint` of itself and of the accesses it created only. An app authorised through a delegated session therefore gets its own access, removed with the delegation.
+- **Security: login sessions belong to one account.** A session is reused and accepted only for the account it was opened for; a session left under a username by a former owner of that name is never handed over. Existing sessions keep working; the next login of each app opens a new one.
+- **Security (deployments allowing `personalToken` in `user-account.delete`).** A personal token only deletes its own account, whatever the transport, and a logged-out or expired token cannot delete it.
+- **Docker image: the server runs as a non-root user.** The container still starts as root, hands its data directories to the `node` user (uid 1000) and drops to it, keeping only the right to bind ports below 1024. No action for the documented layouts; data placed elsewhere needs `PRYV_OWNED_DIRS`, and files the server only reads must be readable by uid 1000. `PRYV_RUN_AS_ROOT=true` restores the previous behaviour. See INSTALL.md, "Container user".
+- **Docker image for `linux/arm64`.** `pryvio/open-pryv.io` is published for `linux/amd64` and `linux/arm64` under the same tag.
+
 ## 2.0.0-rc.40
 
 Security release: upgrade promptly. Before upgrading, check that `auth.adminAccessKey` and `auth.filesReadTokenSecret` are at least 16 characters; after upgrading, run `bin/hfs-author-scrub.js` once per core (see below).
