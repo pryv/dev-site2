@@ -3,6 +3,18 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.40
+
+Security release: upgrade promptly. Before upgrading, check that `auth.adminAccessKey` and `auth.filesReadTokenSecret` are at least 16 characters; after upgrading, run `bin/hfs-author-scrub.js` once per core (see below).
+
+- **Security: `accesses.update` only changes the updatable fields.** Only `name`, `deviceName`, `permissions`, `expireAfter`, `expires` and `clientData` can be updated, as the method always documented; any other field (`type`, `token`, `id`, `createdBy`, `alias`, …) is refused with `403 forbidden` and the access is left unchanged. A personal access is now valid only with a session opened for the same account (sessions survive a username change).
+- **Security: registration ignores server-owned fields.** `POST /users` (and `/reg/user`, `/reg/users`) no longer takes `id`, `passwordHash` or `events` from its parameters. Custom account fields are unchanged.
+- **Security: HF series `modifiedBy` is the writing access id.** Writing to a high-frequency series recorded the request's authorization value as the series event's `modifiedBy`; it now records the access id (with the caller id when given), like every other write. Operators: after upgrading the code and before restarting, run `node bin/hfs-author-scrub.js --dry-run`, then `--revoke` (rewrites the stored values and deletes the accesses concerned as `accesses.delete` does), then restart. With the Docker image, run it with `docker exec` in the running container, then restart it. The tool prints no credential.
+- **Security: event ids.** A client-supplied event id must be exactly one of the accepted shapes (the store-prefixed form was not anchored at its end); attachment and preview paths are also checked to stay inside the account's directory.
+- **Security, BREAKING for weak configurations: placeholder secrets refused at boot.** A core does not start when `auth.adminAccessKey` or `auth.filesReadTokenSecret` is a placeholder (such as `OVERRIDE ME`), or shorter than 16 characters with `NODE_ENV=production`. `bin/check-config.js` reports the same.
+- **Security (hardening): previews no longer decode SVG.** A `picture/attached` event whose attachment is an SVG file gets `422 corrupted-data` from the previews route, as any format it cannot preview.
+- **HF series `duration` in seconds.** Writing points set the series event's `duration` in nanoseconds; new writes now set it in seconds. Series events written by earlier releases keep the oversized duration until a repair tool in a later release.
+
 ## 2.0.0-rc.39
 
 - **Security: image previews (CVE-2026-96889).** The image library behind event previews is updated: it bundled a `librsvg` with a memory flaw in SVG decoding that can lead to code execution, and previews detect an attachment's format from its content, so an SVG file attached to a `picture/attached` event was decoded when its preview was requested. Every earlier Docker image is affected; update promptly. No API or configuration change.
