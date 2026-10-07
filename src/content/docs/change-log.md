@@ -3,6 +3,15 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.42
+
+Docker operators: before upgrading, check that `storages.engines.sqlite.path` points at a mounted volume; the image now refuses to start otherwise.
+
+- **Docker image: refuses a user data root on the container's own filesystem.** Inside the image, the server does not start when `storages.engines.sqlite.path` (per-user databases, attachments, SQLite audit and series) is on the container's own filesystem or on a tmpfs while an engine writes there: that data would be lost whenever the container is recreated. Set it to a mounted path (e.g. `/app/data/users` with `/app/data` mounted); `PRYV_EPHEMERAL_DATA_OK=true` lifts the check for a throwaway container. Native installs are not checked.
+- **Configuration: `${PRYV_DATADIR}` / `${PRYV_LOGSDIR}` are gone from `production-config.yml`.** Nothing ever expanded them, so the documented plain-Docker and Dokku setups failed at boot unless the override restated both keys. INSTALL.md now shows the override the `/app/data` mount needs and the real order of the configuration layers.
+- **Docker image: Node 24.18.1 and current Debian security updates.** The image stays below Node 24.19 (nodejs/node#65446) and no longer ships `curl` (use `node -e "fetch(…)"` for checks inside the container). Native installs should run Node 24.18.1 and hold the package so routine upgrades do not move past 24.18.
+- **Install wizard.** The generated `run-pryv.sh` restarts the platform after a host reboot (`--restart unless-stopped`, `--stop-timeout 30`), and `pryv-config.yml`, which holds the generated secrets, is written readable by its owner only.
+
 ## 2.0.0-rc.41
 
 Security release: upgrade promptly. No configuration change is needed for the security fixes; Docker operators, read the non-root note below.
