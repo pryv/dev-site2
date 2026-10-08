@@ -17,7 +17,9 @@ What Pryv **does** limit by itself, so you do not duplicate or contradict it:
 
 | In-process limit | Where it applies | Configured by |
 |---|---|---|
-| Per-account backoff on failed second factors: after `freeFailures` (3) failures, each further failure delays the next attempt, doubling from 2 s to 300 s; answers `429 too-many-attempts` with `Retry-After` | MFA `verify`, `confirm`, `challenge` | `services.mfa.attempts` (see [MFA](/customer-resources/mfa/)) |
+| Per-account backoff on failed second factors: after `freeFailures` (3) failures, each further failure delays the next attempt, doubling from 2 s to 300 s; answers `429 too-many-attempts` with `Retry-After` | MFA `verify`, `confirm`, `challenge`, and the step-up of `deactivate` and of an `activate` replacing an active enrolment | `services.mfa.attempts` (see [MFA](/customer-resources/mfa/)) |
+| SMS send limits: one SMS every 30 s per MFA session, 5 per user per hour, 10 per phone number per day; answers `429 too-many-attempts` with `retryAfterSeconds` | MFA login, `activate`, `challenge` (SMS method) | `services.mfa.methods.sms.sendLimits` (see [MFA](/customer-resources/mfa/#sms-codes-and-send-limits)) |
+| Ceiling on pending MFA sessions per core (10 000 by default); answers `429 too-many-requests` with `Retry-After` | MFA login, `activate` | `services.mfa.sessions.maxPending` |
 | Ceiling on pending access requests per core (10 000 by default, 16 KiB each); answers `429 too-many-requests` with `Retry-After: 60` | `POST /reg/access` | `access.maxLiveRequests`, `access.maxRequestBytes` |
 | Per-address caps on sign-up email codes | `email-challenge` | see [Emails](/customer-resources/emails-setup/#at-registration-the-code-flow) |
 | Request body size: JSON bodies, and each file of a multipart upload | every route | `uploads.maxSizeMb` (default 50) |

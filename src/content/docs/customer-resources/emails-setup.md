@@ -4,7 +4,7 @@ description: How to configure transactional emails in Open Pryv.io (welcome, pas
 ---
 
 
-Open Pryv.io sends four kinds of transactional email:
+Open Pryv.io sends five kinds of transactional email:
 
 | Type | Sent when | Template | Switch |
 |---|---|---|---|
@@ -12,8 +12,9 @@ Open Pryv.io sends four kinds of transactional email:
 | **password reset** | after a reset request | `reset-password` | `services.email.enabled.resetPassword` |
 | **email verification** | an address is added to an account, or a verification is requested again. Carries a one-time link. | `verify-email` | `services.email.enabled.verifyEmail` (**on by default**) |
 | **registration code** | the sign-up gate is on and a client requests a code for an address. Carries a copy/paste code, not a link. | `email-challenge` | `account.emailVerification.requireAtRegistration` |
+| **MFA change notice** | the account's MFA is enrolled, replaced, deactivated, removed with a recovery code or reset by the administrator | `mfa-change` | `services.email.enabled.mfaChange` (**on by default**) |
 
-All four share the same SMTP transport and Pug template pipeline. The last two are described in [Email verification](#email-verification).
+All five share the same SMTP transport and Pug template pipeline. The registration code and email verification are described in [Email verification](#email-verification), the MFA change notice in [MFA change notice](#mfa-change-notice).
 
 v2 supports two delivery paths. Pick one at `services.email.method` in `override-config.yml`:
 
@@ -36,6 +37,7 @@ services:
       welcome: true
       resetPassword: true
       verifyEmail: true           # on by default, see 'Email verification' below
+      mfaChange: true             # on by default, see 'MFA change notice' below
 ```
 
 
@@ -51,6 +53,7 @@ services:
     resetPasswordTemplate: reset-password
     verifyEmailTemplate: verify-email
     emailChallengeTemplate: email-challenge
+    mfaChangeTemplate: mfa-change
     from:
       name: 'Pryv Lab no-reply'
       address: 'no-reply@your-domain.example'
@@ -160,13 +163,27 @@ What to know before turning it on:
 `onAccount` is true only when a verification mail would actually be sent: switch on, page URL set, mail configured. `atRegistration` mirrors `account.emailVerification.requireAtRegistration` exactly, because the boot check has already refused an incapable configuration.
 
 
+## MFA change notice
+
+When an account's [MFA](/customer-resources/mfa/) changes, a notice is sent to the account's email address: on enrolment, replacement of an active enrolment, deactivation, removal with a recovery code, and reset by the platform administrator. It is best-effort: sent only when mail is configured and the account has an address, after the change, and a delivery failure never fails the MFA call. Turn it off with `services.email.enabled.mfaChange: false`.
+
+The template (`services.email.mfaChangeTemplate`, default `mfa-change`) is rendered in the account's language, else `defaultLang`, with these substitutions:
+
+| Variable | Value |
+|---|---|
+| `USERNAME` | the account's username |
+| `MFA_CHANGE` | `enrolled`, `replaced`, `deactivated`, `recovered` or `deactivatedByAdmin` |
+| `MFA_ENROLLED`, `MFA_REPLACED`, `MFA_DEACTIVATED`, `MFA_RECOVERED`, `MFA_DEACTIVATED_BY_ADMIN` | `'true'` for the change that happened, `''` for the others (for conditionals in the template) |
+
+A deployment whose templates were seeded before `mfa-change` was bundled must add it (`subject` and `html` parts, per language) with `bin/mail.js templates set mfa-change <lang> <part> --file <path>`; the bundled source is in `components/mail/templates/mfa-change/` of open-pryv.io.
+
 ## `in-process` mode (recommended) <a name="in-process-mode"></a>
 
 In-process mode renders Pug templates inside the api-server workers that already handle registration and password-reset. Templates live in the cluster-wide PlatformDB (rqlite) and propagate automatically to every core.
 
 ### Boot-time template seeding <a name="boot-time-template-seeding"></a>
 
-On the **first** boot with an empty PlatformDB, the master seeds the **template set bundled with the mail component** (`welcome-email`, `reset-password`, `verify-email` and `email-challenge`, each in `en` and `fr`). A fresh install can therefore send all four mail classes without anyone authoring a template first.
+On the **first** boot with an empty PlatformDB, the master seeds the **template set bundled with the mail component** (`welcome-email`, `reset-password`, `verify-email`, `email-challenge` and `mfa-change`, each in `en` and `fr`). A fresh install can therefore send all five mail classes without anyone authoring a template first. A deployment seeded before a template was added to the bundled set does not get it automatically: add it with `bin/mail.js templates set` (see below).
 
 To seed your own set instead, point `templatesRootDir` at an on-disk Pug directory. When the key is set, the bundled set is not used:
 
@@ -194,7 +211,9 @@ Directory layout expected:
 │       └── html.pug
 ├── verify-email/
 │   └── ...
-└── email-challenge/
+├── email-challenge/
+│   └── ...
+└── mfa-change/
     └── ...
 ```
 

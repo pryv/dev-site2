@@ -128,7 +128,13 @@ module.exports = exports =
     title: "Multi-factor authentication"
     trustedOnly: true
     description: """
-                 Methods for handling multi-factor authentication (MFA) on top of the usual [Login method](##{_getDocId("auth", "auth.login")}).
+                 Methods for handling multi-factor authentication (MFA) on top of the usual [Login method](##{_getDocId("auth", "auth.login")}). Two methods exist: an authenticator app (`totp`) and `sms`; which ones a platform offers, and how SMS codes are sent, is set by the platform operator (see [MFA configuration](/customer-resources/mfa/)).
+
+                 **MFA session token.** The login and the activation open a pending MFA session and answer its `mfaToken`. It is valid only under the path of its own account (`/{username}/mfa/...`) and expires a fixed time after it was created (30 minutes by default): attempts and re-sent challenges do not extend it. An invalid, expired or foreign token answers `401 invalid-access-token`.
+
+                 **Step-up.** Turning MFA off ([Deactivate MFA](##{_getDocId("mfa", "mfa.deactivate")})) and replacing an active enrolment ([Activate MFA](##{_getDocId("mfa", "mfa.activate")}) when one is active) also require, besides the personal token, a proof in the request body: either `password` (the account password) or `code` (a current code of the account's authenticator app, accepted once). An SMS enrolment steps up with the password. Neither of the two (or both) answers `400 invalid-parameters-format` with `error.data.id: 'step-up-required'`; a wrong one answers `403 invalid-step-up` and counts as a failed attempt in the account's MFA backoff. (A platform can lift this requirement for one release with `services.mfa.stepUp.required: false`, a migration opt-out for clients not yet sending the step-up.)
+
+                 **Notices.** When the platform has e-mail configured, the account's address receives a notice when its MFA is enrolled, replaced, deactivated, removed with a recovery code or reset by the platform administrator.
                  """
     sections: [
       id: "mfa.login"
@@ -138,7 +144,9 @@ module.exports = exports =
       http: "POST /auth/login"
       description: """
                    Proxied [Login](##{_getDocId("auth", "auth.login")}) call that initiates MFA authentication,
-                   when MFA is activated for the current user.
+                   when MFA is activated for the current user. Instead of the personal token, the result carries an `mfaToken` to complete the login with [Verify MFA challenge](##{_getDocId("mfa", "mfa.verify")}). For the `sms` method a code is sent to the enrolled phone for this session.
+
+                   An account enrolled in a method that is not active on the server cannot log in: the login answers `403 mfa-method-inactive` and creates no session (an operator can restore a password-only login for these accounts with `services.mfa.allowLoginWhenMethodInactive`).
                    """
       params:
         description: """
@@ -152,7 +160,32 @@ module.exports = exports =
           description: """
                        An expiring MFA session token to be used all along the MFA flow (challenge, verification).
                        """
+        ,
+          key: "mfaMethod"
+          type: "`totp`|`sms`"
+          description: """
+                       The method of the account's enrolment, so the app prompts for the right code (authenticator app or SMS).
+                       """
         ]
+      errors: [
+        key: "mfa-method-inactive"
+        http: "403"
+        description: """
+                     The account is enrolled in an MFA method that is not active on this server. No session is created; the user should contact the platform operator.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     `sms` method: an SMS send limit is reached (see [Trigger MFA challenge](##{_getDocId("mfa", "mfa.challenge")})). Retry after `error.data.retryAfterSeconds`.
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server holds too many pending MFA sessions. Retry later (`Retry-After` header).
+                     """
+      ]
       examples: [
         title: "Login when MFA is activated."
         params:
@@ -161,6 +194,7 @@ module.exports = exports =
           appId: "my-app-id"
         result:
           mfaToken: '215bcc40-1296-11ea-9ff7-453ff2437834'
+          mfaMethod: 'totp'
       ]
 
     ,
@@ -171,14 +205,44 @@ module.exports = exports =
       httpOnly: true
       http: "POST /mfa/activate"
       description: """
-                   Initiates the MFA activation flow for a given Pryv.io user, triggering the MFA challenge.
+                   Initiates the MFA activation flow for a given Pryv.io user: for `totp` the result carries the secret to add to the authenticator app, for `sms` a code is sent to the given phone. The enrolment takes effect once [confirmed](##{_getDocId("mfa", "mfa.confirm")}).
 
-                   Requires a personal token as [authorization](#basics-authorization), which should be obtained during a prior [Login call](##{_getDocId("auth", "auth.login")}).
+                   Requires a personal token as [authorization](#basics-authorization), obtained by the account's own [Login call](##{_getDocId("auth", "auth.login")}): a delegated personal access ([account delegation](/guides/account-delegation/)) is refused with `403 delegation-genuine-login-required`.
+
+                   An account has at most one pending activation: a new call invalidates the `mfaToken` of the previous one. When the account already has an active enrolment, this call replaces it and requires a step-up (`password` or `code`, see [Multi-factor authentication](#multi-factor-authentication)); if the enrolment changes in the meantime, the confirmation is refused and the activation must be started again.
                    """
       params:
+        properties: [
+          key: "method"
+          type: "`totp`|`sms`"
+          optional: true
+          description: """
+                       The MFA method to enrol. Defaults to the platform's default method (`services.mfa.defaultMethod`, `totp` unless configured otherwise).
+                       """
+        ,
+          key: "phone"
+          type: "string"
+          description: """
+                       `sms` method only, required: the phone number to send codes to, in E.164 format: `+` followed by the country code and number, 7 to 15 digits, the first not `0` (e.g. `+41791234567`).
+                       """
+        ,
+          key: "password"
+          type: "string"
+          optional: true
+          description: """
+                       Step-up, when replacing an active enrolment: the account password.
+                       """
+        ,
+          key: "code"
+          type: "string"
+          optional: true
+          description: """
+                       Step-up, when replacing an active `totp` enrolment: a current code of the authenticator app (used once).
+                       """
+        ]
         description: """
-              The parameters depend entirely on the chosen MFA method and will be forwarded as-is to the service generating the challenge. Make sure to URL encode parameters if they appear in query parameters.
-              """
+                     A `totp` activation takes no other parameter. An `sms` activation accepts, besides `phone`, only the keys the platform lists in `services.mfa.methods.sms.contentKeys` (for example `language`, used in the provider's message template); each value is a string, and the enrolment content (`phone` and these keys) is limited to 256 bytes. Any other key is refused.
+                     """
       result:
         http: "302 Found"
         properties: [
@@ -187,13 +251,91 @@ module.exports = exports =
           description: """
                        An expiring MFA session token to be used all along the MFA flow (challenge, verification).
                        """
+        ,
+          key: "method"
+          type: "string"
+          optional: true
+          description: """
+                       `totp` method: `"totp"`.
+                       """
+        ,
+          key: "otpauthUri"
+          type: "string"
+          optional: true
+          description: """
+                       `totp` method: the `otpauth://` URI to show as a QR code to the authenticator app.
+                       """
+        ,
+          key: "secret"
+          type: "string"
+          optional: true
+          description: """
+                       `totp` method: the Base32 secret, for manual entry in the authenticator app.
+                       """
         ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     The parameters are not accepted. `error.data.id` tells why: `invalid-mfa-content` (a missing or non-E.164 `phone`, a key that is not accepted, a value that is not a string, or content over 256 bytes), `invalid-mfa-method` (an unknown or inactive method), `step-up-required` (an active enrolment is replaced without `password` or `code`, or with both).
+                     """
+      ,
+        key: "invalid-step-up"
+        http: "403"
+        description: """
+                     The step-up `password` or `code` does not match. The attempt counts in the account's MFA backoff.
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The call does not use a personal token.
+                     """
+      ,
+        key: "delegation-genuine-login-required"
+        http: "403"
+        description: """
+                     The call uses a delegated personal access: MFA changes need the account's own login.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed second factors or step-ups for this account (the step-up is not checked until the delay runs out), or, for `sms`, an SMS send limit is reached. Retry after `error.data.retryAfterSeconds`.
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server holds too many pending MFA sessions. Retry later (`Retry-After` header).
+                     """
+      ]
       examples: [
-        title: "Initiating the MFA activation using a phone number."
+        title: "Initiating an authenticator app (TOTP) activation."
         params:
-          phone_number: '41791234567'
+          method: 'totp'
         result:
           mfaToken: '215bcc40-1296-11ea-9ff7-453ff2437834'
+          method: 'totp'
+          otpauthUri: "otpauth://totp/pryv.me%3A#{examples.users.one.username}?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=pryv.me&algorithm=SHA1&digits=6&period=30"
+          secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
+      ,
+        title: "Initiating an SMS activation."
+        params:
+          method: 'sms'
+          phone: '+41791234567'
+        result:
+          mfaToken: '215bcc40-1296-11ea-9ff7-453ff2437834'
+      ,
+        title: "Replacing an active enrolment (step-up with the account password)."
+        params:
+          method: 'totp'
+          password: examples.users.one.password
+        result:
+          mfaToken: '215bcc40-1296-11ea-9ff7-453ff2437834'
+          method: 'totp'
+          otpauthUri: "otpauth://totp/pryv.me%3A#{examples.users.one.username}?secret=KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU&issuer=pryv.me&algorithm=SHA1&digits=6&period=30"
+          secret: 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU'
       ]
 
     ,
@@ -204,14 +346,18 @@ module.exports = exports =
       httpOnly: true
       http: "POST /mfa/confirm"
       description: """
-                   Confirms the MFA activation by verifying the MFA challenge triggered by a prior [MFA activation call](##{_getDocId("mfa", "mfa.activate")}).
+                   Confirms the MFA activation by verifying the MFA challenge triggered by a prior [MFA activation call](##{_getDocId("mfa", "mfa.activate")}). On success the enrolment is saved (replacing the previous one, if any) and recovery codes are returned.
 
-                   Requires a MFA session token as [authorization](#basics-authorization).
+                   Requires the MFA session token of the activation as [authorization](#basics-authorization).
                    """
       params:
-        description: """
-              The parameters depend entirely on the chosen MFA method and will be forwarded to the service verifying the challenge.
-              """
+        properties: [
+          key: "code"
+          type: "string"
+          description: """
+                       The code shown by the authenticator app (`totp`) or received by SMS (`sms`): 4 to 10 digits. Only this parameter is used.
+                       """
+        ]
       result:
         http: "200 OK"
         properties: [
@@ -222,10 +368,22 @@ module.exports = exports =
                        """
         ]
       errors: [
-        key: "forbidden"
-        http: "403"
+        key: "invalid-access-token"
+        http: "401"
         description: """
-                     Invalid MFA session token.
+                     Invalid or expired MFA session token, a token of another account or of a login, or a session invalidated after too many wrong codes.
+                     """
+      ,
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Missing or malformed `code`, or a wrong code (`error.data.id: 'invalid-mfa-code'`).
+                     """
+      ,
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The account's enrolment changed since this activation started: start again with [Activate MFA](##{_getDocId("mfa", "mfa.activate")}).
                      """
       ,
         key: "too-many-attempts"
@@ -237,7 +395,7 @@ module.exports = exports =
       examples: [
         title: "Finalizing the MFA activation."
         params:
-          code: '1234'
+          code: '123456'
         result:
           recoveryCodes: [
             'fba6e1f6-9f8f-4a0a-9c4f-8cf3458b4c55',
@@ -260,9 +418,11 @@ module.exports = exports =
       title: "Trigger MFA challenge"
       http: "POST /mfa/challenge"
       description: """
-                   Triggers the MFA challenge, depending on the chosen MFA method (e.g. send a verification code by SMS).
+                   Triggers the MFA challenge again, depending on the chosen MFA method: for `sms`, sends a new code (the login and the activation already send one); for `totp`, nothing is sent (the code is on the user's device) and the result names the method.
 
-                   Requires a MFA session token as [authorization](#basics-authorization).
+                   Requires a MFA session token as [authorization](#basics-authorization). No request body parameter is used. A login session is refused once the account's enrolment has changed (deactivated, recovered or replaced) since the login.
+
+                   **SMS send limits.** Every SMS (login, activation, this call) is counted, with platform-set limits; by default at most one SMS every 30 seconds on one MFA session, 5 per account per hour and 10 per phone number per day. When the platform generates the code itself (`single` mode), the code is valid for 5 minutes by default and a new challenge replaces the previous code of the session.
                    """
       result:
         http: "200 OK"
@@ -272,18 +432,25 @@ module.exports = exports =
           description: """
                        "Please verify the MFA challenge."
                        """
+        ,
+          key: "method"
+          type: "string"
+          optional: true
+          description: """
+                       `totp` method: `"totp"`, so the app prompts for an authenticator code.
+                       """
         ]
       errors: [
-        key: "forbidden"
-        http: "403"
+        key: "invalid-access-token"
+        http: "401"
         description: """
-                     Invalid MFA session token.
+                     Invalid or expired MFA session token, a token of another account, or a login session whose enrolment has changed since the login.
                      """
       ,
         key: "too-many-attempts"
         http: "429"
         description: """
-                     Too many failed second factors for this account: no challenge is sent until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`).
+                     Too many failed second factors for this account, or an SMS send limit is reached: nothing is sent until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`).
                      """
       ]
     ,
@@ -294,14 +461,18 @@ module.exports = exports =
       httpOnly: true
       http: "POST /mfa/verify"
       description: """
-                   Verifies the MFA challenge triggered by a prior [MFA challenge call](##{_getDocId("mfa", "mfa.challenge")}).
+                   Verifies the second factor of a [login with MFA](##{_getDocId("mfa", "mfa.login")}) and completes the login.
 
-                   Requires a MFA session token as [authorization](#basics-authorization).
+                   Requires the MFA session token of the login as [authorization](#basics-authorization). The session is refused once the account's enrolment has changed (deactivated, recovered or replaced) since the login.
                    """
       params:
-        description: """
-              The parameters depend entirely on the chosen MFA method and will be forwarded to the service verifying the challenge.
-              """
+        properties: [
+          key: "code"
+          type: "string"
+          description: """
+                       The code shown by the authenticator app (`totp`, accepted once) or received by SMS (`sms`): 4 to 10 digits. Only this parameter is used.
+                       """
+        ]
       result:
         http: "200 OK"
         properties: [
@@ -310,12 +481,24 @@ module.exports = exports =
           description: """
                        The personal access token to use for further API calls.
                        """
+        ,
+          key: "apiEndpoint"
+          type: "string"
+          description: """
+                       The API endpoint containing the authorization token, as returned by [Login](##{_getDocId("auth", "auth.login")}).
+                       """
         ]
       errors: [
-        key: "forbidden"
-        http: "403"
+        key: "invalid-access-token"
+        http: "401"
         description: """
-                     Invalid MFA session token.
+                     Invalid or expired MFA session token, a token of another account or of an activation, a session invalidated after too many wrong codes, or a session whose enrolment has changed since the login.
+                     """
+      ,
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Missing or malformed `code`, or a wrong code (`error.data.id: 'invalid-mfa-code'`).
                      """
       ,
         key: "too-many-attempts"
@@ -327,9 +510,10 @@ module.exports = exports =
       examples: [
         title: "Verifying the MFA challenge."
         params:
-          code: '1234'
+          code: '123456'
         result:
           token: examples.accesses.personal.token
+          apiEndpoint: helpers.getApiEndpoint(examples.accesses.personal.token, examples.users.one.username)
       ]
     ,
 
@@ -341,8 +525,24 @@ module.exports = exports =
       description: """
                    Deactivate MFA for a given Pryv.io user.
 
-                   Requires a personal token as [authorization](#basics-authorization).
+                   Requires a personal token as [authorization](#basics-authorization), obtained by the account's own [Login call](##{_getDocId("auth", "auth.login")}) (a delegated personal access is refused with `403 delegation-genuine-login-required`), and a step-up in the request body: `password` or `code` (see [Multi-factor authentication](#multi-factor-authentication)). The step-up is required whether or not the account has an active enrolment. No other parameter is accepted.
                    """
+      params:
+        properties: [
+          key: "password"
+          type: "string"
+          optional: true
+          description: """
+                       The account password. Send either `password` or `code`.
+                       """
+        ,
+          key: "code"
+          type: "string"
+          optional: true
+          description: """
+                       A current code of the account's authenticator app (`totp` enrolment only; used once). Send either `password` or `code`.
+                       """
+        ]
       result:
         http: "200 OK"
         properties: [
@@ -352,6 +552,50 @@ module.exports = exports =
                        "MFA deactivated."
                        """
         ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Neither `password` nor `code` (or both) is given (`error.data.id: 'step-up-required'`), or an unexpected parameter is sent.
+                     """
+      ,
+        key: "invalid-step-up"
+        http: "403"
+        description: """
+                     The `password` or `code` does not match. The attempt counts in the account's MFA backoff.
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The call does not use a personal token.
+                     """
+      ,
+        key: "delegation-genuine-login-required"
+        http: "403"
+        description: """
+                     The call uses a delegated personal access: MFA changes need the account's own login.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed second factors or step-ups for this account: the step-up is not checked until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`).
+                     """
+      ]
+      examples: [
+        title: "Deactivating MFA with the account password."
+        params:
+          password: examples.users.one.password
+        result:
+          message: "MFA deactivated."
+      ,
+        title: "Deactivating MFA with a current authenticator app code."
+        params:
+          code: '123456'
+        result:
+          message: "MFA deactivated."
+      ]
     ,
 
       id: "mfa.recover"
@@ -362,11 +606,11 @@ module.exports = exports =
                    Deactivate MFA for a given Pryv.io user using a MFA recovery code.
 
                    This is useful when [Deactivate MFA](##{_getDocId("mfa", "mfa.deactivate")}) can not be used (in case of 2nd factor loss).
-                   Instead, requires a MFA recovery code (obtained when [confirming the MFA activation](##{_getDocId("mfa", "mfa.confirm")})), as well as the usual [Login](##{_getDocId("auth", "auth.login")}) parameters.
+                   Instead, requires a MFA recovery code (obtained when [confirming the MFA activation](##{_getDocId("mfa", "mfa.confirm")})), as well as the account's username and password.
                    """
       params:
         description: """
-                     Similar to the usual [Login](##{_getDocId("auth", "auth.login")}) parameters, as well as:
+                     The account's `username` and `password`, as well as (no other parameter is accepted):
                      """
         properties: [
           key: "recoveryCode"
@@ -385,16 +629,22 @@ module.exports = exports =
                        """
         ]
       errors: [
-        key: "missing-parameter"
+        key: "invalid-parameters-format"
         http: "400"
         description: """
-                     Missing parameter: recoveryCode.
+                     A missing or unexpected parameter, or an invalid recovery code.
                      """
       ,
-        key: "invalid-parameter"
+        key: "invalid-credentials"
+        http: "401"
+        description: """
+                     The username and password do not match.
+                     """
+      ,
+        key: "invalid-operation"
         http: "400"
         description: """
-                     Invalid recovery code.
+                     MFA is not active for this account.
                      """
       ]
       examples: [
@@ -403,7 +653,6 @@ module.exports = exports =
           recoveryCode: 'fba6e1f6-9f8f-4a0a-9c4f-8cf3458b4c55'
           username: examples.users.one.username
           password: examples.users.one.password
-          appId: "my-app-id"
         result:
           message: "MFA deactivated."
       ]
@@ -1391,6 +1640,8 @@ module.exports = exports =
 
                    - If the stream is not already in the trash, it will be moved to the trash (i.e. flagged as `trashed`)
                    - If the stream is already in the trash, it will be irreversibly deleted with its descendants (if any). If events exist that refer to the deleted item(s), you must indicate how to handle them with the parameter `mergeEventsWithParent`.
+
+                   Since the deletion removes the whole subtree, an access other than a personal one needs a `manage` permission on every stream of the subtree (the stream and all its descendants), not only on the stream itself; with `mergeEventsWithParent=true` it also needs the right to create events on the parent stream, which receives them (`create-only`, `contribute` or `manage`). Otherwise the call answers `403 forbidden` and nothing is deleted.
                    """
       params:
         properties: [
@@ -1462,6 +1713,8 @@ module.exports = exports =
                    Only returns accesses that are active when making the request. To include accesses that have expired or were deleted, use
                    the `includeExpired` or `includeDeletions` parameters respectively.
 
+                   A delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) also lists all accesses, but receives `token` and `apiEndpoint` only for itself and for the accesses it created; the other accesses are returned without them.
+
                    In v2 the returned `id`, `createdBy`, and `modifiedBy` fields use the composite reference format `<base>:<serial>` for accesses that have been updated at least once. Never-updated accesses still serialise as bare cuid (`<base>`) for full backwards-compatibility. Parse with `pryv.utils.parseAccessRef(ref)` if you need to extract the version.
                    """
       params:
@@ -1529,6 +1782,8 @@ module.exports = exports =
                    Pass `?includeHistory=true` to also return the full chronological history of the access (oldest first) in a `history` array. Default `false`, the singular case covers the typical "audit this access" use case without the list-side overhead.
 
                    App callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.
+
+                   A delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.
                    """
       params:
         properties: [
@@ -1657,6 +1912,8 @@ module.exports = exports =
 
                    **Composite-id conflict**: the `{id}` must match the current head's `serial`. A stale composite returns `409 stale-resource` with `data: { provided, currentSerial }`; refetch the access via [Get one access](##{_getDocId("accesses", "accesses.getOne")}) and retry with the current head id. Bare `<base>` is only valid on a never-updated access.
 
+                   When the caller is a delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)), the returned access carries `token` and `apiEndpoint` only if the delegated access created it.
+
                    On success, the server emits an `accessesChanged` socket.io event (coarse-grained) and an `accessUpdated` event with payload `{ type: 'access-updated', accessId, serial }` (fine-grained).
                    """
       params:
@@ -1782,6 +2039,8 @@ module.exports = exports =
       http: "POST /accesses/check-app"
       description: """
                    For the app authorization process. Checks if the app requesting authorization already has access with the same permissions (and on the same device, if applicable), and returns details of the requested permissions' streams (for display) if not.
+
+                   Called with a delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)), only an app access that this delegated access created can be a `matchingAccess`; any other existing access is reported as `mismatchingAccess`, without `token` and `apiEndpoint`, so the authorization flow creates the delegate's own access.
                    """
       params:
         properties: [
@@ -1977,11 +2236,24 @@ module.exports = exports =
       http: "POST /webhooks"
       description: """
                    Creates a new webhook. You can only create webhooks with `app` and `shared` accesses.
+
+                   Only `url` and `scopes` are accepted; every other field of the [webhook](##{dataStructure.getDocId("webhook")}) (id, state, retry settings, run counters, tracking properties) is set by the server, and sending one is refused. See the webhook's [`url`](##{dataStructure.getDocId("webhook")}) for the destinations a webhook can call.
                    """
       params:
-        description: """
-                     An object with the new webhook's data: see [webhook](##{dataStructure.getDocId("webhook")}).
-                     """
+        properties: [
+          key: "url"
+          type: "string"
+          description: """
+                       The URL the webhook posts to: `https` or `http`, without credentials (`user:password@`), at most 2048 characters.
+                       """
+        ,
+          key: "scopes"
+          type: "object"
+          optional: true
+          description: """
+                       Named scopes restricting the webhook to specific changes: see [webhook](##{dataStructure.getDocId("webhook")}).
+                       """
+        ]
       result:
         http: "201 Created"
         properties: [
@@ -1991,7 +2263,13 @@ module.exports = exports =
                        The created webhook.
                        """
         ]
-      errors: []
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     A field other than `url` and `scopes` is sent, or the `url` is not accepted (not `http(s)`, with credentials, or too long).
+                     """
+      ]
       examples: [
         title: "A simple webhook"
         params: _.pick(examples.webhooks.simple, "url")
@@ -2029,7 +2307,7 @@ module.exports = exports =
           http:
             text: "request body"
           description: """
-                       New values for the webhook's fields: see [webhook](##{dataStructure.getDocId("webhook")}). All fields are optional, and only modified values must be included.
+                       New values for the webhook's alterable fields: `state` (`active` or `inactive`) and `scopes` (see [webhook](##{dataStructure.getDocId("webhook")})). Both are optional, and only modified values must be included.
                        """
         ]
       result:
@@ -2098,6 +2376,8 @@ module.exports = exports =
       http: "POST /webhooks/{id}/test"
       description: """
                    Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.
+
+                   The call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.
                    """
       params:
         properties: [
@@ -2127,7 +2407,7 @@ module.exports = exports =
         key: "unknown-referenced-resource"
         http: "400"
         description: """
-                     The webhook's `url` is either unreachable or responds with a 4xx/5xx status.
+                     The call failed: the destination is not accepted, cannot be reached or does not answer in time, or it answers with a status outside 2xx (a redirect included).
                      """
         ]
 

@@ -576,6 +576,8 @@ module.exports = exports =
                      "url": "https://${username}.my-notifications.com/${my-secret}/?param1=value1&param2=value2"
                    }
                    ```
+
+                   The URL must use `https` or `http`, carry no credentials (`user:password@`) and be at most 2048 characters long. At each call, the host is resolved and the call is not made when an address is not public: loopback, private networks, carrier-grade NAT, link-local (including cloud metadata services), unique-local or link-local IPv6, unspecified, multicast, broadcast or otherwise reserved. A platform can allow given hosts or ranges on its private network (`webhooks.allowedPrivateHosts`). Redirects are not followed (a `3xx` answer is a failed call), and a call without an answer within the platform's timeout (10 seconds by default, `webhooks.requestTimeoutMs`) is a failed call.
                    """
     ,
       key: "minIntervalMs"
@@ -602,7 +604,7 @@ module.exports = exports =
       key: "state"
       type: "`active`|`inactive`"
       description: """
-                   The current state of the Webhook. An inactive Webhook will not make any HTTP call when changes occur. It must be activated using the [update webhook](#methods-webhooks-webhooks-update) method.
+                   The current state of the Webhook. An inactive Webhook will not make any HTTP call when changes occur. It must be activated using the [update webhook](#methods-webhooks-webhooks-update) method. Set by the server at creation (`active`); alterable with an update.
                    """
     ,
       key: "runCount"
@@ -616,7 +618,7 @@ module.exports = exports =
       type: "number"
       readOnly: true
       description: """
-                   The number of times the Webhook has failed HTTP calls. Failed runs are HTTP requests that received a response with a status outside of the 200-299 range or no response at all.
+                   The number of times the Webhook has failed HTTP calls. Failed runs are HTTP requests that received a response with a status outside of the 200-299 range (redirects are not followed), no response in time, or were not made because the destination is not accepted.
                    """
     ,
       key: "lastRun"

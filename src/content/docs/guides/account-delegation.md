@@ -36,7 +36,7 @@ An account can have **several delegates at once** (for example both parents of a
 
 A delegate holds an **owner-equivalent** token over the controlled account. It cannot remove a delegation relationship, and a few consent grants stay reserved to the account owner (see [Grants a delegate cannot make](#grants-a-delegate-cannot-make)). Everything else an account owner can do, a delegate can do.
 
-> **A delegate has full control of the controlled account.** A delegate can read and change all of its data; manage its streams and accesses; change its password, email and MFA; delete the account entirely; and add further delegates. Because a delegate can set the account's password, a delegate can also log in to the account directly, which includes the power to remove other delegates. Removing any delegate requires logging in to the controlled account itself. Every credential change, login, and removal is recorded in the account's audit trail.
+> **A delegate has full control of the controlled account.** A delegate can read and change all of its data; manage its streams and accesses; change its password and email; delete the account entirely; and add further delegates. Because a delegate can set the account's password, a delegate can also log in to the account directly, which includes the power to change its MFA (MFA changes need the account's own login) and to remove other delegates. Removing any delegate requires logging in to the controlled account itself. Every credential change, login, and removal is recorded in the account's audit trail.
 
 This model is deliberate. The primary use case is a trusted parent or guardian who is responsible for an account they created. Two consequences follow and should be surfaced to users at the moment they grant delegation:
 
@@ -246,6 +246,10 @@ Some grant paths write accesses outside `accesses.create` and cannot yet record 
 | Writing a `consent/request-cmc` or `consent/scope-update-cmc` event ([CMC](/guides/cross-account-messaging/)) | `400 invalid-operation` with `error.data.id === 'delegation-grant-requires-owner'` |
 
 Accepting a CMC consent (`consent/accept-cmc`) is not on this list: since open-pryv.io 2.0.0-rc.30 a delegate token may accept for the account it manages, and the grant records the delegation (see [Consent given by a delegate](#consent-given-by-a-delegate)).
+
+### Credentials of the account's other accesses
+
+A delegate token manages all the accesses of the controlled account, but it receives the credentials (`token` and `apiEndpoint`) of an access only for itself and for the accesses it created. The owner's own tokens (login sessions, apps, shares) would otherwise be handed to the delegate and outlive the delegation. This applies to [accesses.get](/reference/#get-accesses), [accesses.getOne](/reference/#get-one-access) (and its history), [accesses.update](/reference/#update-access) and [accesses.checkApp](/reference/#check-app-authorization): the other accesses are returned without `token` and `apiEndpoint`, and `accesses.checkApp` reports a `matchingAccess` only for an app access the delegate created, so an authorization flow run by the delegate creates its own access (removed with the delegation).
 
 ## Consent given by a delegate
 

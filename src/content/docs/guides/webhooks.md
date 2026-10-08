@@ -174,6 +174,16 @@ It sends then a notification message to Dr. Tom about the new event that was pos
 
 *In this section, we give an overview of all the features of the Pryv.io Webhooks.*
 
+### Destinations
+
+A webhook is created with its `url` and, optionally, its `scopes`: [webhooks.create](/reference/#create-webhook) accepts no other field (the state, retry settings and counters are set by the server). The URL must use `https` or `http`, carry no credentials (`user:password@`) and be at most 2048 characters long.
+
+At each call, the webhook's host is resolved, and the call is not made when an address is not public: loopback, private networks (RFC 1918), carrier-grade NAT, link-local (including cloud metadata services), unique-local or link-local IPv6, unspecified, multicast, broadcast or otherwise reserved. Such a call counts as a failed run. A platform whose receivers sit on its private network lists them in `webhooks.allowedPrivateHosts` (host names, IPs or CIDR ranges).
+
+Redirects are not followed: a `3xx` answer is a failed call. A call without an answer within `webhooks.requestTimeoutMs` (10 seconds by default) is a failed call too.
+
+[webhooks.test](/reference/#test-webhook) applies the same rules and answers the same error, `unknown-referenced-resource`, whatever made the call fail.
+
 ### Frequency limit
 
 In case you are dealing with possibly frequent data changes, you might encounter a surge of data changes. In order to avoid notifying the external service too often, webhook executions have a frequency limit `minIntervalMs`. If multiple changes of different resources occur during a short interval, they will be bundled in the `messages` array of the webhook request payload.
@@ -212,7 +222,7 @@ The same scoping mechanism is available over the Socket.io transport — see [sc
 
 ### Retries
 
-In case of failure to send an HTTP POST request, such as a response status outside the 200-299 range  or timeout, the webhook will retry the request at exponentially increasing intervals.
+In case of failure to send an HTTP POST request, such as a response status outside the 200-299 range (a redirect included), a timeout or a destination that is not accepted (see [Destinations](#destinations)), the webhook will retry the request at exponentially increasing intervals.
 
 This backpressure mechanism is in place to allow the external service to stabilise in case it becomes overloaded.
 
