@@ -67,14 +67,34 @@ Account fields are read through the events API, like any other stream:
 GET /events?streams=[":system:email"]
 ```
 
-The response carries a single event for that field, whose `content` is the current value.
+The response carries one event for that field, whose `content` is the current value. Its `time` and `modified` are when that value was set, so `modifiedSince` works on account fields as on any other stream.
 
-Two things to know about what you get:
+Three things to know about what you get:
 
-- Wildcard queries never expand into the account namespace. You must name the stream explicitly.
+- For an application, wildcard queries never expand into the account namespace: you must name the stream explicitly. (A personal token's `*` does include the account fields.)
 - An application granted read on the email sees the **current primary address only**. An account can hold further addresses, including ones awaiting verification, and none of them is reachable through this permission, even by naming their stream.
+- The email stream carries a second, read-only event: the verification state of that address (next section).
 
-A caution worth stating plainly: being the primary address does not by itself mean the holder has proved control of that inbox. An address set at registration is asserted, not inbox-verified. If your use case depends on the address having been demonstrably confirmed, treat that as a separate question to put to the operator rather than an assumption you can make from reading the field.
+## Is the email verified?
+
+Being the primary address does not by itself mean the holder has proved control of that inbox: an address set at registration is asserted, not inbox-verified. So the `:system:email` stream also returns an event of type `verification/email`, id `:system:emailVerification`:
+
+```json
+{
+  "id": ":system:emailVerification",
+  "streamIds": [":system:email"],
+  "type": "verification/email",
+  "content": { "verified": true, "method": "email-link", "verifiedAt": 1759900000 }
+}
+```
+
+- `verified` is `true` only when ownership was **proved**: `method` is `email-link` (the holder clicked a link mailed to the address), `email-code` (pasted a code mailed at registration) or `operator` (confirmed by the platform operator).
+- `registration` (the founding address) and `legacy` (set without proof) read as `verified: false`. `verifiedAt` is the time of the proof, or `null`.
+- The event is derived by the server at read time: it cannot be written, has no history, and changes whenever the primary address or its proof changes (socket.io clients get `eventsChanged`).
+
+Read each event by its type rather than by its position: `types: ["email/string"]` returns the address alone, `types: ["verification/email"]` the state alone. In the default order the address comes first, but the type filter is the reliable way.
+
+No extra permission is needed: reading the email gives both events.
 
 ## Why not a copy of your own
 
