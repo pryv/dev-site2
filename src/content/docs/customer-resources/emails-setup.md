@@ -299,6 +299,11 @@ Pug templates receive a `locals` object at render time. Names are upper-case. Us
 |---|---|
 | `USERNAME` | `alice` |
 | `EMAIL` | `alice@example.com` |
+| `VERIFY_LINK` | `VERIFY_URL` with the token and username appended; **set only** when the founding address is not proved (no code at registration) and the verification mail is on |
+| `VERIFY_URL` | `https://account.example.com/verify-email`, from `auth.emailVerificationPageURL` (same condition) |
+| `VERIFY_TOKEN` | opaque one-time token, to paste when a mail client breaks the link (same condition) |
+
+Show the verification block conditionally (`if VERIFY_LINK` in Pug). The token lives `account.emailVerification.tokenMaxAgeMs` (default 24 h); after that the holder requests a new link from the account page (the resend cooldown starts with the welcome mail). An upgraded platform keeps its stored `welcome-email` (the bundled set is only seeded into an empty PlatformDB): re-set it with `node bin/mail.js templates set welcome-email <lang> html --file ...` to get the link.
 
 ### `reset-password`
 
