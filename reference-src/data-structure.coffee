@@ -329,17 +329,21 @@ module.exports = exports =
                      """
       ,
         key: [ "feature"]
-        type: "`selfRevoke`"
+        type: "`selfRevoke`|`secretSharing`|`webhooks`"
         description: """
                      To be used only with `setting` property.
-                     The only supported feature is `selfRevoke`
+                     - `selfRevoke`: with `forbidden`, the access cannot call `accesses.delete {id}` on itself (self revocation).
+                     - `secretSharing`: with `forbidden`, the access cannot create one-time shared secrets.
+                     - `webhooks`: with `forbidden`, the access cannot create, update or test webhooks, and the webhooks it owns do not fire.
+
+                     An access carrying `secretSharing` or `webhooks` as `forbidden` passes the entry on to every access it creates; asking for `allowed` on such a child is refused.
                      """
       ,
         key: "setting"
-        type: "`forbidden`"
+        type: "`forbidden`|`allowed`"
         description: """
                      To be used only with `feature` permission.
-                     If given in the permission list, this will forbid this access to call `accesses.delete {id}` and perform a self revocation.
+                     `forbidden` restricts the access as described for each feature. `allowed` is the default and the explicit form of it.
                      """
       ]
     ,

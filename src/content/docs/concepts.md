@@ -78,6 +78,7 @@ App accesses obtained through the [OAuth2 authorization-code flow](/customer-res
 Accesses can be updated via [`accesses.update`](/reference/#accesses.update) (Pryv.io v2 / pryv@3.2.0+) to mutate `name`, `deviceName`, `permissions`, `expireAfter` / `expires`, and `clientData` in place. The token is preserved, the head of the access is bumped with a new `serial`, and the prior state is snapshotted into version history (`?includeHistory=true` on [`accesses.getOne`](/reference/#accesses.getOne) retrieves it). Composite-id wire form: once an access has been updated, `access.id` / `access.createdBy` / `access.modifiedBy` serialise as `<base>:<serial>` — use [`pryv.utils.parseAccessRef`](https://github.com/pryv/lib-js/blob/master/components/pryv/src/utils.js) (lib-js ≥ 3.1.0) to extract the pieces. A stale composite-id on `accesses.update` or `accesses.delete` returns `409 stale-resource` so concurrent callers don't silently overwrite each other.
 
 For security reason, unless explicitly indicated by the permission `{ "feature": "selfRevoke", "setting": "forbidden"}` all accesses can be used to revoke (delete) themselves. In very specific cases, for example when a token is distributed publicly the `selfRevoke` feature should be set to `forbidden`.  
+Likewise, `{ "feature": "webhooks", "setting": "forbidden" }` prevents an access, and every access it creates, from registering webhooks; set it on tokens that are distributed publicly.  
 
 
 ## Open-Pryv.io

@@ -2235,7 +2235,7 @@ module.exports = exports =
       title: "Create webhook"
       http: "POST /webhooks"
       description: """
-                   Creates a new webhook. You can only create webhooks with `app` and `shared` accesses.
+                   Creates a new webhook. You can only create webhooks with `app` and `shared` accesses. An access carrying the feature permission `{ "feature": "webhooks", "setting": "forbidden" }` cannot create webhooks (`403 forbidden`).
 
                    Only `url` and `scopes` are accepted; every other field of the [webhook](##{dataStructure.getDocId("webhook")}) (id, state, retry settings, run counters, tracking properties) is set by the server, and sending one is refused. See the webhook's [`url`](##{dataStructure.getDocId("webhook")}) for the destinations a webhook can call.
                    """
@@ -2291,6 +2291,7 @@ module.exports = exports =
       description: """
                    Modifies the webhook. You can only modify webhooks with the access that was used to create them, unless you are using a personal token.
                    Updating the `state` to `active` resets the `currentRetries` counter.
+                   Refused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`. A webhook owned by such an access does not fire: it is set `inactive` when it next would.
                    """
       params:
         properties: [
@@ -2378,6 +2379,8 @@ module.exports = exports =
                    Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.
 
                    The call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.
+
+                   Refused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`.
                    """
       params:
         properties: [

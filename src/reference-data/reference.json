@@ -3858,7 +3858,7 @@
               "type": "method",
               "title": "Create webhook",
               "http": "POST /webhooks",
-              "description": "Creates a new webhook. You can only create webhooks with `app` and `shared` accesses.\n\nOnly `url` and `scopes` are accepted; every other field of the [webhook](#data-structure-webhook) (id, state, retry settings, run counters, tracking properties) is set by the server, and sending one is refused. See the webhook's [`url`](#data-structure-webhook) for the destinations a webhook can call.",
+              "description": "Creates a new webhook. You can only create webhooks with `app` and `shared` accesses. An access carrying the feature permission `{ \"feature\": \"webhooks\", \"setting\": \"forbidden\" }` cannot create webhooks (`403 forbidden`).\n\nOnly `url` and `scopes` are accepted; every other field of the [webhook](#data-structure-webhook) (id, state, retry settings, run counters, tracking properties) is set by the server, and sending one is refused. See the webhook's [`url`](#data-structure-webhook) for the destinations a webhook can call.",
               "params": {
                 "properties": [
                   {
@@ -4003,7 +4003,7 @@
               "type": "method",
               "title": "Update webhook",
               "http": "PUT /webhooks/{id}",
-              "description": "Modifies the webhook. You can only modify webhooks with the access that was used to create them, unless you are using a personal token.\nUpdating the `state` to `active` resets the `currentRetries` counter.",
+              "description": "Modifies the webhook. You can only modify webhooks with the access that was used to create them, unless you are using a personal token.\nUpdating the `state` to `active` resets the `currentRetries` counter.\nRefused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`. A webhook owned by such an access does not fire: it is set `inactive` when it next would.",
               "params": {
                 "properties": [
                   {
@@ -4135,7 +4135,7 @@
               "type": "method",
               "title": "Test webhook",
               "http": "POST /webhooks/{id}/test",
-              "description": "Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.\n\nThe call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.",
+              "description": "Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.\n\nThe call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.\n\nRefused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`.",
               "params": {
                 "properties": [
                   {
@@ -6002,13 +6002,13 @@
                   "key": [
                     "feature"
                   ],
-                  "type": "`selfRevoke`",
-                  "description": "To be used only with `setting` property.\nThe only supported feature is `selfRevoke`"
+                  "type": "`selfRevoke`|`secretSharing`|`webhooks`",
+                  "description": "To be used only with `setting` property.\n- `selfRevoke`: with `forbidden`, the access cannot call `accesses.delete {id}` on itself (self revocation).\n- `secretSharing`: with `forbidden`, the access cannot create one-time shared secrets.\n- `webhooks`: with `forbidden`, the access cannot create, update or test webhooks, and the webhooks it owns do not fire.\n\nAn access carrying `secretSharing` or `webhooks` as `forbidden` passes the entry on to every access it creates; asking for `allowed` on such a child is refused."
                 },
                 {
                   "key": "setting",
-                  "type": "`forbidden`",
-                  "description": "To be used only with `feature` permission.\nIf given in the permission list, this will forbid this access to call `accesses.delete {id}` and perform a self revocation."
+                  "type": "`forbidden`|`allowed`",
+                  "description": "To be used only with `feature` permission.\n`forbidden` restricts the access as described for each feature. `allowed` is the default and the explicit form of it."
                 }
               ]
             },
