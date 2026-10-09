@@ -3,6 +3,18 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.45
+
+Security release: upgrade promptly. Before restarting each core, run `node bin/check-config.js` with your override: a node with `core.ip` set and no Raft TLS now refuses to start.
+
+- **Multi-core, BREAKING: Raft TLS required.** A node with `core.ip` set that runs its own rqlited and has no `storages.engines.rqlite.tls` refuses to start (it was a boot warning), single-core included. Multi-core: run `node bin/bootstrap.js init-ca-holder` on the CA-holder core (joiners get `tls` from their bundle). Single-core dns-active: remove `core.ip` and set `dns.publicIp`. `check-config` reports it as a problem.
+- **MFA, BREAKING: the step-up is always required.** The one-release opt-out `services.mfa.stepUp.required` is removed: a configuration that still sets `services.mfa.stepUp` boots with a warning saying it is ignored. `mfa.confirm` is refused when the enrolment changed after its `mfa.activate`.
+- **Accesses: `webhooks` feature permission.** An app or shared access carrying `{ feature: 'webhooks', setting: 'forbidden' }` cannot create, update or test webhooks (`403 forbidden`), its webhooks no longer fire, and every access it creates carries the same entry. Meant for tokens handed out publicly.
+- **Security: webhooks.** `webhooks.get` with a shared access lists only the webhooks that access created.
+- **Security: admin pre-registration.** `POST /system/users/validate` consumes the invitation token (given back if the reservation fails), refuses reserved names, requires `username` and releases the rows it wrote when a reservation fails.
+- **Login.** The legacy `sso` cookie is no longer set (`auth.ssoCookie*` settings are ignored). A login that fails after its session was written, or that loses the race to create its personal access, leaves no stray session.
+- **Fixes.** An app managing a stream can rename it and its children without manage rights on the parent (a move still needs them). The `system.deactivateMfa` notice names the account, not the alias used in the path. `bin/access-scope-audit.js` no longer creates empty per-user audit files on SQLite.
+
 ## 2.0.0-rc.44
 
 Security release: upgrade promptly, and read the MFA and API contract notes first: some change what clients send. Before restarting each core: run `node bin/check-config.js` with your override and `node bin/mail.js templates validate`; with `in-process` mail on an already seeded platform, add the new `mfa-change` template on one core (`node bin/mail.js templates set mfa-change <lang> <part> --file components/mail/templates/mfa-change/<lang>/<part>.pug`, `en` and `fr`, `subject` and `html`); update the account web app at the same time.
