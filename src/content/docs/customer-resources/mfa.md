@@ -48,14 +48,7 @@ Turning MFA off, and replacing an active enrolment, weaken the account's second 
 - A wrong one: `403 invalid-step-up`. It counts as a failed attempt in the account's [backoff](#authenticator-app-totp), and while a delay runs the step-up is not checked (`429 too-many-attempts`).
 - The body of [deactivate MFA](/reference/#deactivate-mfa) is validated: a key other than `password` or `code` is refused (`400`).
 
-```yaml
-services:
-  mfa:
-    stepUp:
-      required: true   # PLATFORM-WIDE: set the same value on every core
-```
-
-`required: false` restores the former behaviour (a personal token alone) and logs a warning at every boot. It is a migration opt-out for one release, for clients not yet sending the step-up, and will be removed in a later release.
+The step-up is always required. The one-release opt-out `services.mfa.stepUp.required` was removed in 2.0.0-rc.45: a configuration that still sets `services.mfa.stepUp` boots with a warning saying the setting is ignored.
 
 ### Change notices
 
