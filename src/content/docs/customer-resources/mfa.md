@@ -105,6 +105,7 @@ services:
     sessions:
       ttlSeconds: 1800      # lifetime of a pending MFA session, fixed when it opens
       maxPending: 10000     # most pending MFA sessions per core; 0 disables the cap
+      maxPendingPerUser: 5  # most pending login sessions per account; 0 disables the cap
     attempts:
       perSession: 5         # wrong codes allowed in one pending MFA session
       perAccountWindowSeconds: 900   # a failure older than this starts the tally afresh
@@ -121,7 +122,7 @@ services:
 
 **Security notes.** TOTP secrets are stored encrypted at rest; a used code cannot be replayed, even when the same code is submitted twice at the same moment; enrolment fails closed if no `secretsKey`/`adminAccessKey` is available. Server clocks should be NTP-synchronised (the `driftSteps` window absorbs small skew).
 
-Wrong codes are limited twice. `perSession` wrong codes invalidate the pending MFA session, so the user logs in again. Failures also accrue on the account across logins (wrong [step-ups](#step-up) included): past `backoff.freeFailures` of them, each further failure delays the next attempt, doubling from `baseSeconds` up to `maxSeconds`. During a delay the MFA endpoints answer `429 too-many-attempts` with a `Retry-After` header and `error.data.retryAfterSeconds`, and a code sent then is not checked. This is a delay, never a lockout: someone who knows the password cannot lock the real user out, who waits at most `maxSeconds`, and a successful second factor clears the tally. The `attempts` block is platform-wide policy: set the same values on every core. Settings that cannot work (an unknown `defaultMethod`, a malformed `secretsKey`, out-of-range TOTP parameters, SMS without its endpoints) stop the core at boot with the key named.
+Wrong codes are limited twice. `perSession` wrong codes invalidate the pending MFA session, so the user logs in again. Failures also accrue on the account across logins (wrong [step-ups](#step-up) included): past `backoff.freeFailures` of them, each further failure delays the next attempt, doubling from `baseSeconds` up to `maxSeconds`. During a delay the MFA endpoints answer `429 too-many-attempts` with a `Retry-After` header and `error.data.retryAfterSeconds`, and a code sent then is not checked. This is a delay, never a lockout: someone who knows the password cannot lock the real user out, who waits at most `maxSeconds`, and a successful second factor clears the tally. The tally also resets on its own after `perAccountWindowSeconds` (900 s by default) without a failure, so a sender who pauses that long starts again with `backoff.freeFailures` free attempts; raise `perAccountWindowSeconds` to make that pause longer. The `attempts` block is platform-wide policy: set the same values on every core. Settings that cannot work (an unknown `defaultMethod`, a malformed `secretsKey`, out-of-range TOTP parameters, SMS without its endpoints) stop the core at boot with the key named.
 
 
 ## Configuration
@@ -146,7 +147,8 @@ services:
         sendLimits:            # both modes; 0 disables a limit (with a boot warning)
           minIntervalSeconds: 30    # between two sends on one MFA session
           perUserPerHour: 5         # sends per user
-          perDestinationPerDay: 10  # sends per phone number, across users
+          perCorePerHour: 100       # sends by this core, all users together: the SMS cost cap
+          perDestinationPerDay: 10  # sends per phone number, across users and cores
         endpoints:
           # Define only the endpoints matching your chosen mode.
           single:
@@ -237,7 +239,7 @@ As the request body is a string, you will have to provide the corresponding `con
 
 `services.mfa.sessions.ttlSeconds` sets how long a pending MFA session (between a login or an activation and its verification or confirmation) stays valid (default: 1800 seconds / 30 minutes). The lifetime is fixed when the session opens: attempts and re-sent challenges do not extend it. Sessions do not survive a core restart: users in the middle of an MFA flow at restart time log in (or activate) again.
 
-`services.mfa.sessions.maxPending` caps the pending sessions a core holds in memory (default 10 000; 0 disables the cap). Past it, a login or an activation that needs a session answers `429 too-many-requests` (with `Retry-After`) until sessions complete or expire.
+`services.mfa.sessions.maxPending` caps the pending sessions a core holds in memory (default 10 000; 0 disables the cap). Past it, a login or an activation that needs a session answers `429 too-many-requests` (with `Retry-After`) until sessions complete or expire. So that one account cannot fill it and refuse every other account's MFA sign-in, `services.mfa.sessions.maxPendingPerUser` (default 5, from open-pryv.io 2.0.0-rc.47; 0 disables it) caps the pending login sessions of one account: a further login ends the oldest, whose `mfaToken` then answers `401 invalid-access-token`. Activations are not counted.
 
 A session's `mfaToken` is valid only under the path of its own account (`/{username}/mfa/...`); presented for another account it is an unknown token (`401 invalid-access-token`). A login session is also refused once the account's enrolment has changed (deactivated, recovered or replaced) since that login.
 
@@ -245,7 +247,7 @@ A session's `mfaToken` is valid only under the path of its own account (`/{usern
 
 In single mode the code has `codeLength` digits (default 6) and is accepted for `codeTtlSeconds` (default 300). It belongs to one pending session: only its hash is kept, in that session, and a new challenge on the session replaces it and restarts its lifetime. A code is used once.
 
-Every SMS (login, activation, re-sent challenge), in both modes, counts against `sendLimits`: at most one send every `minIntervalSeconds` on one session, `perUserPerHour` sends per user and `perDestinationPerDay` sends per phone number (counted by a hash of the number, across users). A send over a limit is not made and answers `429 too-many-attempts` with `error.data.retryAfterSeconds`. A send counts once reserved, even when the provider then fails.
+Every SMS (login, activation, re-sent challenge), in both modes, counts against `sendLimits`: at most one send every `minIntervalSeconds` on one session, `perUserPerHour` sends per user, `perCorePerHour` sends by the core for all users together (a cap on the SMS bill against toll fraud through many accounts; reaching it is logged as a warning) and `perDestinationPerDay` sends per phone number (counted by a hash of the number, across users and, from open-pryv.io 2.0.0-rc.50, across cores; a send is refused when the platform database cannot be reached). A send over a limit is not made and answers `429 too-many-attempts` with `error.data.retryAfterSeconds`. A send counts once reserved, even when the provider then fails.
 
 `mfa.confirm` and `mfa.verify` require `code`, 4 to 10 digits; nothing else of their body reaches the provider.
 

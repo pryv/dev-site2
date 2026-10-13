@@ -11,20 +11,33 @@ Every number in it is a starting point. Read the [limits at a glance](#limits-at
 
 ## Why at the proxy
 
-Pryv deliberately does not rate limit its API in-process. A per-core counter only sees its share of the traffic in a multi-core deployment, and what counts as abuse depends on the workload: a research consortium's batch import is a legitimate burst that a consumer app should never produce. The layer that sees all traffic before it is sharded, and that you already tune for your own traffic, is the reverse proxy. The full reasoning is in the compliance matrix context note on [rate limiting and DoS protection](https://github.com/pryv/compliance-matrix/blob/master/context/rate-limiting-and-dos-protection.md).
+Pryv does not limit request **rates** in-process. A per-core counter only sees its share of the traffic in a multi-core deployment, and what counts as abuse depends on the workload: a research consortium's batch import is a legitimate burst that a consumer app should never produce. The layer that sees all traffic before it is sharded, and that you already tune for your own traffic, is the reverse proxy. The full reasoning is in the compliance matrix context note on [rate limiting and DoS protection](https://github.com/pryv/compliance-matrix/blob/master/context/rate-limiting-and-dos-protection.md).
 
-What Pryv **does** limit by itself, so you do not duplicate or contradict it:
+Pryv **does** bound, by itself, the checks of a credential (passwords, second factors), the actions that send mail or SMS, the few unauthenticated actions that can be keyed on an account or an address, and the size of what one request may ask for. These limits keep working when nothing sits in front of the core. Know them, so that your proxy limits do not duplicate or contradict them:
 
-| In-process limit | Where it applies | Configured by |
-|---|---|---|
-| Per-account backoff on failed second factors: after `freeFailures` (3) failures, each further failure delays the next attempt, doubling from 2 s to 300 s; answers `429 too-many-attempts` with `Retry-After` | MFA `verify`, `confirm`, `challenge`, and the step-up of `deactivate` and of an `activate` replacing an active enrolment | `services.mfa.attempts` (see [MFA](/customer-resources/mfa/)) |
-| SMS send limits: one SMS every 30 s per MFA session, 5 per user per hour, 10 per phone number per day; answers `429 too-many-attempts` with `retryAfterSeconds` | MFA login, `activate`, `challenge` (SMS method) | `services.mfa.methods.sms.sendLimits` (see [MFA](/customer-resources/mfa/#sms-codes-and-send-limits)) |
-| Ceiling on pending MFA sessions per core (10 000 by default); answers `429 too-many-requests` with `Retry-After` | MFA login, `activate` | `services.mfa.sessions.maxPending` |
-| Ceiling on pending access requests per core (10 000 by default, 16 KiB each); answers `429 too-many-requests` with `Retry-After: 60` | `POST /reg/access` | `access.maxLiveRequests`, `access.maxRequestBytes` |
-| Per-address caps on sign-up email codes | `email-challenge` | see [Emails](/customer-resources/emails-setup/#at-registration-the-code-flow) |
-| Request body size: JSON bodies, and each file of a multipart upload | every route | `uploads.maxSizeMb` (default 50) |
+| In-process limit | Where it applies | Configured by | Since |
+|---|---|---|---|
+| Failed passwords, per account: after `freeFailures` (5) failures within `windowSeconds` (900), each further failure delays the next attempt, doubling from 2 s to 300 s; during the delay the password is not checked and the call answers `429 too-many-attempts` with `Retry-After`. A success clears the tally. | `auth/login`, `account.changePassword` (old password), the MFA step-up by password, `mfa/recover` | `auth.passwordAttempts` | 2.0.0-rc.47 |
+| Failed passwords, per client address (an IPv4 address, or an IPv6 /64), whatever the account and across all cores: past `maxFailures` (30) within `windowSeconds` (900), those calls answer `429 too-many-attempts` until the window ends. Successes neither count nor clear it. | same as above | `auth.passwordAttempts.perIp` | 2.0.0-rc.47 |
+| Failed second factors: 5 wrong codes end the pending MFA session (`401 invalid-access-token`, the user logs in again); per account, after 3 failures each further one delays the next attempt, doubling from 2 s to 300 s, `429 too-many-attempts` with `Retry-After` | MFA `verify`, `confirm`, `challenge`, and a step-up by code | `services.mfa.attempts` (see [MFA](/customer-resources/mfa/#authenticator-app-totp)) | earlier |
+| SMS sends: one every 30 s per MFA session, 5 per user per hour, 100 per core per hour (all users together), 10 per phone number per day across all cores; `429 too-many-attempts` with `retryAfterSeconds` | MFA login, `activate`, `challenge` (SMS method) | `services.mfa.methods.sms.sendLimits` (see [MFA](/customer-resources/mfa/#sms-codes-and-send-limits)) | per core, and per destination across cores: 2.0.0-rc.50 |
+| Pending MFA sessions: 10 000 per core, shared by every account (`429 too-many-requests` with `Retry-After`); 5 pending login sessions per account, a further login ending the oldest | MFA login, `activate` | `services.mfa.sessions.maxPending`, `maxPendingPerUser` | per account: 2.0.0-rc.47 |
+| Password reset requests: per account one a minute and five a day, per client address 20 an hour, across all cores; `429 too-many-attempts` with `Retry-After` | `account/request-password-reset` | fixed | 2.0.0-rc.43 |
+| Live access requests: 10 000 per core, shared by every caller, 16 KiB each (`429 too-many-requests` with `Retry-After: 60`); 50 live requests per client address per core (`429 too-many-requests`) | `POST /reg/access` | `access.maxLiveRequests`, `access.maxRequestBytes`, `access.maxLiveRequestsPerIp` | per address: 2.0.0-rc.47 |
+| Invitation token checks: 10 a minute per client address, per core; `429 too-many-attempts` with `Retry-After` | `POST /access/invitationtoken/check` | fixed | 2.0.0-rc.50 |
+| Sign-up email codes: per **target email address**, one code a minute, 10 codes and 20 wrong tries a day | `email-challenge`, `email-challenge/verify` | `account.emailVerification.registrationCode*` (see [Emails](/customer-resources/emails-setup/#at-registration-the-code-flow)) | earlier |
+| Verification mails: one every 5 minutes per email address | `account.update` (an address added, or `emails.resend`) | `account.emailVerification.resendCooldownMs` | earlier |
+| Webhook test calls: one per webhook per delivery interval (5 s by default), across workers and cores; `429 too-many-attempts` | `webhooks.test` | `webhooks.minIntervalMs` | 2.0.0-rc.50 |
+| Credential methods are refused inside a batch call and over socket.io (`400 invalid-operation`), so each password guess is one HTTP request your proxy sees | `auth.login`, `auth.register`, `mfa.recover`, `account.requestPasswordReset`, `account.resetPassword`, `account.verifyEmail`, `sharedSecrets.retrieve`, the email challenge methods | fixed | 2.0.0-rc.47 |
+| Request size: a batch holds at most 1000 calls and returns at most 100 000 items in all (`413 too-many-results`); `events.get` `limit` / `skip` at most 100 000; a socket.io message at most 1 MB (the connection is closed past it) | batch calls, `events.get`, socket.io | `limits.batch.maxTotalItems`, `socketIO.maxMessageBytes` | 2.0.0-rc.47 |
+| Request body size: JSON bodies and each file of a multipart upload; at most 10 files per upload; an image declaring more than 100 million pixels gets no preview (`413`) | every route; attachments; previews | `uploads.maxSizeMb` (default 50), `uploads.maxFiles`, `eventFiles.previewsMaxInputPixels` | file count: 2.0.0-rc.47; pixels: 2.0.0-rc.50 |
+| Embedded DNS: at most 64 simultaneous TCP connections, size-limited UDP answers | the DNS server (`dns.active`) | `dns.tcpMaxConnections` | 2.0.0-rc.46 |
 
-There is **no** in-process limit on password logins, on registration volume per caller, or on per-token request rates. Those are what this page covers.
+"Per core" counters are held by one core and shared by its workers; "across all cores" counters live in the platform database, so a client spreading its calls over several cores gains nothing. The per-address limits read the client address the way described in [how Pryv reads the client IP](#the-routes-that-matter) below: behind a proxy that is not listed in `http.trustedProxies`, every client shares the proxy's address and therefore one budget.
+
+**The per-account delays are a soft lockout under a distributed sender.** A delay never locks the account, but whoever keeps sending wrong passwords for an account (or wrong codes, for someone who holds the password), from enough addresses to stay under the per-address budget, keeps its delay running, and the owner's own attempt during a delay is refused without being checked. A user who reports "retry in N seconds" while typing the right password is therefore a sign that someone is guessing that account; the per-IP limits and bans below are what stop it.
+
+There is **no** in-process limit on request rates: per token, per address on data routes, on registration volume per caller, on lookups, on OAuth2. Those are what this page covers.
 
 Requests rejected by nginx never reach Pryv, so they appear in nginx's logs, not in Pryv's audit log or observability metrics. The nginx logs are therefore the record of a limit firing; keep them (see [logs are personal data](#logs-are-personal-data)).
 
@@ -38,12 +51,13 @@ A core serves user routes in one of two URL shapes, and the rules below match bo
 
 | Surface | Routes (path-style shown; host-style drops the `/{username}` prefix) | Caller | Key the limit on |
 |---|---|---|---|
-| Password login | `POST /{username}/auth/login` | unauthenticated | client IP |
-| MFA second factor | `POST /{username}/mfa/challenge`, `/verify`, `/confirm`, `/recover` | MFA session token, or none (`recover`) | client IP (Pryv adds its per-account backoff) |
-| Password reset | `POST /{username}/account/request-password-reset`, `/account/reset-password` | unauthenticated | client IP |
-| Registration | `POST /users`, `POST /reg/users`, `POST /reg/user`, `POST /reg/email-challenge`, `POST /reg/email-challenge/verify` | unauthenticated | client IP |
+| Password login | `POST /{username}/auth/login` | unauthenticated | client IP (Pryv adds its per-account and per-address password limits) |
+| MFA second factor | `POST /{username}/mfa/challenge`, `/verify`, `/confirm`, `/recover`; `/activate` and `/deactivate` (step-up by password or code) | MFA session token, personal token (`activate`, `deactivate`), or none (`recover`) | client IP (Pryv adds its per-account backoff) |
+| Password reset, email verification | `POST /{username}/account/request-password-reset`, `/account/reset-password`, `/account/verify-email` | unauthenticated (the reset and verification tokens are in the body) | client IP |
+| Registration | `POST /users`, `POST /reg/users`, `POST /reg/user`, `POST /reg/email-challenge`, `POST /reg/email-challenge/verify`, `POST /access/invitationtoken/check` | unauthenticated | client IP |
+| Shared secrets | `POST /{username}/shared-secrets/retrieve` | unauthenticated (the secret's token is in the body) | client IP |
 | Lookups | `GET /reg/{username}/check_username`, `GET /reg/{email}/check_email`, `GET /reg/{email}/username`, `GET /reg/{email}/uid`, `GET /reg/{username}/server`, `GET /reg/cores`, `GET /reg/hostings`, `GET /reg/service/info` | unauthenticated | client IP (enumeration) |
-| Access requests | `POST /reg/access` (create), `GET /reg/access/{key}` (polled by the app every second while pending), `POST /reg/access/{key}` (accept or refuse) | unauthenticated | client IP, creation stricter than polling |
+| Access requests | `POST /reg/access` (create), `GET /reg/access/{key}` (polled by the app every second while pending), `POST /reg/access/{key}` (accept or refuse) | unauthenticated | client IP, creation stricter than polling. A decision carries the request's random key (192 bits from open-pryv.io 2.0.0-rc.50, 96 before) and is posted once per request by the auth page, so the polling zone is enough for it; give decisions a zone of their own only if your logs show them abused. |
 | OAuth2 | `GET /oauth2/authorize`, `POST /oauth2/authorize/accept`, `/refuse`, `POST /oauth2/token` | unauthenticated / client credentials | client IP |
 | SSO | `GET /auth/sso/providers`, `/auth/sso/{provider}/start`, `/callback` | unauthenticated | client IP |
 | Data writes | `POST /{username}/events`, `PUT`/`POST`/`DELETE /{username}/events/{id}`, `POST /{username}/streams`, `POST /{username}/accesses`, batch calls `POST /{username}/` | access token | token |
@@ -53,12 +67,16 @@ A core serves user routes in one of two URL shapes, and the rules below match bo
 | Real-time | `/socket.io/` (WebSocket) | access token in the query | concurrent connections per IP |
 | Admin | `/system/...`, `/reg/admin/...` | `adminAccessKey` | client IP, with your admin and core hosts exempt |
 
+**Pryv matches paths regardless of letter case, and with or without a trailing slash**: `/alice/auth/login`, `/alice/Auth/Login` and `/alice/auth/login/` reach the same method. Every rule that singles out a route must match the same way, or a client escapes the stricter limit with a one-character change. The configuration below uses case-insensitive locations (`~*`) ending in `/?$`, and fail2ban filters with a case-insensitive group (`(?i:...)`).
+
+**Batch calls and socket.io.** From open-pryv.io 2.0.0-rc.47, the methods that take a password or another credential instead of an access token (`auth.login`, `mfa.recover`, password reset, registration, ...) are refused inside a batch call (`POST /{username}/`) and over socket.io, so they are only reachable through the routes above. On earlier versions, any token of an account can send many `auth.login` calls in one batch request or socket message, which none of the per-route limits below sees: upgrade before relying on them.
+
 **How Pryv reads a token.** From the `Authorization` header (the bare token, `Bearer <token>`, or HTTP Basic with the token as user name), otherwise from the `auth` query parameter. The configuration below normalises the header the same way, so a token sent bare, as `Bearer`, with a trailing caller id, or as `?auth=` counts against one bucket. nginx cannot decode Basic credentials, so a token sent as HTTP Basic is keyed on its encoded form and gets a bucket of its own; that only matters for a client that mixes Basic with the other forms.
 
-**How Pryv reads the client IP.** From the `X-Forwarded-For` request header only when the request comes from a proxy listed in `http.trustedProxies` (default `['loopback']`, which covers nginx on the same host), otherwise from the TCP peer. It records that value as the request source in the audit log. So:
+**How Pryv reads the client IP.** From the `X-Forwarded-For` request header only when the request comes from a proxy listed in `http.trustedProxies`, otherwise from the TCP peer, whatever header the peer sent. The header is read from the right: trusted hops are skipped and the first untrusted address is the client. `http.trustedProxies` takes IP addresses, CIDR ranges and the names `loopback`, `linklocal` and `uniquelocal`; the default `['loopback']` covers nginx on the same host and the core's own HFS dispatcher, and `[]` never reads the header. The core refuses to boot with an entry that matches no address (an IPv4-mapped IPv6 range with a prefix under 96, such as `::ffff:10.0.0.0/8`: write `10.0.0.0/8`) or a list that trusts every client, and the boot log names the list in use (`client address attribution: X-Forwarded-For trusted from [...]`). Pryv records that address as the request source in the audit log, and its per-address limits (failed passwords, password reset, access requests, invitation token checks) count it, an IPv6 address by its /64. So:
 
 - nginx must **overwrite** the forwarding headers with what it sees: `proxy_set_header X-Forwarded-For $remote_addr;`, `X-Forwarded-Host $http_host;` and `X-Forwarded-Proto $scheme;`. Do not use `$proxy_add_x_forwarded_for`, and do not pass a client's own `X-Forwarded-Host` through: coming from a trusted proxy, it would let that client pick the host a DPoP proof is checked against.
-- nginx on another host, or reaching the core over a Docker bridge (Dokku's nginx arrives from `172.17.0.1`), must be listed in `http.trustedProxies`, or every request is recorded with nginx's address. See [INSTALL, client addresses behind a proxy](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#client-addresses-behind-a-proxy-httptrustedproxies).
+- nginx on another host, or reaching the core over a Docker bridge (Dokku's nginx arrives from `172.17.0.1`), must be listed in `http.trustedProxies`, or every request is recorded with nginx's address and every client shares nginx's per-address budgets: 30 failed passwords from anyone, within 15 minutes, would then refuse every password check passing through that nginx until the window ends. See [INSTALL, client addresses behind a proxy](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#client-addresses-behind-a-proxy-httptrustedproxies).
 - The core's ports must not be reachable except through nginx, or clients bypass the limits. Keep `http.ip: 127.0.0.1` (the default) when nginx runs on the same host, or firewall ports 3000 and 4000 to the nginx host otherwise.
 - Cores before open-pryv.io 2.0.0-rc.36 take `X-Forwarded-For` as is from any peer: there, overwriting it and closing the core's ports are the only protection of the recorded address.
 - If nginx itself sits behind a load balancer or CDN, use nginx's `real_ip` module (shown below) so that `$remote_addr`, and every per-IP limit, is the real client.
@@ -109,7 +127,8 @@ map $request_method $pryv_is_read {
 map $pryv_is_read $pryv_token_read  { 1 $pryv_token; default ""; }
 map $pryv_is_read $pryv_token_write { 0 $pryv_token; default ""; }
 
-# Access-request creation is a POST; polling is a GET on the same prefix.
+# Access-request creation is a POST on the bare /reg/access path (its own
+# location below); keyed on POST only so a CORS preflight is not counted.
 map $request_method $pryv_ip_on_post {
     POST    $binary_remote_addr;
     default "";
@@ -260,58 +279,73 @@ server {
     # Regex locations are tried in the order written; the first match wins.
     # "nodelay" serves the burst at once and rejects beyond it, instead of
     # queueing requests (which would hold connections open for attackers).
+    # Pryv matches paths case-insensitively and with an optional trailing
+    # slash, so every location is "~*" (case-insensitive) and ends in "/?$":
+    # /alice/Auth/Login/ must not escape the login limit.
 
     # ---------- Password login and MFA ----------
     # 10/min sustained plus a burst of 5: a user mistyping a password a few
     # times is never refused; a guessing script gets about 10 tries a minute.
-    location ~ ^(?:/[^/]+)?/(?:auth/login|mfa/(?:challenge|verify|confirm|recover))$ {
+    location ~* ^(?:/[^/]+)?/(?:auth/login|mfa/(?:challenge|verify|confirm|recover|activate|deactivate))/?$ {
         limit_req zone=pryv_login burst=5 nodelay;
         proxy_pass http://pryv_api;
     }
 
-    # ---------- Password reset ----------
-    location ~ ^(?:/[^/]+)?/account/(?:request-password-reset|reset-password)$ {
+    # ---------- Password reset and email verification ----------
+    location ~* ^(?:/[^/]+)?/account/(?:request-password-reset|reset-password|verify-email)/?$ {
         limit_req zone=pryv_signup burst=3 nodelay;
         proxy_pass http://pryv_api;
     }
 
-    # ---------- Registration and sign-up email codes ----------
-    location ~ ^(?:/reg)?/(?:users?|email-challenge(?:/verify)?)$ {
+    # ---------- Registration, sign-up email codes, invitation tokens ----------
+    location ~* ^(?:/reg)?/(?:users?|email-challenge(?:/verify)?|access/invitationtoken/check)/?$ {
         limit_req zone=pryv_signup burst=3 nodelay;
+        proxy_pass http://pryv_api;
+    }
+
+    # ---------- Shared secrets ----------
+    location ~* ^(?:/[^/]+)?/shared-secrets/retrieve/?$ {
+        limit_req zone=pryv_lookup burst=20 nodelay;
         proxy_pass http://pryv_api;
     }
 
     # ---------- Access requests ----------
-    # Creation (POST) is held to 6/min with a burst of 5; every request on
-    # this prefix, polling included, also counts against the polling zone.
-    location ~ ^/reg/access(?:/|$) {
+    # Creation (POST /reg/access, nothing after it) is held to 6/min with a
+    # burst of 5 and also counts against the polling zone. Polls and
+    # decisions (GET and POST /reg/access/{key}) only count against the
+    # polling zone, so accepting or refusing never spends the creation budget.
+    location ~* ^/reg/access/?$ {
         limit_req zone=pryv_access_create burst=5 nodelay;
+        limit_req zone=pryv_poll burst=10 nodelay;
+        proxy_pass http://pryv_api;
+    }
+    location ~* ^/reg/access/ {
         limit_req zone=pryv_poll burst=10 nodelay;
         proxy_pass http://pryv_api;
     }
 
     # ---------- Admin routes ----------
-    location ~ ^/(?:system|reg/admin)/ {
+    location ~* ^/(?:system|reg/admin)(?:/|$) {
         limit_req zone=pryv_admin burst=20 nodelay;
         proxy_pass http://pryv_api;
     }
 
     # ---------- Other unauthenticated lookups ----------
-    location ~ ^/reg/ {
+    location ~* ^/reg(?:/|$) {
         limit_req zone=pryv_lookup burst=20 nodelay;
         proxy_pass http://pryv_api;
     }
 
     # ---------- OAuth2 and SSO ----------
-    location = /oauth2/token {
+    location ~* ^/oauth2/token/?$ {
         limit_req zone=pryv_oauth_token burst=10 nodelay;
         proxy_pass http://pryv_api;
     }
-    location ^~ /oauth2/authorize {
+    location ~* ^/oauth2/authorize(?:/|$) {
         limit_req zone=pryv_oauth_auth burst=30 nodelay;
         proxy_pass http://pryv_api;
     }
-    location ^~ /auth/sso/ {
+    location ~* ^/auth/sso(?:/|$) {
         limit_req zone=pryv_lookup burst=20 nodelay;
         proxy_pass http://pryv_api;
     }
@@ -320,7 +354,7 @@ server {
     # Host is the worker's own address. With usernames in the host (dns.domain
     # set), the HFS worker reads the first label of Host as a username, which
     # would break these path-style requests; in DNSless mode it is harmless.
-    location ~ ^/[^/]+/(?:events/[^/]+/series|series/batch)(?:/|$) {
+    location ~* ^/[^/]+/(?:events/[^/]+/series|series/batch)(?:/|$) {
         limit_req zone=pryv_hfs burst=20 nodelay;
         limit_req zone=pryv_ip burst=100 nodelay;
         proxy_pass http://pryv_hfs;
@@ -370,7 +404,7 @@ server {
 With `dns.domain` set, apps address `https://alice.example.com/...` and the paths carry no username. Three additions:
 
 1. Add the user and reserved host names to `server_name` (`server_name example.com *.example.com;`) with a wildcard certificate.
-2. On `reg.`, `access.` and `mfa.` the `/reg` prefix is implied, so the `/reg/...` locations above do not match there. Give those names their own server block that reuses the same zones:
+2. On `reg.`, `access.` and `mfa.` the `/reg` prefix is implied (a client may still send it), so the `/reg/...` locations above do not match the shorter form there. Give those names their own server block that reuses the same zones:
 
    ```nginx
    server {
@@ -378,13 +412,14 @@ With `dns.domain` set, apps address `https://alice.example.com/...` and the path
        http2 on;
        server_name reg.example.com access.example.com mfa.example.com;
        # same ssl_*, access_log, error_log, client_* and proxy_set_header lines as above
-       location ~ ^/(?:users?|email-challenge(?:/verify)?)$ { limit_req zone=pryv_signup burst=3 nodelay; proxy_pass http://pryv_api; }
-       location ~ ^/access(?:/|$) {
+       location ~* ^(?:/reg)?/(?:users?|email-challenge(?:/verify)?)/?$ { limit_req zone=pryv_signup burst=3 nodelay; proxy_pass http://pryv_api; }
+       location ~* ^(?:/reg)?/access/?$ {
            limit_req zone=pryv_access_create burst=5 nodelay;
            limit_req zone=pryv_poll burst=10 nodelay;
            proxy_pass http://pryv_api;
        }
-       location ~ ^/admin/ { limit_req zone=pryv_admin burst=20 nodelay; proxy_pass http://pryv_api; }
+       location ~* ^(?:/reg)?/access/ { limit_req zone=pryv_poll burst=10 nodelay; proxy_pass http://pryv_api; }
+       location ~* ^(?:/reg)?/admin(?:/|$) { limit_req zone=pryv_admin burst=20 nodelay; proxy_pass http://pryv_api; }
        location / { limit_req zone=pryv_lookup burst=20 nodelay; proxy_pass http://pryv_api; }
    }
    ```
@@ -392,7 +427,7 @@ With `dns.domain` set, apps address `https://alice.example.com/...` and the path
 3. High-frequency series addressed on a user host (`/events/{id}/series`, `/series/batch`) do not match the HFS location above, which only routes the path-style form to the worker. They reach Pryv through `location /`, and the core forwards them to the HFS worker itself. To give them the HFS budget instead of the general one, add before `location /`:
 
    ```nginx
-   location ~ ^/(?:events/[^/]+/series|series/batch)(?:/|$) {
+   location ~* ^/(?:events/[^/]+/series|series/batch)(?:/|$) {
        limit_req zone=pryv_hfs burst=20 nodelay;
        limit_req zone=pryv_ip burst=100 nodelay;
        proxy_pass http://pryv_api;   # keep Host: the username is in it
@@ -430,10 +465,15 @@ Three jails, all reading nginx's logs (Pryv's own logs are not involved). Instal
 ```ini
 # /etc/fail2ban/filter.d/pryv-auth-login-fail.conf
 # Reads the nginx access log (log_format pryv).
-# 401 = wrong password or wrong MFA code; 404 = unknown username (enumeration).
+# Paths are matched case-insensitively and with an optional trailing slash,
+# as Pryv routes them.
+# auth/login: 401 = wrong password; 404 = unknown username (enumeration).
+# mfa/verify, confirm, recover: 400 = wrong MFA code or wrong recovery code
+# (also a malformed request); 401 = wrong password (recover), or an MFA
+# session ended by too many wrong codes; 404 = unknown username.
 [Definition]
-failregex = ^<HOST> - \[\] "POST (?:/[^/" ]+)?/auth/login HTTP/[\d.]+" (?:401|404) 
-            ^<HOST> - \[\] "POST (?:/[^/" ]+)?/mfa/(?:verify|confirm|recover) HTTP/[\d.]+" 401 
+failregex = ^<HOST> - \[\] "POST (?i:(?:/[^/" ]+)?/auth/login/?) HTTP/[\d.]+" (?:401|404) 
+            ^<HOST> - \[\] "POST (?i:(?:/[^/" ]+)?/mfa/(?:verify|confirm|recover)/?) HTTP/[\d.]+" (?:400|401|404) 
 ignoreregex =
 datepattern = ^[^\[]*\[({DATE})
               {^LN-BEG}
@@ -457,7 +497,7 @@ ignoreregex =
 # pryv_access_create limit), per source address. Polling (GET) and
 # accept/refuse (POST /reg/access/{key}) are not counted.
 [Definition]
-failregex = ^<HOST> - \[\] "POST (?:/reg)?/access HTTP/[\d.]+" (?:201|429) 
+failregex = ^<HOST> - \[\] "POST (?i:(?:/reg)?/access/?) HTTP/[\d.]+" (?:201|429) 
 ignoreregex =
 datepattern = ^[^\[]*\[({DATE})
               {^LN-BEG}
@@ -535,10 +575,12 @@ The configuration above is the consumer profile. Edit the `rate=` values in the 
 | `pryv-excess-rate` | 10 in 10 min, ban 1 h | 10 in 10 min, ban 1 h | 30 in 10 min, ban 15 min |
 | `pryv-access-create-abuse` | 30 in 10 min, ban 1 h | 30 in 10 min, ban 1 h | 200 in 10 min, ban 15 min |
 | `services.mfa.attempts.backoff` | default | default | default (it is per account, so a shared address does not trip it) |
+| `auth.passwordAttempts` (per account) | default | default | default (per account, as above) |
+| `auth.passwordAttempts.perIp.maxFailures` | default (30 in 15 min) | default | raise it (or `0`) for the hospital egress addresses, see below |
 
 Trade-offs to keep in mind:
 
-- **Shared addresses.** Mobile carriers put many subscribers behind one address (carrier-grade NAT), and hospitals put all staff behind a few. Per-IP limits and IP bans then hit everyone behind it. Keep per-IP limits for the unauthenticated surfaces, where there is nothing better to key on, and rely on per-token limits for data traffic. For known shared addresses, raise the limits through a `geo` map (as done for the admin zone) and list them in `ignoreip`.
+- **Shared addresses.** Mobile carriers put many subscribers behind one address (carrier-grade NAT), and hospitals put all staff behind a few. Per-IP limits and IP bans then hit everyone behind it. Keep per-IP limits for the unauthenticated surfaces, where there is nothing better to key on, and rely on per-token limits for data traffic. For known shared addresses, raise the limits through a `geo` map (as done for the admin zone) and list them in `ignoreip`. Pryv's own per-address password budget (`auth.passwordAttempts.perIp`) counts every failed password from such an address together: 30 typos across a hospital in 15 minutes refuse every password check from it until the window ends. It is one setting for all addresses, so where staff share a few egress addresses, raise `maxFailures` or set it to `0` and rely on the per-account delays and on your proxy limits.
 - **IPv6.** `$binary_remote_addr` is a full /128 address and a single host usually controls a whole /64. If you see abuse rotating through one prefix, key the per-IP zones on the /64 instead (a `map` on `$remote_addr` keeping the first four groups).
 - **Bursts versus rates.** The rate is what a client can sustain; the burst is how far ahead of it a client may go before refusals start. Batch importers need large bursts; login needs a small one. Too small a burst on read zones breaks apps that load a dashboard with a dozen parallel calls.
 
@@ -547,7 +589,7 @@ Trade-offs to keep in mind:
 
 Test against a staging core, from an address you can afford to have banned (or add it to `ignoreip` while testing the limits, and remove it again to test the bans). The commands use [vegeta](https://github.com/tsenart/vegeta), a single binary with no account (`brew install vegeta`, or a release binary from GitHub), and `jq`.
 
-**1. Login limit, per IP.** 5 attempts per second for 30 seconds against the `10r/m, burst 5` zone: about 10 requests are let through (the burst, plus 5 refills in 30 seconds) and get Pryv's `401`; the other 140 or so get `429` from nginx.
+**1. Login limit, per IP.** 5 attempts per second for 30 seconds against the `10r/m, burst 5` zone: about 10 requests are let through (the burst, plus 5 refills in 30 seconds) and reach Pryv, which answers them with `401`; the other 140 or so get `429` from nginx. On open-pryv.io 2.0.0-rc.47 or later, once the account's password delay has started (after 5 failures), Pryv answers one or two of the late ones with its own `429 too-many-attempts`: nginx's refusals are the ones with `too-many-requests` in the body and `lr=REJECTED` in the access log.
 
 ```bash
 cat > login.json <<'EOF'

@@ -952,6 +952,8 @@ module.exports = exports =
         description: """
                     Checks whether an invitation token is valid. Returns plain text `true` or `false`.
                     Used when user registration is limited to holders of valid invitation tokens.
+
+                    Every check counts toward a budget per client address (an IPv4 address, or the /64 of an IPv6 address), kept by each core: at most 10 checks in a one-minute window opened by the first. Past it the check is refused with `429 too-many-attempts` until the window ends. The address is read through `http.trustedProxies`.
                     """
         params:
           properties: [
@@ -970,6 +972,13 @@ module.exports = exports =
                         Plain text: `true` if valid, `false` otherwise.
                         """
           ]
+        errors: [
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      More than 10 checks within one minute from this client address (an IPv6 address counts toward its /64) on this core. The token is not checked. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`.
+                      """
+        ]
 
       ,
 
