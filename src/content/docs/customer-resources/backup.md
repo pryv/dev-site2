@@ -30,13 +30,23 @@ See [Encrypting the backup](#encrypting-the-backup) for the key setup and the pa
 
 ### Incremental backup
 
-Point `--output` at an existing backup directory and add `--incremental`. The tool reads the previous `manifest.json` and exports only data that changed per user since the last backup:
+Point `--output` at an existing backup directory and add `--incremental`. The tool exports, per user, only what changed since the previous run, and writes it **next to** the earlier runs, never over them:
 
 ```bash
 node bin/backup.js --output /backups/pryv-rolling --incremental
 ```
 
-If the directory does not yet contain a manifest, the tool falls back to a full backup.
+If the directory does not yet contain a backup, the tool takes a full backup instead.
+
+A backup directory is a **chain**: the full backup at its root, then one `incrementals/<runId>/` directory per incremental run, each with its own `manifest.json` (and its own `encryption.json` when encrypted). The cleartext `chain.json` at the root lists the runs in order. No run ever rewrites a file of an earlier run.
+
+- **Window.** An incremental run exports what changed since the previous run *started* (with a one-minute overlap that restore merges away), so nothing changed during the previous run is missed. Deletions count as changes: a deleted stream, access, webhook or event is carried as a deletion record.
+- **Consistency.** A run is consistent as of its start; changes and deletions made while a run is in progress are captured by the next run.
+- **Deleted accounts.** A run of the whole core (no `--user`) lists every account that exists. An account that a later whole-core run no longer lists was deleted, and is not restored (see [Restore](#restore)).
+- **Same key model.** Continue an encrypted chain with the same passphrase or the same recipient public key (the private key is not needed on the backup host). The passphrase is checked against the previous run before anything is written; a different key model is refused: start a new chain in a new directory.
+- **Inspect.** `node bin/backup.js --inspect <dir>` lists the runs (id, type, scope, snapshot time, user count, encryption, deleted accounts) and prints one verdict: `OK`, `DAMAGED`, `INCOMPLETE` or `UNKNOWN`. It reads the directory only.
+
+> **Before 2.0.0-rc.51, `--incremental` overwrote the full backup.** It wrote the delta into the same files as the full backup and its restore reported success with the earlier data gone. A directory that ever received `--incremental` from an earlier version is damaged and cannot be repaired: it has no `chain.json` and its `manifest.json` says `"backupType": "incremental"` (`--inspect` prints `DAMAGED`; for an encrypted directory pass the same secret as for a restore). Restore refuses it (`--allow-incomplete` restores the delta anyway). Take a new full backup into a new directory and continue from there. Full backups written by earlier versions are not affected: they restore unchanged and can start a chain.
 
 ### Backup a single user
 
@@ -61,13 +71,13 @@ openssl pkey -in recipient.key.pem -pubout -out recipient.pub.pem
 node bin/backup.js --output /backups/pryv-$(date +%Y%m%d) --recipient-pubkey recipient.pub.pem
 ```
 
-**Passphrase.** Simpler, but the same machine can decrypt its own backups. The data key is derived from a passphrase; pass it via `--encrypt-passphrase` or, to keep it out of the process list, the `PRYV_BACKUP_PASSPHRASE` environment variable.
+**Passphrase.** Simpler, but the same machine can decrypt its own backups. The data key is derived from a passphrase; pass it with `--passphrase-file <path>` (first line of the file), or the `PRYV_BACKUP_PASSPHRASE` environment variable. `--encrypt-passphrase` also works but shows the passphrase in the process list and the shell history.
 
 ```bash
-PRYV_BACKUP_PASSPHRASE='…' node bin/backup.js --output /backups/pryv-$(date +%Y%m%d)
+node bin/backup.js --output /backups/pryv-$(date +%Y%m%d) --passphrase-file /etc/pryv/backup-passphrase
 ```
 
-An encrypted backup carries a small cleartext `encryption.json` at its root (crypto headers + the wrapped key only — never user data) plus a self-contained `decrypt-backup.mjs` and `RESTORE-README.md`, so the key holder can decrypt it with only Node.js installed, even on a machine without Pryv.io.
+An encrypted backup carries a small cleartext `encryption.json` at its root (crypto headers and the wrapped key only, never user data) plus a self-contained `decrypt-backup.mjs` and `RESTORE-README.md`, so the key holder can decrypt it with only Node.js installed, even on a machine without Pryv.io. Every run of a chain carries its own `encryption.json` and, since 2.0.0-rc.51, its own copy of the script and README: **use the newest run's script**: run from the backup directory, `node incrementals/<runId>/decrypt-backup.mjs` decrypts the whole chain (given a run directory, the script climbs to the chain's root). A full backup taken before 2.0.0-rc.51 keeps an older script at its root that does not know incremental runs.
 
 > **Disaster recovery:** if the key (or passphrase) is lost, the backup is unrecoverable — that is the point. Manage the recipient private key / passphrase like any other root secret, and keep it separate from the backup media.
 
@@ -87,7 +97,12 @@ Into an install that already has conflicting users, pick one:
 Restore auto-detects an encrypted backup (from its `encryption.json`) and asks for the matching secret:
 
 - `--private-key recipient.key.pem` (plus `--private-key-passphrase` if the key file is itself passphrase-protected) for a backup made with `--recipient-pubkey`.
-- `--decrypt-passphrase '…'` (or `PRYV_BACKUP_PASSPHRASE`) for a backup made with a passphrase.
+- `--passphrase-file <path>` (or `PRYV_BACKUP_PASSPHRASE`, or `--decrypt-passphrase`) for a backup made with a passphrase.
+
+Restoring a chain applies the full backup, then every incremental run in order: the newest version of a stream, access, event or attachment replaces the older one, deletions included. Accounts deleted along the chain are not restored; the restore report names them.
+
+- `--through-run <runId>` restores the chain up to that run (the state as of that run; `--inspect` lists the run ids). It is also the way to restore an account as of the last run that held it.
+- A run missing from the chain refuses the restore, naming the run and the `--through-run` that stops before it.
 
 Useful restore flags:
 

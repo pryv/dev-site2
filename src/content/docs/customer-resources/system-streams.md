@@ -132,20 +132,9 @@ custom:
 
 At runtime the IDs are accessed as `:system:email`, `:system:insuranceNumber`, etc.
 
-### Adding custom *other* streams
+### No custom *other* streams
 
-Streams you need at the root of the tree (not under `:_system:account`) go under `custom.systemStreams.other`. They only support the core schema (no unicity / indexation / requiredness / visibility constraints).
-
-```yaml
-custom:
-  systemStreams:
-    other:
-      - id: clientApp
-        name: Client apps
-        type: identifier/string
-```
-
-By default this list is empty.
+Since 2.0.0-rc.51, a config that declares any entry under `custom.systemStreams.other` is **refused at boot** (and by `bin/check-config.js`) with a message. Such streams were listed among the system streams but had no storage: `streams.get` did not return them and no event could be written in them. Remove the section (an empty list is accepted); account fields belong under `custom.systemStreams.account`, as above. For other data, use regular streams.
 
 ### Modification caveats
 
