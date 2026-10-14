@@ -103,7 +103,7 @@ An offer that breaks these rules is refused with `cmc-membership-permissions-inv
 
 `approvedBy` is `null` when the owner accepted. The member finds the membership's endpoint in the accept that arrives in their own `:_cmc:inbox`, marked `membership: true`.
 
-**What a membership can do on the group account:** read and write the events of its teams: publish patient invites (`consent/request-cmc`) and ask for member accesses (`consent/member-access-cmc`). **What it cannot do:** accept invites or scope updates for the group (owner and delegates only), list or read the group's other accesses, read `:_cmc:inbox`, or chat with the group (`cmc-member-channel-not-supported`).
+**What a membership can do on the group account:** read and write the events of its teams: publish patient invites (`consent/request-cmc`) and ask for member accesses (`consent/member-access-cmc`). **What it cannot do:** accept invites or scope updates for the group (owner and delegates only), list or read the group's other accesses, read `:_cmc:inbox`, update or delete the team's member records (`cmc-protected-event-write`, see [What members can change](#the-trust-boundary)), or chat with the group (`cmc-member-channel-not-supported`).
 
 ## Inviting a patient
 
@@ -119,7 +119,7 @@ Write the invite's consent text so that it agrees: who the group is, and that it
 
 Members of a team see each other's invites, capability URLs included: the URL stays on the invite event. A colleague could accept an invite with their own account, which gains nothing but is a nuisance. To keep each member's invites apart, grant each member a membership on a sub-stream of their own, for example `:_cmc:apps:practice:team-a:dr-who`; a member whose membership covers `team-a` still sees the streams under it.
 
-An open-link invite is closed with `consent/invalidate-link-cmc` written on the invite's stream or on a stream above it. Written elsewhere, it fails with `cmc-invalidate-link-scope-mismatch` and the link stays open, so a member cannot close the invites of a team they are not in by naming their capability ids.
+An open-link invite is closed with `consent/invalidate-link-cmc` written on the invite's stream or on a stream above it. Written elsewhere, it fails with `cmc-invalidate-link-scope-mismatch` and the link stays open, so a member cannot close the invites of a team they are not in by naming their capability ids. The invite's stream is read from the server's own copy of the offer, which no client can edit or delete, so an invite event a member deleted can still be closed.
 
 ## Opening a patient's data
 
@@ -183,7 +183,7 @@ When the request fails after it was written (the patient's core refused or could
   "appCode": "practice" }
 ```
 
-The member's username and host come from the group's core, which reads them from the membership; the group's identity and the grant (`viaAccessId`) come from the patient's core, which reads them from the grant that called it. The group's core sends only `{ role: 'member-child', member: { username, host } }`, two strings of 1 to 200 characters without whitespace or control characters; the patient's core refuses anything else from a grant with `cmc-member-stamp-invalid`. No one can write, change or remove `clientData.cmc` on an access through the API.
+The member's username and host come from the group's core, which reads them from the membership; the group's identity and the grant (`viaAccessId`) come from the patient's core, which reads them from the grant that called it. The group's core sends only `{ role: 'member-child', member: { username, host } }`, two strings of 1 to 200 characters without whitespace, control, bidirectional or zero-width characters; the patient's core refuses anything else from a grant with `cmc-member-stamp-invalid`. No one can write, change or remove `clientData.cmc` on an access through the API.
 
 **Asking again** for the same patient with exactly the same permissions returns the same access while it has more than five minutes left; other permissions (more or fewer), or an access about to expire, are replaced, and one the patient deleted is created again while the grant lasts. An access is never created over one the patient's core did not confirm gone: if that core cannot be reached while the previous access is being replaced, the request fails with `cmc-member-access-peer-unreachable` and the previous access stays recorded for the sweep. A member has one request in flight at a time per patient (`cmc-member-access-in-flight`) and at most 30 per minute per server process (`cmc-member-access-rate-limited`, ask again after the minute). In-flight and an unreachable patient core (`cmc-member-access-peer-unreachable`) are worth retrying shortly; `isMemberAccessRetryable` in `@pryv/cmc` says which.
 
@@ -206,7 +206,7 @@ The patient can also delete one member's access, but while the grant lasts that 
 
 **The group ends a patient relationship.** The group's core first deletes, through the grant, the member accesses it created on that patient, then delivers the revoke, then removes its own side. This pass writes no sweep record: a member access the patient's core did not confirm deleted is logged and lasts until it expires.
 
-**Revoke notices are re-sent.** When the other core cannot be reached (network error, timeout, 5xx) after the attempts made during the request, the revoke notice is queued and re-sent by the sender's retry loop after 1, 5 and 25 minutes, about 2 hours, then every 6 hours: 8 attempts in all, about 20 hours, after which it is marked `failed-permanent` for the operator. The `consent/revoke-cmc` event then reports `content.deliveryQueued: true` beside `content.peerNotified: false`. A 4xx is the other core's answer and is not retried. This holds on every core of the group-accounts release, whoever revokes: the group, a member leaving, or a patient withdrawing from a core of that release. Deleting a relationship access with `accesses.delete` queues its notice the same way. **Not queued:** the notices sent while an account is being deleted (no account is left to hold them; they are attempted during the deletion, then logged as lost), and every notice when the retry loop is off (see [Operator settings](#several-cores-and-older-releases)).
+**Revoke notices are re-sent.** When the other core cannot be reached (network error, timeout, 5xx) after the attempts made during the request, the revoke notice is queued and re-sent by the sender's retry loop after 1, 5 and 25 minutes, about 2 hours, then every 6 hours: 8 re-sends over about 27 hours, after which it is marked `failed-permanent` for the operator. The `consent/revoke-cmc` event then reports `content.deliveryQueued: true` beside `content.peerNotified: false`. A 4xx is the other core's answer and is not retried. This holds on every core of the group-accounts release, whoever revokes: the group, a member leaving, or a patient withdrawing from a core of that release. Deleting a relationship access with `accesses.delete`, or removing a delegate administrator, queues its notices the same way. A notice that lands late, after the two accounts accepted the same link again, ends nothing (see [Revoking](/guides/cross-account-messaging/#revoking) in the CMC guide). **Not queued (a known limitation):** the notices sent while an account is being deleted. No account is left to hold them, and holding the deletion until every other core answers would let an outage elsewhere block an erasure: they are attempted during the deletion, then logged as lost. Nothing is queued either when the retry loop is off (see [Operator settings](#several-cores-and-older-releases)).
 
 **A membership ends.** However it ends, the group's core runs one **offboarding sweep** for that member:
 
@@ -216,11 +216,27 @@ The patient can also delete one member's access, but while the grant lasts that 
 | `accesses.delete` | The membership access was deleted with `accesses.delete`. |
 | `expired` | The membership access expired (found by the periodic pass). |
 | `vanished` | The membership access is gone but member accesses created for it were still recorded as live (found by the periodic pass: a deletion whose own sweep did not complete). |
-| `narrowed` | The membership access was updated to fewer teams: only the patients outside the teams the membership still covers when the sweep runs are swept. |
+| `narrowed` | The membership access was updated to fewer teams, or a team stream it covers was deleted for good (see below): only the patients outside the teams the membership still covers when the sweep runs are swept. |
 | `detach` | The delegate administrator who approved it was removed, and the owner did not keep it. |
 | `account-deleted` | The group account was deleted. Its member accesses on patients' cores are deleted through the grants before the account is erased; no record is kept, since the account is gone. |
 
-The sweep deletes each member access the group's core created for that member, through the patient's grant, then reads back. Except at account deletion, it is recorded by the server on the membership's team stream as a `consent/member-revoke-cmc` event (client writes of that type are refused with `cmc-protected-event-write`): the member, the membership, the reason, and per access an `outcome` of `deleted`, `absent` (already gone, or expired) or `residual` (still there).
+**A team stream deleted for good** is a narrowing. When the group deletes a stream under `:_cmc:apps` for good (the second `streams.delete`, once the stream is trashed), every membership whose teams include that stream, lie under it or lie above it is swept as `narrowed` for the patients under that stream: the member accesses created there are deleted on the patients' cores. The record is written on the deleted stream's parent (or on `:_cmc:apps`) and names the stream in `uncovered`. Trashing a stream is not a narrowing: its member accesses stay until it is deleted or they expire.
+
+The sweep deletes each member access the group's core created for that member, through the patient's grant, then reads back. Except at account deletion, it is recorded by the server as a `consent/member-revoke-cmc` event on the membership's team stream (client writes of that type are refused with `cmc-protected-event-write`):
+
+| Field | Content |
+|---|---|
+| `member` | The member, `{ username, host }`. |
+| `membershipAccessId` | The membership access that ended. |
+| `reason` | How it ended: one of the values above (`revoke`, `accesses.delete`, `expired`, `vanished`, `narrowed`, `detach`). |
+| `uncovered` | Present when a team stream was deleted: the stream ids gone. |
+| `records` | The member accesses to delete: `{ relationshipAccessId, counterparty, childAccessId, expires }` each. |
+| `status` | `pending`, `delivered`, `completed` or `failed`. |
+| `outcome` | Per access, `{ childAccessId, result }`, `result` being `deleted`, `absent` (already gone, or expired) or `residual` (still there). |
+| `residuals` | The accesses left in place, `{ counterparty, childAccessId, expires, reason }` each. |
+| `failure` | `{ reason: 'cmc-member-revoke-residual', detail }` when accesses were left in place. |
+
+The record is server-owned: an app or shared access, a membership included, cannot update or delete it (`cmc-protected-event-write`).
 
 **Residuals.** A patient core that cannot be reached or refuses the deletion, or a relationship that cannot be read, leaves a residual, and the sweep record fails with `cmc-member-revoke-residual`. The sweep is retried through the retry queue (6 attempts over about 30 minutes); after that, the periodic ledger pass of the group's core sweeps residuals again, up to 50 per pass, every minute by default. The same pass sweeps memberships that expired or vanished. Both run with the CMC retry loop, `cmc:retryLoop:enabled`, which is on by default from the group-accounts release. With it off, nothing is queued, the core logs a warning at boot, and a residual lasts until the access expires.
 
@@ -230,13 +246,15 @@ Expiry bounds every residual: at most 7 days with the default settings, 24 hours
 
 **Pryv attributes to the credential, not to the human.** The patient's audit log says which access acted. A member access names the member whose membership asked for it; it does not prove that this person was at the keyboard. A member who shares their Pryv login, or hands their access to someone else, has that person's reads recorded under their own name. Keeping credentials personal is the group's responsibility. The member's name is the one their membership records, as their own platform presented them: it is as trustworthy as that platform, and the patient's audit log shows the group's grant beside it.
 
-**Read on `:_cmc:inbox` is holding every grant.** Each accept that arrives in an account's `:_cmc:inbox` carries the data grant's endpoint, token included. Any access with `read` on the group's `:_cmc:inbox` therefore holds every patient's grant, and can do with it anything the grant allows, without a member name. The same holds on a member's own account for their membership. Grant `read` on `:_cmc:inbox` only to what you would trust with all of them; a membership can never have it. No CMC offer can ask for it either: an offer naming a stream the plugin manages on the accepter's account (`:_cmc:inbox`, the `:_cmc:_internal` streams, a `chats` or `collectors` stream, the `:_cmc:apps` root) is refused when written (`cmc-invalid-event-content`) and again by the accepter's core when accepted (`cmc-offer-permissions-invalid`), whatever the requester's core checked. `*` and the accepter's own `:_cmc:apps:<app>[:<path>]` streams stay offerable.
+**What an arrival's sender proves.** `content.from = { username, host }` is written by the sending core (never by its app) and the arrival is bound to the access it was written with, so it identifies the account that holds that access on yours: an app of the sender cannot forge it. What a group's core asserts about one of its members (`member: { username, host }`) is that core's claim, checked by the member's own core when the membership was requested, not by yours.
+
+**Read on `:_cmc:inbox` is holding every grant.** Each accept that arrives in an account's `:_cmc:inbox` carries the data grant's endpoint, token included. Any access with `read` on the group's `:_cmc:inbox` therefore holds every patient's grant, and can do with it anything the grant allows, without a member name. The same holds on a member's own account for their membership. Grant `read` on `:_cmc:inbox` only to what you would trust with all of them; a membership can never have it. No CMC offer can ask for it either: an offer naming a stream the plugin manages on the accepter's account (`:_cmc:inbox`, the `:_cmc:_internal` streams, a `chats` or `collectors` stream, the `:_cmc:apps` root) is refused when written (`cmc-invalid-event-content`) and again by the accepter's core when accepted (`cmc-offer-stream-not-offerable`), whatever the requester's core checked. `*` and the accepter's own `:_cmc:apps:<app>[:<path>]` streams stay offerable.
 
 **The owner and the delegates hold every grant.** The group's owner, and each delegate of the group account (owner-equivalent), can read the inbox and act with any grant. This is the group-administrator risk: protect these accounts with MFA, prefer delegates (each attributed and removable) to sharing the owner's login, and remember that the patient's audit log attributes such calls to the grant, not to a member.
 
 **What members see of each other.** Members of a team read the team's events: the invites (with their capability URLs), and each `consent/member-access-cmc` event, which says who opened which patient and when, with the access's id, name and expiry, but never its token. Use per-member sub-streams where that matters.
 
-**What members can change.** The team's records live on the team stream. A member holding `contribute` there can delete the `consent/member-access-cmc` and `consent/member-revoke-cmc` events, and can edit or delete the patient invite from which the group's core reads what a member access may cover. Deleting that invite blocks every member's requests for that patient with `cmc-member-access-relationship-not-found` until the group invites the patient again; nothing widens, since the patient's grant stays the real bound. Give `contribute` on team streams to members you trust with the team's records. The patient's own audit trail (the deletion records and the member stamps on the patient's core) does not depend on them.
+**What members can change.** The team's records live on the team stream. The member records, `consent/member-access-cmc` and `consent/member-revoke-cmc`, cannot be updated or deleted with an app or shared access, a membership included (403 `forbidden`, `cmc-protected-event-write`): only a personal token can, the owner's or a delegate administrator's. A member holding `contribute` on the team stream can still edit or delete the patient invites published there, from which the group's core reads what a member access may cover. Deleting such an invite blocks every member's requests for that patient with `cmc-member-access-relationship-not-found` (`error.data.reason: 'offer-not-found'`) until the group invites the patient again; nothing widens, since the patient's grant stays the real bound. Give `contribute` on team streams to members you trust with the team's invites. The patient's own audit trail (the deletion records and the member stamps on the patient's core) does not depend on them.
 
 **The membership is itself a credential at rest.** Like any CMC grant, the membership's endpoint is stored in the member's `:_cmc:inbox` and on the back-channel. An app on the member's account that reads the inbox can act as the member in the group.
 
@@ -247,7 +265,7 @@ Pryv provides the membership, the per-member access, the attribution and the off
 - **Who is a member.** Vetting each person before approving their membership, and revoking memberships when people leave. Pryv offboards an account; it does not know who works where.
 - **Personal credentials.** One Pryv account per person, MFA where it matters, no shared logins; and not logging or storing the member accesses.
 - **The app.** Signing in, showing and scanning the membership QR code, listing the member's patients, asking again for an access when it expires or when the answer says to retry.
-- **The teams.** Creating the team streams, choosing who is granted which, and at which level (`contribute` lets a member delete the team's records).
+- **The teams.** Creating the team streams, choosing who is granted which, and at which level (`contribute` lets a member edit or delete the team's patient invites). Deleting a team stream for good offboards its members from the patients under it.
 - **Watching the sweeps.** Keeping the retry loop on, checking residuals after an offboarding, and contacting the patients' operators when a core stays unreachable.
 - **Everything outside Pryv.** The group's agreements with its members and patients, its role under the applicable regulations, and how data read by members is used once it leaves Pryv.
 
@@ -275,6 +293,8 @@ Members, the group and patients may each be on a different core, and on differen
 | `cmc:retryLoop:enabled` | `true` | The CMC retry loop. |
 
 **The retry loop is on by default from the group-accounts release**, on every core. It carries the sweep retries, the periodic ledger pass and the re-sending of revoke notices. Set to `false`, nothing is queued, a warning is logged at boot, a residual lasts until the access expires, and a revoke notice the other core could not take is not sent again.
+
+**A core that ran with the loop off** (the previous default) still holds the failures of that time in each account's retry queue. When the loop starts, a pending record older than its whole schedule (2 hours for a request, 30 hours for a revoke notice) is retired as `failed-permanent` with `lastFailureReason: 'cmc-retry-stale'` and never sent, so nothing that old reaches another core. Records that succeeded are pruned at once, `failed-permanent` ones after 30 days.
 
 ## Walkthrough with `@pryv/cmc`
 
@@ -390,7 +410,7 @@ Refused when the request is written (`error.data.id`, thrown by `@pryv/cmc` as a
 | Id | Meaning |
 |---|---|
 | `cmc-member-access-not-member` | The event was not written with a membership (personal and delegate tokens are refused too). |
-| `cmc-member-access-relationship-not-found` | No relationship with this patient under the stream, or its handshake is not complete, or the group's invite to the patient can no longer be read. |
+| `cmc-member-access-relationship-not-found` | No relationship with this patient under the stream, or its handshake is not complete, or the group's invite to the patient can no longer be read (`error.data.reason: 'offer-not-found'`): invite the patient again. |
 | `cmc-member-access-scope-outside-membership` | The patient's relationship is not under the stream the event was written on, or the event is not on a team stream. |
 | `cmc-member-access-permissions-not-subset` | Not stream permissions, or beyond what the group's invite offered the patient. |
 | `cmc-member-access-expiry-out-of-range` | `expireAfter` outside the core's bounds, or less than the minimum left on the membership. |
@@ -412,7 +432,7 @@ Recorded on the event (`content.failure.reason`):
 | `cmc-member-revoke-residual` | A sweep left accesses in place (see `residuals`). |
 | `cmc-member-channel-not-supported` | A chat the group addressed to a member. A chat, alert or ack written through a membership is refused at write with the same id (403). |
 
-Other CMC ids met on group accounts: `cmc-protected-event-write` (a client wrote a `consent/member-revoke-cmc`, 403), `cmc-accept-requires-personal-token` (a membership tried to accept), `cmc-invalid-event-content` and `cmc-offer-permissions-invalid` (an offer asked for a stream the plugin manages, see [The trust boundary](#the-trust-boundary)), and `cmc-invalidate-link-scope-mismatch` (an invite closed from another stream, see [Inviting a patient](#inviting-a-patient)).
+Other CMC ids met on group accounts: `cmc-protected-event-write` (403: a client wrote a `consent/member-revoke-cmc`, or an app or shared access, a membership included, tried to update or delete a member record), `cmc-accept-requires-personal-token` (a membership tried to accept), `cmc-invalid-event-content` and `cmc-offer-stream-not-offerable` (an offer asked for a stream the plugin manages, see [The trust boundary](#the-trust-boundary)), and `cmc-invalidate-link-scope-mismatch` (an invite closed from another stream, see [Inviting a patient](#inviting-a-patient)).
 
 Produced by `@pryv/cmc` only: `cmc-member-access-unsupported` (the group's core does not support member accesses), `cmc-member-access-token-missing` (the access was created but the answer arrived without it: ask again) and `cmc-membership-offer-expected` (`acceptMembership` given an ordinary invite).
 
