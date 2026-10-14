@@ -132,7 +132,7 @@ The key is the \`auth.adminAccessKey\` config value, which is required at boot a
 					{ key: 'core', type: 'string', optional: true },
 				] },
 				result: { http: '200 OK', properties: [{ key: 'reservation', type: 'boolean' }] },
-				errors: [{ key: 'reservation-refused', http: '400', description: '`{ reservation: false, error }` with id `invitationToken-invalid` or `item-already-exists`.' }],
+				errors: [{ key: 'reservation-refused', http: '400', description: '`{ reservation: false, error }` with id `invalid-parameters-format` (no username, or a username account creation would refuse: 5 to 60 lowercase letters, digits or dashes, starting and ending with a letter or digit; nothing is reserved), `invitationToken-invalid` or `item-already-exists`.' }],
 			},
 			{
 				id: 'registry-delete', type: 'method', title: 'Delete a user\'s platform fields', http: 'DELETE /system/users/{username}',
