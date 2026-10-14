@@ -832,7 +832,7 @@ module.exports = exports =
           type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
           optional: true
           description: """
-                       If specified, only events modified since that time will be returned.
+                       If specified, only events modified since that time will be returned. Events the server writes or changes itself (`createdBy` / `modifiedBy` reading `system`, see [event](##{dataStructure.getDocId("event")})) are returned like any other.
                        """
         ,
           key: "includeDeletions"

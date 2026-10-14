@@ -7,8 +7,9 @@ timestamp = require('unix-timestamp')
 _getDocId = (typeId) ->
   return helpers.getDocId("data-structure", typeId)
 
-# Quick macro
-changeTrackingProperties = (typeName) ->
+# Quick macro; `notes` optionally appends a type-specific sentence to `createdBy` / `modifiedBy`
+changeTrackingProperties = (typeName, notes = {}) ->
+  withNote = (text, note) -> if note then "#{text} #{note}" else text
   return [
     key: "created"
     type: "[timestamp](#data-structure-timestamp)"
@@ -18,7 +19,7 @@ changeTrackingProperties = (typeName) ->
     key: "createdBy"
     type: "[identifier](#data-structure-identifier)"
     readOnly: true
-    description: "The id of the access used to create the #{typeName}."
+    description: withNote("The id of the access used to create the #{typeName}.", notes.createdBy)
   ,
     key: "modified"
     type: "[timestamp](#data-structure-timestamp)"
@@ -28,7 +29,7 @@ changeTrackingProperties = (typeName) ->
     key: "modifiedBy"
     type: "[identifier](#data-structure-identifier)"
     readOnly: true
-    description: "The id of the last access used to modify the #{typeName}."
+    description: withNote("The id of the last access used to modify the #{typeName}.", notes.modifiedBy)
   ]
 
 module.exports = exports =
@@ -174,7 +175,10 @@ module.exports = exports =
       description: """
                    Integrity check for event object.
                    """
-    ].concat(changeTrackingProperties("event"))
+    ].concat(changeTrackingProperties("event", {
+      createdBy: "Reads `system` for an event the server writes itself on the user's behalf (consent inbox copies and scope-update records, account email records, delegation records). Such events carry `created`, `modified` and `modifiedBy` like any other, so `events.get` with `modifiedSince` returns them. Since open-pryv.io 2.0.0-rc.48; events of this kind written by an earlier version get these fields when the operator runs the one-time repair."
+      modifiedBy: "Reads `system` when the server itself made the last change (for example a consent request or trigger status, a consent withdrawal or a delegation record); the change also sets `modified`, so a `modifiedSince` sync returns the event. Since open-pryv.io 2.0.0-rc.48."
+    }))
     examples: [
       title: "A picture"
       content: examples.events.picture

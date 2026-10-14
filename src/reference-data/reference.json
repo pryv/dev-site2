@@ -1629,7 +1629,7 @@
                     "key": "modifiedSince",
                     "type": "[timestamp](#data-structure-timestamp)",
                     "optional": true,
-                    "description": "If specified, only events modified since that time will be returned."
+                    "description": "If specified, only events modified since that time will be returned. Events the server writes or changes itself (`createdBy` / `modifiedBy` reading `system`, see [event](#data-structure-event)) are returned like any other."
                   },
                   {
                     "key": "includeDeletions",
@@ -5651,7 +5651,7 @@
               "key": "createdBy",
               "type": "[identifier](#data-structure-identifier)",
               "readOnly": true,
-              "description": "The id of the access used to create the event."
+              "description": "The id of the access used to create the event. Reads `system` for an event the server writes itself on the user's behalf (consent inbox copies and scope-update records, account email records, delegation records). Such events carry `created`, `modified` and `modifiedBy` like any other, so `events.get` with `modifiedSince` returns them. Since open-pryv.io 2.0.0-rc.48; events of this kind written by an earlier version get these fields when the operator runs the one-time repair."
             },
             {
               "key": "modified",
@@ -5663,7 +5663,7 @@
               "key": "modifiedBy",
               "type": "[identifier](#data-structure-identifier)",
               "readOnly": true,
-              "description": "The id of the last access used to modify the event."
+              "description": "The id of the last access used to modify the event. Reads `system` when the server itself made the last change (for example a consent request or trigger status, a consent withdrawal or a delegation record); the change also sets `modified`, so a `modifiedSince` sync returns the event. Since open-pryv.io 2.0.0-rc.48."
             }
           ],
           "examples": [
