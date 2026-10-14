@@ -59,6 +59,10 @@ trail). A `shared` grant stays non-delegable. Requires open-pryv.io ≥
 `2.0.0-rc.9`. With the `@pryv/cmc` helper, pass `accessType` to `createInvite`
 (see [Lib-js helpers](#lib-js-helpers)).
 
+A group that shares one account (a practice, a research team, a bridge) can let
+its core create these sub-accesses for each of its members, named after them,
+without running a backend: see [Group accounts](/guides/group-accounts/).
+
 ## Streams reserved by the plugin
 
 The plugin auto-provisions a small reserved namespace on every account on first CMC use:
@@ -77,6 +81,8 @@ The plugin auto-provisions a small reserved namespace on every account on first 
 ```
 
 Apps must NEVER write to `:_cmc:_internal:*`. They write to their own `:_cmc:apps:<app-code>:*` streams; the plugin handles everything inside `:_cmc:_internal:*` and `:_cmc:inbox`.
+
+**Read on `:_cmc:inbox` is holding every grant.** Each accept that arrives in `:_cmc:inbox` carries the data grant's endpoint, token included (`grantedAccess.apiEndpoint`, which `waitForAccept` reads). An access with `read` on `:_cmc:inbox` therefore holds every data grant the account has received. Grant it only to an app you would trust with all of them.
 
 ## Event types
 
@@ -472,5 +478,6 @@ A capability URL lets whoever holds it read the offer. The URLs stay in the acce
 
 - [Implementer's Guide (open-pryv.io)](https://github.com/pryv/open-pryv.io/blob/master/components/cmc/IMPLEMENTERS-GUIDE.md) — the deep-dive reference for app developers integrating CMC.
 - [Internals (open-pryv.io)](https://github.com/pryv/open-pryv.io/blob/master/components/cmc/INTERNALS.md) — operator / contributor reference, with full sequence diagrams.
+- [Group accounts](/guides/group-accounts/): a practice, a team or a bridge sharing one account, with an access per member on each patient's account.
 - [Consent request guide](/guides/consent/) — the classical single-account consent flow; pair this guide with that one when designing your data-collection architecture.
 - [Event types directory](/event-types/) — the canonical class/format catalogue, including the `consent/*`, `message/chat-cmc`, and `notification/*-cmc` types.

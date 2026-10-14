@@ -173,6 +173,7 @@ export default defineConfig({
 						{ slug: 'guides/audit-logs' },
 						{ slug: 'guides/consent' },
 						{ slug: 'guides/cross-account-messaging' },
+						{ slug: 'guides/group-accounts', badge: { text: 'Next release', variant: 'note' } },
 						{ slug: 'guides/custom-auth' },
 						{ slug: 'guides/email-verification' },
 						{ slug: 'guides/privacy-by-design' },
