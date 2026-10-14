@@ -44,6 +44,10 @@ Pryv offers several options, from turnkey to fully self-managed:
 
 The first two protect against stolen / decommissioned disks, off-host backups, and snapshots (the scope of HIPAA §164.312(a)(2)(iv) and GDPR Art.32). They do not protect a running host — for that, or for a server-blind model, use application-level end-to-end encryption. Platform *secrets* (TLS / ACME keys) are always encrypted at rest regardless.
 
+### Has Open Pryv.io had a security review?
+
+Yes. The maintainers' code-level security review of Open Pryv.io, with its findings by severity, the release that fixed each one, the operator actions and the residual risks, is published in the repository as [`SECURITY-AUDIT.md`](https://github.com/pryv/open-pryv.io/blob/master/SECURITY-AUDIT.md). It is revised with every release that carries a security fix. To report a vulnerability, follow [`SECURITY.md`](https://github.com/pryv/open-pryv.io/blob/master/SECURITY.md) (privately, not as a public issue).
+
 ### Self-managed top-domain
 
 This only applies to **multi-core** deployments that run the embedded DNS (i.e. `dnsLess.isActive: false`). Single-node v2 installs use `dnsLess` mode and do not need any of this.
