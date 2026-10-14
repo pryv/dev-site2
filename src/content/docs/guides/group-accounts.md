@@ -36,7 +36,7 @@ If one person consents to one other person (a patient and their own doctor), a p
 | Is the attribution verified | Yes: the member is stamped by the servers from authenticated accesses. | No: `callerId` is whatever the caller sends, unless a [custom auth step](/guides/custom-auth/) on the patient's platform checks it. |
 | Ending one member's access | The group revokes the membership; the group's core deletes that member's accesses on patients' accounts. | The group's server stops serving that member. Nothing changes on the patient side. |
 | Patient consent | A **delegable** grant (`accessType: 'app'`); the consent screen says so. | An ordinary grant (`'shared'`, the default). |
-| Core versions | The group's core and the patients' cores run the release that introduces group accounts (see [Several cores and older releases](#several-cores-and-older-releases)). | Any core. |
+| Core versions | The group's and the members' cores run the release that introduces group accounts; patients' cores open-pryv.io 2.0.0-rc.52 or later, with attribution by name only below the group-accounts release (see [Several cores and older releases](#several-cores-and-older-releases)). | Any core. |
 
 **Use member accesses** when there is no server to run, when members work from their own devices, or when the patient should see who read their data on a record that the caller cannot write.
 
@@ -56,7 +56,7 @@ Four kinds of accounts take part:
 And five steps:
 
 1. **A member asks to join.** From their own account, the member writes a membership request naming the group and the teams. It produces a capability URL, which the member shows to an administrator as a QR code or a link.
-2. **An administrator approves.** The administrator opens the URL, chooses which of the requested teams to grant, and accepts with the group's token. The access this creates on the group account is the member's **membership**: it lets the member write in those teams, nothing else.
+2. **An administrator approves.** The administrator opens the URL, chooses which of the requested teams to grant, and accepts with the group's token. The access this creates on the group account is the member's **membership**: it lets the member write in those teams. It also carries the plugin's own delivery channels, which the member's core uses for the membership's protocol messages; nothing a member's app can use beyond the teams.
 3. **The member invites patients for the group.** Through the membership, the member publishes CMC invites from the group account. The patient accepts a **delegable** grant: the group may create narrower accesses from it.
 4. **The member opens a patient's data.** The member asks the group's core for an access on that patient. The group's core creates it on the patient's core, through the patient's grant, names it after the member and returns it once. The member then calls the patient's core directly with it.
 5. **Membership ends, accesses go.** When the membership ends, however it ends, the group's core deletes the accesses it created for that member on patients' accounts, and records what it removed.
@@ -147,7 +147,7 @@ There is no name field: the server names the access.
 **The answer carries the access, once.** The request is answered synchronously:
 
 ```json
-{ "event": { "id": "…", "type": "consent/member-access-cmc", "content": { "…": "…" } },
+{ "event": { "id": "…", "type": "consent/member-access-cmc", "content": { "status": "completed", "…": "…" } },
   "memberAccess": {
     "apiEndpoint": "https://…@patient-doe.pryv.example/",
     "accessId": "…",
@@ -156,6 +156,8 @@ There is no name field: the server names the access.
     "attribution": "stamped"
   } }
 ```
+
+The `event` is the stored row, read again after the access was created: its `content.status` is `completed` on success and `failed` otherwise.
 
 The `apiEndpoint` carries the access's token. The server returns it in this answer only: it is never stored on the event, never logged, never retried. Do not log it or store it beyond the session; ask again when it expires. The stored event keeps `memberAccess` without the endpoint (`accessId`, `name`, `expires`, `attribution`), with `member` and `relationshipAccessId`, as the group's record of who opened which patient.
 
@@ -187,14 +189,14 @@ On the patient's account, every call made with a member access is recorded under
 
 - **Its name and `clientData.cmc`** name the member and the group.
 - **Its creator is the group's grant.** The access's `createdBy` is the grant, so the access details page of app-web-user-account (from its next release) shows "via <grant name>" with a link to the grant.
-- **A removed access keeps its name.** After a member access is deleted (expired, swept, or withdrawn), the page resolves it from its deletion record ([`accesses.get`](/reference/#get-accesses) with `includeDeletions`), marks it removed with the date, and keeps its audit trail.
-- **A `callerId` is a label, not an identity.** If a member's app sends one, it is recorded and shown as "Caller label (not verified)". Who acted is the access, not the label.
+- **A removed access keeps its name.** After a member access is deleted (expired, swept, or withdrawn), the page resolves it from its deletion record ([`accesses.get`](/reference/#get-accesses) with `includeDeletions`), marks it removed with the date, and keeps its audit trail. On a patient core older than the group-accounts release, see [Several cores and older releases](#several-cores-and-older-releases).
+- **A `callerId` is a label, not an identity.** If a member's app sends one, it is recorded, and the same app-web-user-account release shows it as "Caller label (not verified)". Who acted is the access, not the label.
 
 On the group's account, each `consent/member-access-cmc` event is created by the member's membership and names the member and the patient; each offboarding sweep is recorded as a `consent/member-revoke-cmc` event (below).
 
 ## Ending access
 
-**The patient withdraws.** The patient revokes the group's grant from their consent pages (`consent/revoke-cmc`), or deletes it with [`accesses.delete`](/reference/#methods-accesses-accesses-delete). Every member access created from that grant is deleted with it, on the patient's own core, whether or not the group's core is reachable. The group receives the revoke as for any CMC relationship. On a patient core older than the release that introduces group accounts, see [Several cores and older releases](#several-cores-and-older-releases).
+**The patient withdraws.** The patient revokes the group's grant from their consent pages (`consent/revoke-cmc`), or deletes it with [`accesses.delete`](/reference/#methods-accesses-accesses-delete). Every member access created from that grant is deleted with it, on the patient's own core, whether or not the group's core is reachable. The group receives the revoke as for any CMC relationship. This requires open-pryv.io 2.0.0-rc.52 or later on the patient's core; on an older one, see [Several cores and older releases](#several-cores-and-older-releases).
 
 The patient can also delete one member's access, but while the grant lasts that member can ask for a new one. To stop the group, the patient withdraws the grant; to stop one member, the group offboards them.
 
@@ -242,9 +244,11 @@ Pryv provides the membership, the per-member access, the attribution and the off
 
 Members, the group and patients may each be on a different core, and on different platforms. The group's core calls the patient's core over HTTPS with the grant, even when both accounts are on the same core; the grant's token never leaves the group's core. The member access's token is produced by the patient's core, passes through the group's core once in the answer, and is then used by the member directly against the patient's core.
 
-**Versions.** Both the group's core and the member's core run the release that introduces group accounts. Against an older group core, `requestMemberAccess` throws `cmc-member-access-unsupported`.
+**Versions.** Both the group's core and the member's core run the release that introduces group accounts. The group's core creates the member accesses and runs the sweeps. The member's core runs the requester side of the membership: it checks the membership request, creates the group's back-channel on the member's account and marks the accept that arrives in the member's inbox as a membership. Against an older group core, `requestMemberAccess` throws `cmc-member-access-unsupported`.
 
-**An older patient core** does not accept the member stamp. The group's core then creates the access without it and reports `attribution: 'name-only'`: the access name still names the member, but `clientData.cmc` does not. This fallback is allowed by default for one release cycle (`cmc:memberAccess:allowNameOnly`), after which the default refuses it and the request fails. On such a core, a patient's withdrawal through the consent pages may also leave member accesses in place until they expire: keep their expiry short.
+**A patient core older than the group-accounts release** does not accept the member stamp. The group's core then creates the access without it and reports `attribution: 'name-only'`: the access name still names the member, but `clientData.cmc` does not. This fallback is allowed by default for one release cycle (`cmc:memberAccess:allowNameOnly`), after which the default refuses it and the request fails. On such a core, a withdrawal from the consent pages deletes the member accesses without a deletion record: their past audit entries lose their name. A sweep, expiry, or the patient deleting a member access itself keep it.
+
+**A patient core older than open-pryv.io 2.0.0-rc.52** does not delete the member accesses when the patient withdraws from the consent pages: they stay in place until they expire. Keep their expiry short, or ask such patients to delete the grant with `accesses.delete`, which removes the accesses created from it on older releases too.
 
 **Operator settings** on the group's core:
 
@@ -308,11 +312,12 @@ const invite = await cmc.createInvite(membership, {
 // Hand invite.capabilityUrl to the patient.
 
 // 4. Once the patient accepted, open their data.
-const status = await cmc.getInviteStatus(membership, invite.inviteEventId);
-if (status.counterparty) {
+// The invite record's counterparty is who answered it: check the status, as it is also set on a refusal.
+const record = await cmc.getInviteStatus(membership, invite.inviteEventId);
+if ((record.status === 'accepted' || record.status === 'completed') && record.counterparty) {
   try {
     const access = await cmc.requestMemberAccess(membership, {
-      counterparty: { username: status.counterparty.username, host: status.counterparty.host },
+      counterparty: { username: record.counterparty.username, host: record.counterparty.host },
       scopeStreamId: ':_cmc:apps:practice:team-a',
       expireAfter: 3600
     });
@@ -404,7 +409,7 @@ When the group runs its own server, it can keep the plain CMC model: one relatio
 Authorization: <grant token> <caller id>
 ```
 
-The patient's core records the `callerId` on each audit entry, and app-web-user-account shows it as "Caller label (not verified)". The label is whatever the caller sends: anyone holding the token can send any label. It becomes a verified identity only where the patient's platform runs a [custom auth step](/guides/custom-auth/) that checks it, which is a decision of the patient platform's operator, not of the group.
+The patient's core records the `callerId` on each audit entry, and app-web-user-account, from its next release, shows it as "Caller label (not verified)". The label is whatever the caller sends: anyone holding the token can send any label. It becomes a verified identity only where the patient's platform runs a [custom auth step](/guides/custom-auth/) that checks it, which is a decision of the patient platform's operator, not of the group.
 
 Offboarding a staff member is then the server's job: it stops serving them. Nothing changes on the patient side, and a staff member who copied the token keeps the group's access until the patient or the group revokes the grant.
 
