@@ -263,7 +263,7 @@ All routes live under `/system/admin/mail/` on every core and require the platfo
 | `DELETE` | `/system/admin/mail/templates/:type/:lang/:part`      | —                          | 204 |
 | `POST`   | `/system/admin/mail/send-test`                        | `{ type, lang, recipient }` | `{ sent: true }` |
 
-`PUT` and `DELETE` both refresh every worker of the core that serves the request, so the new content is used from the next mail on without a restart (in releases after open-pryv.io 2.0.0-rc.52; up to rc.52 a restart was needed). If the serving worker cannot reload them, the request answers 503 `api-unavailable`: the template is stored, repeat the request. The other cores of a multi-core platform receive the row through PlatformDB and use it from their next start.
+`PUT` and `DELETE` both refresh every worker of the core that serves the request, so the new content is used from the next mail on without a restart (from open-pryv.io 2.0.0-rc.53; up to rc.52 a restart was needed). If the serving worker cannot reload them, the request answers 503 `api-unavailable`: the template is stored, repeat the request. The other cores of a multi-core platform receive the row through PlatformDB and use it from their next start.
 
 Example:
 
