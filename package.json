@@ -30,6 +30,11 @@
   "allowScripts": {
     "esbuild": true
   },
+  "overrides": {
+    "@expressive-code/core": {
+      "postcss-nested": "^7.0.2"
+    }
+  },
   "devDependencies": {
     "coffeescript": "^2.7.0",
     "lodash": "^4.17.21",
