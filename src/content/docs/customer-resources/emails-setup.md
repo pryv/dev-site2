@@ -108,7 +108,22 @@ One config-only predicate backs the boot check, `bin/check-config.js`, the runti
 | `microservice` | `services.email.url` and `services.email.key` |
 | `mandrill` | `services.email.url` and `services.email.key` |
 
+A value counts as missing when it is unset, empty or a placeholder (such as `REPLACE ME` or an unresolved `${VAR}`), as in a freshly generated configuration.
+
 `services.email.from.name` and `.address` are deliberately **not** required: the transport omits the header when they are unset, so a deployment that has been sending mail without a configured sender keeps working. Set them anyway, since some relays reject sender-less messages.
+
+### Without an SMTP host
+
+From open-pryv.io 2.0.0-rc.55, a core with in-process mail (the default method) and no SMTP host, `services.email.smtp.host` missing in the sense above, treats mail as **not configured**:
+
+- it logs **one warning at boot** (per process, like the other configuration warnings), naming the mail classes that are switched on in `services.email.enabled` but will not be sent (welcome, password-reset, email-verification, MFA-change), and quoting a placeholder host when there is one;
+- those mails are skipped quietly: a registration succeeds without its welcome mail and logs no error;
+- `POST /:username/account/request-password-reset` answers 200 and sends nothing, as when `services.email.enabled.resetPassword` is false;
+- `POST /system/admin/mail/send-test` answers `503 api-unavailable` ("Mail is not configured: ...").
+
+Up to 2.0.0-rc.54, every registration and password reset on such a core logged an `unexpected-error (500)` with "services.email.smtp.host is required", and the password-reset request failed with `500 unexpected-error`. To silence the warning, either configure SMTP ([Common config](#common-config--smtp-sender-language-)) or switch off the mail classes you do not use under `services.email.enabled`. The registration email challenge is not affected: the core already refuses to boot with that gate on and mail incomplete (see [At registration](#at-registration-the-code-flow)).
+
+Once an SMTP host is configured, a delivery failure (the relay refuses the connection, for example) is still logged as an error.
 
 ### At registration: the code flow
 
@@ -262,6 +277,8 @@ All routes live under `/system/admin/mail/` on every core and require the platfo
 | `PUT`    | `/system/admin/mail/templates/:type/:lang/:part`      | `{ "pug": "<source>" }`    | 204 |
 | `DELETE` | `/system/admin/mail/templates/:type/:lang/:part`      | —                          | 204 |
 | `POST`   | `/system/admin/mail/send-test`                        | `{ type, lang, recipient }` | `{ sent: true }` |
+
+`send-test` answers `503 api-unavailable` when mail is not configured on the core ([Without an SMTP host](#without-an-smtp-host); `500 unexpected-error` up to 2.0.0-rc.54).
 
 `PUT` and `DELETE` both refresh every worker of the core that serves the request, so the new content is used from the next mail on without a restart (from open-pryv.io 2.0.0-rc.53; up to rc.52 a restart was needed). If the serving worker cannot reload them, the request answers 503 `api-unavailable`: the template is stored, repeat the request. The other cores of a multi-core platform receive the row through PlatformDB and use it from their next start.
 
