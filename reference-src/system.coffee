@@ -1056,6 +1056,10 @@ module.exports = exports =
                     Admin endpoint for updating runtime DNS entries (e.g. ACME challenge records for SSL
                     certificate provisioning). Records are persisted to PlatformDB and propagated to all
                     cores in a multi-core deployment. Requires admin authorization.
+
+                    DNS records are answered before usernames, so a new record under the name of an
+                    existing account is refused with `409 item-already-exists` (an existing record can
+                    still be updated), and a record name cannot be registered as a username.
                     """
         params:
           properties: [
