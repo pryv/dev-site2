@@ -236,8 +236,9 @@ node bin/mail.js templates get welcome-email en html
 # → prints the current Pug source to stdout
 
 node bin/mail.js templates set welcome-email en html --file ./new-welcome.pug
-# → overwrites the html part. CLI doesn't push IPC; sibling workers refresh
-#   on their next request via the admin API path or the periodic cache re-read.
+# → overwrites the html part. The CLI notifies no running worker and there is
+#   no periodic re-read: restart the cores to use it, or write through the
+#   admin API below, which the serving core applies at once.
 
 node bin/mail.js templates delete welcome-email fr        # wipes both parts for fr
 node bin/mail.js templates delete welcome-email fr subject   # wipes only subject
@@ -262,7 +263,7 @@ All routes live under `/system/admin/mail/` on every core and require the platfo
 | `DELETE` | `/system/admin/mail/templates/:type/:lang/:part`      | —                          | 204 |
 | `POST`   | `/system/admin/mail/send-test`                        | `{ type, lang, recipient }` | `{ sent: true }` |
 
-`PUT` and `DELETE` both trigger a cross-worker refresh on the local core via IPC so the new content is live on the next request without a restart.
+`PUT` and `DELETE` both refresh every worker of the core that serves the request, so the new content is used from the next mail on without a restart (in releases after open-pryv.io 2.0.0-rc.52; up to rc.52 a restart was needed). If the serving worker cannot reload them, the request answers 503 `api-unavailable`: the template is stored, repeat the request. The other cores of a multi-core platform receive the row through PlatformDB and use it from their next start.
 
 Example:
 
