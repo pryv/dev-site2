@@ -1584,6 +1584,8 @@ module.exports = exports =
       http: "PUT /streams/{id}"
       description: """
                    Modifies the stream.
+
+                   Moving a stream (a new `parentId`) by an access other than a personal one needs a `manage` permission on the stream, on every stream below it (trashed ones included), and on the new parent stream (or on `*` to move it to the root); otherwise the call answers `403 forbidden` and nothing moves. The new parent cannot be the stream itself or one of its descendants (`400 invalid-operation`).
                    """
       params:
         properties: [
