@@ -96,7 +96,7 @@ The index never holds the record id. A service that needs it later may store the
 
 ## Privacy boundary
 
-- **What the platform stores.** The replicated index maps a blinded id to the core that holds it, never to the account. Only the home core knows which of its accounts holds an id: it keeps the account, the blinded value and the claim date in its own database. In cleartext PII mode (`platform.piiMode: cleartext`) the index stores the blinded values and the namespace salts as they are: they are pseudonyms. In hashed mode (the default) they are additionally keyed by the platform pepper.
+- **What the platform stores.** The replicated index maps a blinded id to the core that holds it, never to the account. Only the home core knows which of its accounts holds an id: it keeps the account, the blinded value and the claim date in its own database. In cleartext PII mode (`platform.piiMode: cleartext`) the index stores the blinded values and the namespace salts as they are: they are pseudonyms, but whoever reads a copy of the index and also holds blinded values from elsewhere (an invitation link, for example) can match them. In hashed mode (the default) they are additionally keyed by the platform pepper.
 - **What a core alone learns.** From the index, how many ids each core holds in each namespace, and nothing about the record ids.
 - **What a core plus `K_namespace` learns.** It can compute the blinded value of a record id, so it can test whether that id is on the platform and on which core. Only the home core can also tell which of its accounts holds it.
 - **How data flows.** The index never carries an account. Data reaches an account only through an access its holder granted.
@@ -122,7 +122,7 @@ Run the reconcile on each core:
 node bin/reconcile-user-cores.js --ext-ids [--old-pepper <BASE64>] [--dry-run]
 ```
 
-It brings the core's local table and the replicated index back in line: stale index rows deleted, missing rows claimed again, ids of deleted accounts released, ids another core holds dropped locally, ids of a deleted namespace reported. It never touches rows of other cores, and it is safe to run again. Run it:
+It brings the core's local table and the replicated index back in line: stale index rows deleted, missing rows claimed again, ids of deleted accounts released, ids another core holds dropped locally, ids of a deleted namespace reported. It never touches rows of other cores, and it is safe to run again. Run it with that core's API stopped: a claim or a release in flight during the run can be undone by it. When the core's local table is empty while the index holds ids for the core, it refuses to delete them (exit code 3): that usually means the table was lost, and deleting would free every id of the core. Restore the table, or pass `--force-empty-local` if it is really meant to be empty. Run it:
 
 - after a restore;
 - after a crash during a claim;
