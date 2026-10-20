@@ -1220,6 +1220,18 @@ module.exports = exports =
                      request directly against `coreUrl`. An HTTP redirect is not used because cross-origin redirects strip
                      the `Authorization` header.
                      """
+      ,
+        key: "external-id-already-claimed"
+        http: "409"
+        description: """
+                     An [external id](/customer-resources/external-ids/) cannot be linked to the account. The error's `data` contains `namespace` and `reason`: `value-taken` when another account holds the id (the error never says which), `namespace-taken` when the account already holds another id in that namespace.
+                     """
+      ,
+        key: "external-id-namespace-in-use"
+        http: "409"
+        description: """
+                     **Admin routes only.** An external-id namespace cannot be deleted while ids are still claimed in it. The error's `data.namespace` names it. Delete it with `force=true` to remove the namespace anyway.
+                     """
       ]
     ]
   ]

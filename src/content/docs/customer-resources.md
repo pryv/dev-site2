@@ -117,6 +117,10 @@ If you are migrating a v1 register service, the historical [register migration g
 
   This document gives a reference nginx and fail2ban setup that throttles login, registration, access requests and per-token API traffic, with limits per workload profile and a load test to verify them.
 
+- External ids: [HTML](/customer-resources/external-ids/)
+
+  This document describes how services link a third-party record id (an EHR patient id, for example) to exactly one account, platform-wide, without the platform seeing the id: namespaces, blinding, claim and lookup, the privacy boundary and the operator tools.
+
 
 ## Contact and support
 

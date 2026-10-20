@@ -204,6 +204,7 @@ export default defineConfig({
 						{ slug: 'customer-resources/mfa' },
 						{ slug: 'customer-resources/auth-oauth2' },
 						{ slug: 'customer-resources/auth-sso', badge: { text: 'Beta', variant: 'caution' } },
+						{ slug: 'customer-resources/external-ids' },
 						{ slug: 'customer-resources/system-streams' },
 						{ slug: 'customer-resources/audit-setup' },
 						{ slug: 'customer-resources/observability' },

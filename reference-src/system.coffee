@@ -638,6 +638,71 @@ module.exports = exports =
         ]
       ,
 
+        id: "extIdCores.get"
+        type: "method"
+        title: "Get core holding an external id"
+        http: "POST /ext-id/cores"
+        httpOnly: true
+        server: "register"
+        description: """
+                    Get the base URL of the core holding an [external id](/customer-resources/external-ids/): the core of the one account that claimed it. It never tells which account. No authentication. On a DNS-less setup the route is `https://{hostname}/reg/ext-id/cores`.
+
+                    It is a `POST` so the blinded value never appears in a URL. An unknown namespace and an id nobody claimed give the same answer, `404 unknown-resource`.
+
+                    Every lookup counts toward a budget per client address (an IPv4 address, or the /64 of an IPv6 address), kept by each core and shared with the refused claims of [claim an external id](/reference/#claim-an-external-id): at most 10 in a one-minute window opened by the first. Past it the lookup is refused with `429 too-many-attempts` until the window ends. The address is read through `http.trustedProxies`.
+                    """
+        params:
+          properties: [
+            key: "namespace"
+            type: "string"
+            description: """
+                        The namespace of the id.
+                        """
+          ,
+            key: "blindedValue"
+            type: "string"
+            description: """
+                        The blinded value of the record id, `HMAC(K_namespace, recordId)`: base64url without padding, 16 to 64 bytes once decoded.
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "server"
+            type: "string"
+            description: """
+                        The base URL of the core holding the id.
+                        """
+          ]
+        errors: [
+          key: "invalid-parameters-format"
+          http: "400"
+          description: """
+                      The blinded value is malformed. The error never echoes the value.
+                      """
+        ,
+          key: "unknown-resource"
+          http: "404"
+          description: """
+                      The namespace is unknown, or no account holds the id.
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      More than 10 lookups or refused claims within one minute from this client address on this core. The id is not looked up. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`.
+                      """
+        ]
+        examples: [
+          title: "Finding the core that holds an external id."
+          params:
+            namespace: "clinic-ehr"
+            blindedValue: "5axJiZtfRrrFmLoDoJc9LWUadGJBz-ByjoE8SAAHBz4"
+          result:
+            server: "https://co1.pryv.me/"
+        ]
+      ,
+
         id: "users.delete"
         type: "method"
         title: "Delete user"
