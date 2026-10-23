@@ -29,7 +29,7 @@ The platform administrator registers each namespace with the admin key (`auth.ad
 - **Name**: 2 to 63 characters, lower-case letters, digits and `-`, starting with a letter or a digit (`^[a-z0-9][a-z0-9-]{1,62}$`).
 - **Salt**: the server generates a random salt when it creates the namespace. The salt never changes and is never returned. A `PUT` on an existing namespace only updates its label and default mode.
 - **`label`**: 1 to 80 characters, shown to users on confirmation screens. It defaults to the namespace name.
-- **`defaultMode`**: `hint` (the default) or `forced`. It is used by the flows described in [Coming next](#coming-next).
+- **`defaultMode`**: `hint` (the default) or `forced`. An access request or a registration that carries an `externalId` without a `mode` takes the namespace's default. The flows run in `hint` mode; `forced`, given explicitly or by default, is refused for now (`forced-mode-not-available`, see [Coming next](#coming-next)), so keep `hint` on namespaces in use.
 - **Delete**: refused with `409 external-id-namespace-in-use` while ids are still claimed in the namespace. With `force=true` only the namespace row is deleted. Each core's [reconcile](#operators) then reports the local ids of that namespace.
 
 Example:

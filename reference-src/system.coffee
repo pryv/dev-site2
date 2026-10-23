@@ -423,7 +423,7 @@ module.exports = exports =
             type: "boolean"
             optional: true
             description: """
-                         Present when the registration carried an `externalId`: `true` when the id is now linked to the new account, `false` when another account holds it.
+                         Present when the registration carried an `externalId`: `true` when the id is now linked to the new account, `false` when another account holds it or it could not be linked.
                          """
           ]
         errors: [
