@@ -396,6 +396,13 @@ module.exports = exports =
             type: "string"
             optional: true
             description: "A referer id potentially used for analytics."
+          ,
+            key: "externalId"
+            type: "object"
+            optional: true
+            description: """
+                          A record id of your system to link to the new account: `{ namespace, blindedValue, mode? }`, as in the `externalId` of the [auth request](/reference/#auth-request) (see [External ids](/customer-resources/external-ids/)). An id nobody holds is linked to the new account; an id another account holds leaves the new account unlinked (send the user to sign in with the account that holds it). A malformed value, an unknown namespace or the `forced` mode (not available yet) refuse the registration before anything is reserved. Requires an open-pryv.io release later than 2.0.0-rc.56.
+                          """
           ]
         result:
           http: "200 OK"
@@ -411,12 +418,19 @@ module.exports = exports =
             description: """
                          The apiEndpoint to reach this account. It includes a personal access token.
                          """
+          ,
+            key: "externalIdLinked"
+            type: "boolean"
+            optional: true
+            description: """
+                         Present when the registration carried an `externalId`: `true` when the id is now linked to the new account, `false` when another account holds it.
+                         """
           ]
         errors: [
           key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The password does not match password complexity rules (if enabled).
+                      The password does not match password complexity rules (if enabled), or the `externalId` is malformed, names an unknown namespace or asks for the `forced` mode (`data.param` names the field, never the value).
                       """
         ]
         examples: [

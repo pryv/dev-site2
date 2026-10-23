@@ -107,11 +107,21 @@ What the platform never does: store the plaintext record id, or put a blinded va
 
 Whoever holds a blinded value before the patient claims it (for example from an unused invitation link) can claim it first with their own account. The patient then cannot link that id while that account holds it. This is a denial, never a data flow: the first claimer gets no data of the patient, and services that look the id up find the claimer's core, not the patient's data.
 
+## Sign-in and registration (hint mode)
+
+A service that invites a patient can put the external id in its [auth request](/reference/#auth-request): `externalId: { namespace, blindedValue }`. The request never links anything by itself:
+
+- **The id is not linked yet.** After the user signs in, the authentication page asks "Link this record to your account?", naming the namespace's label and the account. With "Link", the page links it with the user's own session ([claim an external id](/reference/#claim-an-external-id)); with "Not now", the access is still granted and the `ACCEPTED` result carries `externalIdDeclined: true`.
+- **An account holds the id already.** The page tells the user to sign in with that account, without showing which one.
+- **The user registers from the page.** The new account is linked at creation when nobody holds the id; the registration answer says so with `externalIdLinked` (see [create user](/reference-system/#create-user)). There is no confirmation step: the user creates the account for that invitation.
+
+The page never shows the blinded value, never puts it in a URL and never stores it in the browser.
+
 ## Coming next
 
 Not released yet, and documented here when they ship:
 
-- fields of the authorization request and of the registration that carry an external id, with the `hint` and `forced` modes of a namespace, and a hosted confirmation screen showing the namespace's label to the user;
+- the `forced` mode of a namespace: the sign-in completes only for the account that holds the id, and the page offers to switch accounts;
 - a release of an id by the platform administrator, for an id claimed by the wrong account, with a notice to the account that held it.
 
 ## Operators

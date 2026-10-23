@@ -449,6 +449,30 @@
                     ]
                   },
                   {
+                    "key": "externalId",
+                    "type": "object",
+                    "optional": true,
+                    "description": "A record id of your system to link to the account that signs in (see [External ids](/customer-resources/external-ids/)). The request never links by itself: the authentication page asks the user (\"link this record to your account?\") and links it with [claim an external id](/reference/#claim-an-external-id); when the user declines, the `ACCEPTED` result carries `externalIdDeclined: true`. A registration started from the page links the id to the new account.\n\nRefused with `invalid-parameters-format` (HTTP 400, `data.param` naming the field, never the value) for an unknown namespace or a malformed value. The `forced` mode is refused for now (`data.reason: 'forced-mode-not-available'`). The result below echoes `externalId: { namespace, mode }`, without the value, only when the core understood it. Requires an open-pryv.io release later than 2.0.0-rc.56.",
+                    "properties": [
+                      {
+                        "key": "namespace",
+                        "type": "string",
+                        "description": "The namespace of the id, as registered by the platform administrator."
+                      },
+                      {
+                        "key": "blindedValue",
+                        "type": "string",
+                        "description": "The blinded value of the record id, `HMAC(K_namespace, recordId)`: base64url without padding, 16 to 64 bytes once decoded. Handle it like a secret."
+                      },
+                      {
+                        "key": "mode",
+                        "type": "`hint`",
+                        "optional": true,
+                        "description": "Default: the namespace's default mode. `hint` offers the link and never forces it."
+                      }
+                    ]
+                  },
+                  {
                     "key": "referer",
                     "type": "string",
                     "optional": true,
@@ -544,6 +568,12 @@
                       "description": "The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults, `accessName` present only on an entry that carried it). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request."
                     },
                     {
+                      "key": "externalId",
+                      "type": "object",
+                      "optional": true,
+                      "description": "Present ONLY when the request carried an `externalId` and this core understood it: `{ namespace, mode }` in the creation answer (never the value); `{ namespace, label, blindedValue, mode }` in the `NEED_SIGNIN` poll, where `label` is the namespace's display label. The poll is the one place the blinded value goes back, for the authentication page to look the id up and link it; it is readable by whoever holds the poll key, like the rest of the request."
+                    },
+                    {
                       "key": "serviceInfo",
                       "type": "string",
                       "optional": true,
@@ -635,6 +665,12 @@
                       "type": "array of outcome objects",
                       "optional": true,
                       "description": "Present when the request carried `cmcInvites` and the authentication page processed them: one outcome per invite, in the order of the request, each one of `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }` (accepted; `acceptedFor: 'self'` marks a `for: 'target'` invite accepted by the signed-in account), `{ declined: true }` or `{ reason }` (an optional invite the page could not accept, or an accept still pending when the wait ended, `cmc-capability-timeout`). Carried whether the token is delivered inline or through a `handoff`.\n\nThis is a **hint** posted by the authentication page, not verified by the core. The requester of each invite learns the truth from its own inbox (the `consent/accept-cmc` delivered there). See [Consent invites in the authorisation request](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request)."
+                    },
+                    {
+                      "key": "externalIdDeclined",
+                      "type": "`true`",
+                      "optional": true,
+                      "description": "Present when the request carried an `externalId` and the user chose not to link it. Absent otherwise, whether the id was linked or not (to know, [look it up](/reference-system/#get-core-holding-an-external-id) or list the account's ids with a personal token). A **hint** posted by the authentication page."
                     },
                     {
                       "key": "serviceInfo",
@@ -7287,6 +7323,12 @@
                       "type": "string",
                       "optional": true,
                       "description": "A referer id potentially used for analytics."
+                    },
+                    {
+                      "key": "externalId",
+                      "type": "object",
+                      "optional": true,
+                      "description": "A record id of your system to link to the new account: `{ namespace, blindedValue, mode? }`, as in the `externalId` of the [auth request](/reference/#auth-request) (see [External ids](/customer-resources/external-ids/)). An id nobody holds is linked to the new account; an id another account holds leaves the new account unlinked (send the user to sign in with the account that holds it). A malformed value, an unknown namespace or the `forced` mode (not available yet) refuse the registration before anything is reserved. Requires an open-pryv.io release later than 2.0.0-rc.56."
                     }
                   ]
                 },
@@ -7302,6 +7344,12 @@
                       "key": "apiEndpoint",
                       "type": "string",
                       "description": "The apiEndpoint to reach this account. It includes a personal access token."
+                    },
+                    {
+                      "key": "externalIdLinked",
+                      "type": "boolean",
+                      "optional": true,
+                      "description": "Present when the registration carried an `externalId`: `true` when the id is now linked to the new account, `false` when another account holds it."
                     }
                   ]
                 },
@@ -7309,7 +7357,7 @@
                   {
                     "key": "invalid-parameters-format",
                     "http": "400",
-                    "description": "The password does not match password complexity rules (if enabled)."
+                    "description": "The password does not match password complexity rules (if enabled), or the `externalId` is malformed, names an unknown namespace or asks for the `forced` mode (`data.param` names the field, never the value)."
                   }
                 ],
                 "examples": [
