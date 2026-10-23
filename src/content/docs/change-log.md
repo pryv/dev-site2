@@ -3,6 +3,13 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.57
+
+Security release, runtime only: Node.js 24.22.1. No API change since 2.0.0-rc.56, no migration. Docker: pull the new image. Native installs: upgrade Node to 24.22.1 or later and run `npm rebuild` (a host held on 24.18.1 per the earlier advice must be released first: `sudo apt-mark unhold nodejs`); a native host can take the Node upgrade before this release, 2.0.0-rc.56 runs on 24.22.1 too.
+
+- **Security: Node.js 24.22.1.** The Docker image moves from Node 24.18.1 to 24.22.1, which carries the Node.js security release of 2026-10-21: four high-severity fixes, among them an out-of-bounds write in the Brotli decoder that can lead to remote code execution, two TLS certificate hostname check bypasses and `dns.resolve` truncating names at a NUL character. The server decodes the responses of its outbound HTTP calls (consent counterparties and webhook targets among them), so the Brotli flaw is reachable. `engines.node` is now `>=24.22.1 <25.0.0`; the server warns at boot and `bin/check-config.js` reports a problem on an older Node. The SQLite abort on Node 24.19 to 24.21 (nodejs/node#65446), the reason for the earlier 24.18 pin, does not occur on 24.22.1 ([#162](https://github.com/pryv/open-pryv.io/issues/162)). See [INSTALL, Node major bumps](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#node-major-bumps-v2--v2).
+- **Dependencies.** `follow-redirects` 1.16.1 (GHSA-8r9p-f939-6h3c, GHSA-q3jh-wrc6-jgq8), reached through the ACME client.
+
 ## 2.0.0-rc.56
 
 Security release: upgrade every core. It closes authorization gaps in the consent (CMC) and account-delegation namespaces and in the account-field checks, refuses calls to a counterparty that would reach a private address, and tightens stream moves. Operators still on 2.0.0-rc.53 to rc.55 who cannot upgrade at once can set `cmc.retryLoop.enabled: false` and restart until they do: while it is off, a consent delivery that fails is not retried later and expired group memberships are not swept (member accesses end at their own expiry); set it back to `true` after the upgrade. This setting covers only the retry-queue part: the other fixes in this release (the reserved-region and account-field checks, the counterparty destination guard, stream moves) have no configuration workaround and need the upgrade. No migration.
