@@ -18,6 +18,8 @@ In this case, you would append a second token to the `Authorization` header afte
 
 For example, if a Alice needs to access data from Bob in your Pryv.io platform, you can implement an authentication step that will allow you to verify the identity of user Alice when she tries to access data from Bob. The identity of the data client (Alice) can be verified through a custom auth step that you can add to your Pryv.io platform as explained below.
 
+A group that shares one access among its staff can send each staff member's identifier as the `callerId`; without a custom auth step that checks it, the platform records it as an unverified label. A group that gives each member their own access needs no `callerId`: see [Group accounts](/guides/group-accounts/#choosing-between-the-two-patterns).
+
 ### What is the custom auth step
 
 You can define a function that will be run by Pryv.io after the authorization token verification.  

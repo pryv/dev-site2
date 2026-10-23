@@ -59,6 +59,10 @@ trail). A `shared` grant stays non-delegable. Requires open-pryv.io ≥
 `2.0.0-rc.9`. With the `@pryv/cmc` helper, pass `accessType` to `createInvite`
 (see [Lib-js helpers](#lib-js-helpers)).
 
+A group that shares one account (a practice, a research team, a bridge) can let
+its core create these sub-accesses for each of its members, named after them,
+without running a backend: see [Group accounts](/guides/group-accounts/).
+
 ## Streams reserved by the plugin
 
 The plugin auto-provisions a small reserved namespace on every account on first CMC use:
@@ -78,6 +82,10 @@ The plugin auto-provisions a small reserved namespace on every account on first 
 
 Apps must NEVER write to `:_cmc:_internal:*`. They write to their own `:_cmc:apps:<app-code>:*` streams; the plugin handles everything inside `:_cmc:_internal:*` and `:_cmc:inbox`.
 
+**Read on `:_cmc:inbox` is holding every grant.** Each accept that arrives in `:_cmc:inbox` carries the data grant's endpoint, token included (`grantedAccess.apiEndpoint`, which `waitForAccept` reads). An access with `read` on `:_cmc:inbox` therefore holds every data grant the account has received. Grant it only to an app you would trust with all of them.
+
+**An offer cannot ask for these streams** (from open-pryv.io 2.0.0-rc.53). A `consent/request-cmc` whose `request.permissions` names a stream the plugin manages on the accepter's account (`:_cmc:inbox`, the `:_cmc:_internal` subtree, a `chats:<peer>` or `collectors:<peer>` stream, the `:_cmc:apps` root) is refused when written, with `400 invalid-operation` and `error.data.id: 'cmc-invalid-event-content'` (the stream named in `error.data.errors`). The accepter's core refuses such an offer again when accepting it (`content.failure.reason: 'cmc-offer-stream-not-offerable'`, not retried), whatever the requester's core checked. `*` and the accepter's own `:_cmc:apps:<app>[:<path>]` streams stay offerable; either one includes the chat and collector streams of every relationship under it, which the consent screen should make plain. On earlier releases such an offer was accepted, and only the order of two permission entries kept the accepter's inbox unreadable to the requester.
+
 ## Event types
 
 CMC types follow the Pryv `<class>/<format>` convention. Implementation formats are suffixed with `-cmc` so the [data-types directory](/event-types/) groups CMC entries together within shared classes.
@@ -88,6 +96,7 @@ CMC types follow the Pryv `<class>/<format>` convention. Implementation formats 
 | `consent/accept-cmc` | Accepter writes to accept (carries the capability URL from the request). |
 | `consent/refuse-cmc` | Accepter writes to refuse. |
 | `consent/revoke-cmc` | Either party writes to revoke an established consent. |
+| `consent/invalidate-link-cmc` | Requester writes to close an open-link invite to new accepters (see [Closing an open link](#closing-an-open-link)). |
 | `message/chat-cmc` | Either party writes a chat to their per-peer chat stream. |
 | `notification/alert-cmc` | Either party sends a system alert (level + title + body). |
 | `notification/ack-cmc` | Acknowledge a previously-received alert. |
@@ -120,7 +129,7 @@ const res = await aliceConn.api([{ method: 'events.create', params: {
   streamIds: [':_cmc:apps:my-study:cohort-2026'],
   type: 'consent/request-cmc',
   content: {
-    to: null,                               // null = open invite via capability URL
+    to: null,                               // recorded, never routed: the capability URL is the hand-off
     capabilityRequested: true,
     request: {
       title:       { en: 'Cohort 2026 — share fertility data' },
@@ -172,6 +181,8 @@ monitor.on('event', (event) => {
   }
 });
 ```
+
+`content.from = { username, host }` is written by the sending core (never by its app) and the arrival is bound to the access it was written with, so it identifies the account that holds that access on yours: an app of the sender cannot forge it. What a group's core asserts about one of its members (`member: { username, host }`) is that core's claim, checked by the member's own core when the membership was requested, not by yours.
 
 After the handshake, both sides have:
 - a chat stream `:_cmc:apps:my-study:cohort-2026:chats:<peer-slug>`,
@@ -239,6 +250,18 @@ await aliceConn.api([{ method: 'events.create', params: {
 
 The plugin tears down both sides of the access pair. The chat / collectors history is preserved (events are not deleted) but no further messages will be delivered.
 
+**Deleted accesses leave a record** (from open-pryv.io 2.0.0-rc.53). Every access the plugin removes (a revoke written by either side or received from the other, a delegation detach) is deleted as [`accesses.delete`](/reference/#methods-accesses-accesses-delete) does: it appears in `accesses.get` with `includeDeletions: true` (name kept, token never), and its webhooks are deleted. A new accept after a revoke creates a new access.
+
+**When the other core cannot be reached** (from open-pryv.io 2.0.0-rc.53). The revoke notice is sent during the request; when the other core cannot be reached (network error, timeout, 5xx), the notice is queued and re-sent by the sender's retry loop after 1, 5 and 25 minutes, about 2 hours, then every 6 hours: 8 re-sends over about 27 hours, after which it is marked `failed-permanent` for the operator. The `consent/revoke-cmc` event then reports `content.deliveryQueued: true` beside `content.peerNotified: false`. A 4xx is the other core's answer and is not retried. Deleting a relationship access with `accesses.delete`, or a delegation detach, queues its notices the same way. Until the notice lands, the other side's access on your account is deleted (your core ran its teardown) but yours on theirs still stands. **Not queued (a known limitation):** the notices sent while an account is being deleted. No account is left to hold them, and holding the deletion until every other core answers would let an outage elsewhere block an erasure: they are attempted during the deletion, then logged as lost. Nothing is queued either when the operator turned the retry loop off (see [Retries](#retries-and-the-retry-loop)). On earlier releases a revoke notice that could not be delivered was not sent again.
+
+**A late notice does not end a relationship accepted again** (from open-pryv.io 2.0.0-rc.53, on both cores). The accept delivered to the requester carries the accepter's `acceptEventId`, and a revoke notice names the accept it ends and when it was issued (`content.acceptEventId`, `content.revokedAt`). A notice that lands after the two accounts accepted the same link again is recorded in the inbox but tears nothing down when it names an earlier accept than the current one, and an access created after `revokedAt` is kept. Such an arrival is marked `content.superseded: 'relationship-re-established'` by the receiving core and is informational: keep your endpoints for that counterparty and scope, and do not present the relationship as withdrawn (`cmc.revocationFromEvent` surfaces it as `superseded`, and `cmc.revocationMatches` returns false for it). With a core of an earlier release on either side, neither field is sent and the notice is handled as before.
+
+### Closing an open link
+
+An open-link invite (`mode: 'open-link'`) accepts several accounts until its requester closes it with `consent/invalidate-link-cmc` (`cmc.invalidateCapability` in `@pryv/cmc`), naming its `capabilityId`. Relationships already accepted are not touched: revoke them one by one.
+
+From open-pryv.io 2.0.0-rc.53, the trigger must be written on the `:_cmc:apps:*` stream that holds the invite, or on a stream above it (the app root included). Written elsewhere, it fails with `content.failure.reason: 'cmc-invalidate-link-scope-mismatch'` (not retried) and the link stays open, so a token that can write in one app scope cannot close the invites of another by naming their capability ids. The invite's stream is read from the server's own copy of the offer, which no client can edit or delete, so an invite event deleted meanwhile does not keep the link open.
+
 **The withdrawal is recorded on the person's consent.** However the consent ends, the `consent/accept-cmc` event the person wrote to accept it (in their `:_cmc:apps:<app>` scope) records it in `content.withdrawal = { at, by, accessId, revokeEventId? }`, `at` in seconds and `accessId` the data grant that was deleted. Requires open-pryv.io 2.0.0-rc.36 or later.
 
 ```json
@@ -258,6 +281,14 @@ The plugin tears down both sides of the access pair. The chat / collectors histo
 - A consent accepted on an older core whose data grant does not point back to its accept event has nothing to mark: the audit log remains its record.
 
 **Listing consents.** An app that lists the person's consents should treat an accept event carrying `withdrawal` as ended. Since `@pryv/cmc` 3.18.0, `cmc.listAcceptedRelationships` leaves withdrawn relationships out by default; pass `includeWithdrawn: true` to list them too. Every record carries `withdrawal`, `null` while the relationship is active. On an older core, which records only the `delegation-detach` withdrawal, the other ended relationships still look active.
+
+## Retries and the retry loop
+
+A delivery to the other core that fails on a network error, a timeout or a 5xx is queued in the account's hidden retry stream (`:_cmc:_internal:retries`) and sent again by the core's retry loop, `cmc:retryLoop:enabled`; the trigger event's `content.status` follows. A 4xx is the other core's answer and is not retried. Revoke notices have a longer schedule of their own (see [When the other core cannot be reached](#revoking)).
+
+**The retry loop is on by default from open-pryv.io 2.0.0-rc.53**, on every core (it was off by default before). An operator who sets it to `false` gets a warning at boot, and nothing is queued at all. A core that ran with the loop off still holds the failures of that time in each account's retry queue: when the loop starts, a pending record older than its whole schedule (2 hours for a request, 30 hours for a revoke notice) is retired as `failed-permanent` with `lastFailureReason: 'cmc-retry-stale'` and never sent, so nothing that old reaches another core. Records that succeeded are pruned at once, `failed-permanent` ones after 30 days.
+
+**Timing.** The loop visits an account with something pending every minute; an account with nothing pending is checked again only after 10 minutes, so a delivery queued on such an account can wait up to 10 minutes for its first re-send.
 
 ## Lib-js helpers
 
@@ -472,5 +503,6 @@ A capability URL lets whoever holds it read the offer. The URLs stay in the acce
 
 - [Implementer's Guide (open-pryv.io)](https://github.com/pryv/open-pryv.io/blob/master/components/cmc/IMPLEMENTERS-GUIDE.md) — the deep-dive reference for app developers integrating CMC.
 - [Internals (open-pryv.io)](https://github.com/pryv/open-pryv.io/blob/master/components/cmc/INTERNALS.md) — operator / contributor reference, with full sequence diagrams.
+- [Group accounts](/guides/group-accounts/): a practice, a team or a bridge sharing one account, with an access per member on each patient's account.
 - [Consent request guide](/guides/consent/) — the classical single-account consent flow; pair this guide with that one when designing your data-collection architecture.
 - [Event types directory](/event-types/) — the canonical class/format catalogue, including the `consent/*`, `message/chat-cmc`, and `notification/*-cmc` types.

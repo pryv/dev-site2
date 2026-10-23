@@ -192,7 +192,19 @@ Show running containers: "docker ps", if the container exited, you can use "dock
 
 ### Why is container XYZ not running?
 
-By default, our containers write logs into `stdout`, the reason for a failure can be printed using `docker logs ${CONTAINER_NAME}`.
+By default, our containers write logs to the console (`stdout` and `stderr`), so the reason for a failure can be printed using `docker logs ${CONTAINER_NAME}`. See [Where do the core's logs go?](#where-do-the-cores-logs-go)
+
+### Where do the core's logs go?
+
+The core (open-pryv.io v2) logs to the targets set under `logs:` in its configuration: `logs.console` (the console, read by the journal or `docker logs`), `logs.file` (daily files `<path>.YYYY-MM-DD`, kept 14 days by default), `logs.fileSync` (a synchronous file for low-volume levels) and `logs.custom` (a module of your own). The built-in defaults turn every target off; the production defaults, applied with `NODE_ENV=production` as in the Docker image, turn on the console at `info` without colours and an errors-only file, `var-pryv/logs/api-server.errors.log`. The install wizard (`init`) writes the same kind of `logs:` section from 2.0.0-rc.54, with the error file under the data folder (`<data folder>/logs/api-server.errors.log`, 14 days kept); a configuration written by an earlier wizard can add it.
+
+- **No target configured:** from 2.0.0-rc.54, the master and the workers still write their warnings and errors to `stderr`, so `docker logs` or the journal keeps them. Earlier releases dropped them.
+- **Colours:** `logs.console.format.color` decides whether console lines carry ANSI colour codes (default `true`, for interactive development; `false` in the production defaults). There is no `logs.console.colorize` key: a configuration that sets it should use `format.color: false` instead.
+- **JSON:** `LOG_FORMAT=json` (or `logs.console.format.json`) prints one JSON object per line; an error logged with its Error object carries its name, message and stack in `context`, in the JSON console from 2.0.0-rc.54 and in `logs.file` from 2.0.0-rc.55.
+- **Master lines:** from 2.0.0-rc.54 they read `[info]: [master:master] <msg>` (and `[warn]:` / `[error]:`), no longer `[master] WARNING: <msg>` or `[master] ERROR: <msg>`: adjust a monitoring grep on those prefixes.
+- **Masking:** credentials (tokens, passwords, `auth=` parameters, URL user info and similar keys) are masked on every target before a line is written.
+
+`logs.file.rotation.maxSize` caps the size of each daily file (see the [change log, 2.0.0-rc.52](/change-log/#200-rc52)).
 
 ### Permission denied error
 
@@ -211,7 +223,7 @@ Yes — single-core **dnsLess** deployments in full PostgreSQL mode can keep eve
 
 ### How do I upgrade the platform DB's rqlite to 10.x?
 
-From open-pryv.io 2.0.0-rc.34, the Docker image and the native setup bundle rqlite 10.5.1 (previously 9.4.5) for the platform DB. rqlite 10 is crash-safe where 9.x could, after a node was killed during a snapshot, restore stale data into its copy of the platform DB.
+From open-pryv.io 2.0.0-rc.34, the Docker image and the native setup bundle rqlite 10 (10.5.1, previously 9.4.5) for the platform DB; from 2.0.0-rc.55 they bundle 10.6.0. rqlite 10 is crash-safe where 9.x could, after a node was killed during a snapshot, restore stale data into its copy of the platform DB.
 
 The first start on 10.x converts the rqlite data directory **one way**: an older release cannot open it afterwards, so a rollback needs the data directory restored from a backup. Before upgrading:
 
@@ -221,6 +233,8 @@ The first start on 10.x converts the rqlite data directory **one way**: an older
 - in a multi-core platform, upgrade the follower cores first and every core back to back.
 
 The step-by-step procedure, including the checks and the rollback, is in [INSTALL — Upgrading the bundled rqlite (9.x to 10.x)](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#upgrading-the-bundled-rqlite-9x-to-10x). Single-core deployments that keep their platform data in PostgreSQL (`storages.platform.engine: postgresql`) run no rqlite and are not affected.
+
+**Within 10.x** (10.5.1 to 10.6.0, from 2.0.0-rc.55) no data-directory step is needed: back up as above, then upgrade one core at a time, the followers first and the leader last; 10.5.1 and 10.6.0 nodes work together while the cluster is upgraded. The Docker image carries the new binary. A native install does not: the setup script never replaces an existing `bin-ext/rqlited`, so replace it yourself while the core is stopped (same INSTALL section).
 
 ### How do I reset data on my Pryv.io platform?
 

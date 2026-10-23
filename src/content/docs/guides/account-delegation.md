@@ -661,6 +661,7 @@ The remaining `delegations.*` methods (`issueToken`, `acceptResponse`, `refuseRe
 ## Further reading
 
 - [Cross-account Messaging & Consent (CMC)](/guides/cross-account-messaging/) — permission-bounded data sharing between two independent account owners.
+- [Group accounts](/guides/group-accounts/): delegates of a group account as membership administrators.
 - [Consent implementation](/guides/consent/) — the classical single-account consent flow.
 - [Audit logs](/guides/audit-logs/) — how account activity is recorded.
 - [API reference](/reference/) — the complete method reference.
