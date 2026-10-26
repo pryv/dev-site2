@@ -401,7 +401,7 @@ module.exports = exports =
             type: "object"
             optional: true
             description: """
-                          A record id of your system to link to the new account: `{ namespace, blindedValue, mode? }`, as in the `externalId` of the [auth request](/reference/#auth-request) (see [External ids](/customer-resources/external-ids/)). An id nobody holds is linked to the new account; an id another account holds leaves the new account unlinked (send the user to sign in with the account that holds it). A malformed value, an unknown namespace or the `forced` mode (not available yet) refuse the registration before anything is reserved. Requires an open-pryv.io release later than 2.0.0-rc.56.
+                          A record id of your system to link to the new account: `{ namespace, blindedValue, mode? }`, as in the `externalId` of the [auth request](/reference/#auth-request) (see [External ids](/customer-resources/external-ids/)). An id nobody holds is linked to the new account. An id another account holds leaves the new account unlinked in `hint` mode (send the user to sign in with the account that holds it), and refuses the registration with `409 external-id-already-claimed` in `forced` mode, before anything is reserved. A malformed value or an unknown namespace refuse the registration before anything is reserved. Requires an open-pryv.io release later than 2.0.0-rc.56, and 2.0.0-rc.59 or later for the `forced` mode (an older core refuses it with `invalid-parameters-format`).
                           """
           ]
         result:
@@ -430,7 +430,13 @@ module.exports = exports =
           key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The password does not match password complexity rules (if enabled), or the `externalId` is malformed, names an unknown namespace or asks for the `forced` mode (`data.param` names the field, never the value).
+                      The password does not match password complexity rules (if enabled), or the `externalId` is malformed or names an unknown namespace (`data.param` names the field, never the value).
+                      """
+        ,
+          key: "external-id-already-claimed"
+          http: "409"
+          description: """
+                      (`externalId` in `forced` mode) Another account holds the id (`data: { namespace, reason: 'value-taken' }`, never which account). Nothing is reserved: send the user to sign in with the account that holds it.
                       """
         ]
         examples: [
@@ -967,6 +973,8 @@ module.exports = exports =
         description: """
                     Updates the state of an access request. Called by the auth page after the user has
                     signed in and accepted or refused the permissions.
+
+                    On a request whose `externalId` is in `forced` mode, `ACCEPTED` is checked before anything is written: the token must belong to `username` and that account must hold the id (see the `externalId` of the [auth request](/reference/#auth-request)). The token is posted inline; a `handoff` or `externalIdDeclined` field is refused with `invalid-parameters` (HTTP 400). A refused acceptance leaves the request `NEED_SIGNIN`.
                     """
         params:
           properties: [
@@ -1019,6 +1027,25 @@ module.exports = exports =
                         The updated status.
                         """
           ]
+        errors: [
+          key: "external-id-mismatch"
+          http: "400"
+          description: """
+                      (`forced` mode) The token does not belong to `username` (`data.reason: 'token-invalid'`), or the account does not hold the id (`data.reason: 'not-holder'`, which counts in the [external id lookup](#get-core-holding-an-external-id) budget).
+                      """
+        ,
+          key: "external-id-check-unavailable"
+          http: "503"
+          description: """
+                      (`forced` mode) The holder check could not run (`data.reason` says why). Retry.
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      (`forced` mode) The client address is over the external id budget. The request is left unchanged.
+                      """
+        ]
 
       ,
 

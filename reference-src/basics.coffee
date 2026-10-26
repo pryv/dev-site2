@@ -760,9 +760,11 @@ module.exports = exports =
           type: "object"
           optional: true
           description: """
-                       A record id of your system to link to the account that signs in (see [External ids](/customer-resources/external-ids/)). The request never links by itself: the authentication page asks the user ("link this record to your account?") and links it with [claim an external id](/reference/#claim-an-external-id); when the user declines, the `ACCEPTED` result carries `externalIdDeclined: true`. A registration started from the page links the id to the new account.
+                       A record id of your system to link to the account that signs in (see [External ids](/customer-resources/external-ids/)). The request never links by itself. In `hint` mode the authentication page asks the user ("link this record to your account?") and links it with [claim an external id](/reference/#claim-an-external-id); when the user declines, the `ACCEPTED` result carries `externalIdDeclined: true`. A registration started from the page links the id to the new account.
 
-                       Refused with `invalid-parameters-format` (HTTP 400, `data.param` naming the field, never the value) for an unknown namespace or a malformed value. The `forced` mode is refused for now (`data.reason: 'forced-mode-not-available'`). The result below echoes `externalId: { namespace, mode }`, without the value, only when the core understood it. Requires an open-pryv.io release later than 2.0.0-rc.56.
+                       In `forced` mode only the account that holds the id receives the credential. When the page posts `ACCEPTED`, the core checks that the posted token belongs to the posted username and that this account holds the id; otherwise it refuses the acceptance with `external-id-mismatch` (HTTP 400, `data: { namespace, reason }`, `reason` being `token-invalid` or `not-holder`, also when nobody holds the id) and the request stays `NEED_SIGNIN`, so the user can sign in with the account that holds it. A check that cannot run answers `external-id-check-unavailable` (HTTP 503), never a pass. The page posts the token inline: an acceptance carrying a `handoff` or `externalIdDeclined` is refused with `invalid-parameters` (HTTP 400), and the core still converts the token into a hand-off when the request asked for `credentialHandoff`. `not-holder` refusals count in the budget of the [external id lookups](/reference-system/#get-core-holding-an-external-id) (`429 too-many-attempts`). A registration started from the page refuses an id another account holds (see [create user](/reference-system/#create-user)). Requires open-pryv.io 2.0.0-rc.59 or later: an older core refuses `forced` with `invalid-parameters-format` (`data.reason: 'forced-mode-not-available'`).
+
+                       Refused with `invalid-parameters-format` (HTTP 400, `data.param` naming the field, never the value) for an unknown namespace or a malformed value. The result below echoes `externalId: { namespace, mode }`, without the value, only when the core understood it. Requires an open-pryv.io release later than 2.0.0-rc.56.
                        """
           properties: [
             key: "namespace"
@@ -778,10 +780,10 @@ module.exports = exports =
                          """
           ,
             key: "mode"
-            type: "`hint`"
+            type: "`hint`|`forced`"
             optional: true
             description: """
-                         Default: the namespace's default mode. `hint` offers the link and never forces it.
+                         Default: the namespace's default mode. `hint` offers the link and never forces it. `forced` delivers the credential only to the account that holds the id.
                          """
           ]
         ,
@@ -1038,7 +1040,7 @@ module.exports = exports =
           type: "`true`"
           optional: true
           description: """
-                       Present when the request carried an `externalId` and the user chose not to link it. Absent otherwise, whether the id was linked or not (to know, [look it up](/reference-system/#get-core-holding-an-external-id) or list the account's ids with a personal token). A **hint** posted by the authentication page.
+                       Present when the request carried an `externalId` and the user chose not to link it. Absent otherwise, whether the id was linked or not (to know, [look it up](/reference-system/#get-core-holding-an-external-id) or list the account's ids with a personal token). Never on a `forced` request. A **hint** posted by the authentication page.
                        """
         ,
           key: "serviceInfo"
@@ -1268,6 +1270,18 @@ module.exports = exports =
         http: "409"
         description: """
                      An [external id](/customer-resources/external-ids/) cannot be linked to the account. The error's `data` contains `namespace` and `reason`: `value-taken` when another account holds the id (the error never says which), `namespace-taken` when the account already holds another id in that namespace.
+                     """
+      ,
+        key: "external-id-mismatch"
+        http: "400"
+        description: """
+                     An [auth request](#auth-request) in `forced` mode cannot be accepted for this account. The error's `data` contains `namespace` and `reason`: `token-invalid` when the posted token does not belong to the posted username, `not-holder` when the account does not hold the request's external id (the error never says who does). The request stays `NEED_SIGNIN`.
+                     """
+      ,
+        key: "external-id-check-unavailable"
+        http: "503"
+        description: """
+                     The core could not check who holds the external id of a `forced` [auth request](#auth-request) (`data.reason` says why). The request stays `NEED_SIGNIN`; retry the acceptance.
                      """
       ,
         key: "external-id-namespace-in-use"
