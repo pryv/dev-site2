@@ -105,7 +105,7 @@ What the platform never does: store the plaintext record id, or put a blinded va
 
 ### The residual
 
-Whoever holds a blinded value before the patient claims it (for example from an unused invitation link) can claim it first with their own account. The patient then cannot link that id while that account holds it. This is a denial, never a data flow: the first claimer gets no data of the patient, and services that look the id up find the claimer's core, not the patient's data.
+Whoever holds a blinded value before the patient claims it (for example from an unused invitation link) can claim it first with their own account. The patient then cannot link that id while that account holds it. This is a denial, never a data flow: the first claimer gets no data of the patient, and services that look the id up find the claimer's core, not the patient's data. The administrator can remove such a link (see [Releasing an id claimed by the wrong account](#releasing-an-id-claimed-by-the-wrong-account)).
 
 ## Sign-in and registration
 
@@ -134,9 +134,24 @@ The app receives a credential only for the account that holds the id. The core c
 
 The hosted authentication page (app-web-user-account, from its next release) shows no link dialog in forced mode. When the signed-in account, or a stored session, holds no id in the namespace, it shows the sign-in form first and asks for the account linked to the record, without continuing as the other account; the stored session itself is kept for other requests. When the core refuses the acceptance, the page deletes the access it has just created and asks the user to sign in with the linked account.
 
-## Coming next
+## Releasing an id claimed by the wrong account
 
-Not released yet, and documented here when it ships: a release of an id by the platform administrator, for an id claimed by the wrong account, with a notice to the account that held it.
+Available from open-pryv.io 2.0.0-rc.60.
+
+Whoever holds a blinded value before the patient can claim it for another account: the patient then cannot link their own account, and the service finds the wrong one. The platform administrator removes such a link with the admin key:
+
+```sh
+curl -X POST https://<core>/system/admin/ext-id/release \
+  -H 'Authorization: <admin key>' -H 'Content-Type: application/json' \
+  --data-binary '{ "namespace": "clinic-ehr", "blindedValue": "<value>", "reason": "claimed by the wrong account" }'
+```
+
+- The answer is `{ "released": true, "notified": "mail" | "audit-only" }` and never names the account that held the id. `404` when no account holds it.
+- The account that held it gets an entry in its own audit trail (`account.externalIds.adminRelease`, with the namespace and the reason, never the value) and, when the platform sends mail, the `external-id-released` mail with the namespace label and the reason. A failed mail does not undo the release; the answer then says `audit-only`.
+- Sent to a core that does not hold the id, the request answers `307` to the core that does (`{ "server": "<that core>" }`): send it again there.
+- The patient can claim the id right after.
+
+A deployment whose mail templates were seeded before this release does not have `external-id-released` yet: add it with `bin/mail.js templates set` (the bundled default is in `components/mail/templates/external-id-released`). The notice can be switched off with `services.email.enabled.externalIdReleased: false`.
 
 ## Operators
 
@@ -158,3 +173,7 @@ It brings the core's local table and the replicated index back in line: stale in
 In forced mode the core that holds the request asks the account's home core whether the account holds the id, with the admin key (`POST /system/ext-id/holds`, core to core, not audited). The cores must reach each other over https (unless `cluster.allowInsecurePeerUrl`).
 
 The namespace rows, with their salts, are part of the platform backup of [`bin/backup.js`](/customer-resources/backup/). A lost salt orphans every id of its namespace. The index rows are not backed up: each core's reconcile rebuilds them from its local table. A restore never overwrites a live namespace whose salt differs from the backup: it keeps the live one and reports it.
+
+From open-pryv.io 2.0.0-rc.60 the per-user backup also carries each account's linked ids (namespace, blinded value, claim date). A restore links them again on the restoring core; an id another account holds by then stays with that account and is counted as lost in the restore report. The blinded values make a per-user backup as sensitive as a claim credential: keep it as you keep the platform backup.
+
+Renaming a core (`/reg/admin/servers/<old>/rename/<new>`) moves its index rows along with its accounts; the answer gives the number moved (`externalIds`).
