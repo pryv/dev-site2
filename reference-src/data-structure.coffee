@@ -500,6 +500,30 @@ module.exports = exports =
     examples: []
 
   ,
+    id: "external-id"
+    title: "External id"
+    trustedOnly: true
+    description: """
+                 A third-party record id (an EHR patient id, for example) linked to the account, in a namespace registered by the platform administrator. An account holds at most one id per namespace, and an id belongs to at most one account on the whole platform. The id itself is never stored or returned: the platform only receives a blinded value computed by the caller, and returns only the namespace and the claim date. See the [External ids guide](/customer-resources/external-ids/).
+                 """
+    properties: [
+      key: "namespace"
+      type: "string"
+      readOnly: true
+      description: """
+                   The namespace of the id: 2 to 63 characters, lower-case letters, digits and `-`, starting with a letter or a digit.
+                   """
+    ,
+      key: "claimedAt"
+      type: "[timestamp](##{_getDocId("timestamp")})"
+      readOnly: true
+      description: """
+                   The time the account claimed the id.
+                   """
+    ]
+    examples: []
+
+  ,
     id: "high-frequency-series"
     title: "HF series"
     description: """

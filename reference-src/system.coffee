@@ -396,6 +396,13 @@ module.exports = exports =
             type: "string"
             optional: true
             description: "A referer id potentially used for analytics."
+          ,
+            key: "externalId"
+            type: "object"
+            optional: true
+            description: """
+                          A record id of your system to link to the new account: `{ namespace, blindedValue, mode? }`, as in the `externalId` of the [auth request](/reference/#auth-request) (see [External ids](/customer-resources/external-ids/)). An id nobody holds is linked to the new account; an id another account holds leaves the new account unlinked (send the user to sign in with the account that holds it). A malformed value, an unknown namespace or the `forced` mode (not available yet) refuse the registration before anything is reserved. Requires an open-pryv.io release later than 2.0.0-rc.56.
+                          """
           ]
         result:
           http: "200 OK"
@@ -411,12 +418,19 @@ module.exports = exports =
             description: """
                          The apiEndpoint to reach this account. It includes a personal access token.
                          """
+          ,
+            key: "externalIdLinked"
+            type: "boolean"
+            optional: true
+            description: """
+                         Present when the registration carried an `externalId`: `true` when the id is now linked to the new account, `false` when another account holds it or it could not be linked.
+                         """
           ]
         errors: [
           key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The password does not match password complexity rules (if enabled).
+                      The password does not match password complexity rules (if enabled), or the `externalId` is malformed, names an unknown namespace or asks for the `forced` mode (`data.param` names the field, never the value).
                       """
         ]
         examples: [
@@ -635,6 +649,71 @@ module.exports = exports =
           result:
             core:
               url: "https://co3.pryv.me/"
+        ]
+      ,
+
+        id: "extIdCores.get"
+        type: "method"
+        title: "Get core holding an external id"
+        http: "POST /ext-id/cores"
+        httpOnly: true
+        server: "register"
+        description: """
+                    Get the base URL of the core holding an [external id](/customer-resources/external-ids/): the core of the one account that claimed it. It never tells which account. No authentication. On a DNS-less setup the route is `https://{hostname}/reg/ext-id/cores`.
+
+                    It is a `POST` so the blinded value never appears in a URL. An unknown namespace and an id nobody claimed give the same answer, `404 unknown-resource`.
+
+                    Every lookup counts toward a budget per client address (an IPv4 address, or the /64 of an IPv6 address), kept by each core and shared with the refused claims of [claim an external id](/reference/#claim-an-external-id): at most 10 in a one-minute window opened by the first. Past it the lookup is refused with `429 too-many-attempts` until the window ends. The address is read through `http.trustedProxies`.
+                    """
+        params:
+          properties: [
+            key: "namespace"
+            type: "string"
+            description: """
+                        The namespace of the id.
+                        """
+          ,
+            key: "blindedValue"
+            type: "string"
+            description: """
+                        The blinded value of the record id, `HMAC(K_namespace, recordId)`: base64url without padding, 16 to 64 bytes once decoded.
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "server"
+            type: "string"
+            description: """
+                        The base URL of the core holding the id.
+                        """
+          ]
+        errors: [
+          key: "invalid-parameters-format"
+          http: "400"
+          description: """
+                      The blinded value is malformed. The error never echoes the value.
+                      """
+        ,
+          key: "unknown-resource"
+          http: "404"
+          description: """
+                      The namespace is unknown, or no account holds the id.
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      More than 10 lookups or refused claims within one minute from this client address on this core. The id is not looked up. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`.
+                      """
+        ]
+        examples: [
+          title: "Finding the core that holds an external id."
+          params:
+            namespace: "clinic-ehr"
+            blindedValue: "5axJiZtfRrrFmLoDoJc9LWUadGJBz-ByjoE8SAAHBz4"
+          result:
+            server: "https://co1.pryv.me/"
         ]
       ,
 

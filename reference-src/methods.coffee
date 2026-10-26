@@ -3190,6 +3190,248 @@ module.exports = exports =
       ]
 
     ,
+      id: "account.externalIds.claim"
+      type: "method"
+      title: "Claim an external id"
+      v2Tag: true
+      http: "POST /account/external-ids"
+      description: """
+                   Links a third-party record id (an EHR patient id, for example) to the account, in a namespace registered by the platform administrator. Requires a personal access token. See the [External ids guide](/customer-resources/external-ids/).
+
+                   The caller never sends the record id. It sends a blinded value, `HMAC(K_namespace, recordId)`, computed with its own namespace key, which never reaches the platform. An id belongs to at most one account on the whole platform, and an account holds at most one id per namespace: to change it, use [replace an external id](##{_getDocId("account", "account.externalIds.replace")}).
+
+                   Claims are within a budget per client address (an IPv4 address, or the /64 of an IPv6 address), kept by each core and shared with the [external id lookup](/reference-system/#get-core-holding-an-external-id): at most 10 lookups or refused claims in a one-minute window opened by the first. A refused claim (`409`) counts, a successful one does not. An address over the budget is refused before the claim runs.
+                   """
+      params:
+        properties: [
+          key: "namespace"
+          type: "string"
+          description: """
+                       The namespace of the id, as registered by the platform administrator.
+                       """
+        ,
+          key: "blindedValue"
+          type: "string"
+          description: """
+                       The blinded value of the record id: base64url without padding, 16 to 64 bytes once decoded (an HMAC-SHA-256 gives 32 bytes). Handle it like a secret: until an account claims it, holding it is what lets an account claim the id.
+                       """
+        ]
+      result: [
+        title: "Result: linked now"
+        http: "201 Created"
+        properties: [
+          key: "externalId"
+          type: "[external id](##{dataStructure.getDocId("external-id")})"
+          description: """
+                       The id now linked to the account (namespace and claim date, never the value).
+                       """
+        ]
+      ,
+        title: "Result: already linked"
+        http: "200 OK"
+        description: """
+                     The account already holds that exact value in the namespace: nothing changes (the call is idempotent).
+                     """
+        properties: [
+          key: "externalId"
+          type: "[external id](##{dataStructure.getDocId("external-id")})"
+          description: """
+                       The id the account holds, with its original claim date.
+                       """
+        ]
+      ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     The namespace is unknown, or the blinded value is malformed. The error never echoes the value.
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token (an app or a shared access is refused).
+                     """
+      ,
+        key: "external-id-already-claimed"
+        http: "409"
+        description: """
+                     The id cannot be linked; `data: { namespace, reason }`. `reason` is `value-taken` when another account, on any core, holds the id (the error never says which), or `namespace-taken` when this account already holds another id in the namespace (use replace).
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     More than 10 lookups or refused claims within one minute from this client address on this core. The claim is not run. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`.
+                     """
+      ]
+      examples: [
+        params:
+          namespace: "clinic-ehr"
+          blindedValue: "5axJiZtfRrrFmLoDoJc9LWUadGJBz-ByjoE8SAAHBz4"
+        resultHTTP: "201 Created"
+        result:
+          externalId:
+            namespace: "clinic-ehr"
+            claimedAt: timestamp.now()
+      ]
+
+    ,
+      id: "account.externalIds.list"
+      type: "method"
+      title: "List external ids"
+      v2Tag: true
+      http: "GET /account/external-ids"
+      description: """
+                   Lists the external ids linked to the account, one per namespace. Requires a personal access token. A blinded value is never returned.
+                   """
+      params:
+        properties: []
+      result:
+        http: "200 OK"
+        properties: [
+          key: "externalIds"
+          type: "array of [external ids](##{dataStructure.getDocId("external-id")})"
+          description: """
+                       The account's ids, sorted by namespace. Empty when the account holds none.
+                       """
+        ]
+      errors: [
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ]
+      examples: [
+        params: {}
+        result:
+          externalIds: [
+            namespace: "clinic-ehr"
+            claimedAt: timestamp.now("-2d")
+          ]
+      ]
+
+    ,
+      id: "account.externalIds.replace"
+      type: "method"
+      title: "Replace an external id"
+      v2Tag: true
+      http: "PUT /account/external-ids/{namespace}"
+      description: """
+                   Replaces the account's id in the namespace with a new one: the new id is linked, then the old one is released. Requires a personal access token. When the account holds nothing in the namespace, it behaves as [claim an external id](##{_getDocId("account", "account.externalIds.claim")}); when it already holds that exact value, nothing changes.
+
+                   Within the same per-address budget as the claim: a refused replace (`409`) counts.
+                   """
+      params:
+        properties: [
+          key: "namespace"
+          type: "string"
+          http:
+            text: "set in request path"
+          description: """
+                       The namespace of the id.
+                       """
+        ,
+          key: "blindedValue"
+          type: "string"
+          description: """
+                       The new blinded value, in the same format as for the claim.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "externalId"
+          type: "[external id](##{dataStructure.getDocId("external-id")})"
+          description: """
+                       The id now linked to the account.
+                       """
+        ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     The namespace is unknown, or the blinded value is malformed. The error never echoes the value.
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ,
+        key: "external-id-already-claimed"
+        http: "409"
+        description: """
+                     Another account holds the new id (`data: { namespace, reason: "value-taken" }`). The account keeps its old id.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     More than 10 lookups or refused claims within one minute from this client address on this core. Retry after the `Retry-After` header (seconds).
+                     """
+      ]
+      examples: [
+        params:
+          namespace: "clinic-ehr"
+          blindedValue: "jR7fXv-DjM1dUgHIfs6GlFoQV4XlWyMGD3rbRT0eA5Y"
+        result:
+          externalId:
+            namespace: "clinic-ehr"
+            claimedAt: timestamp.now()
+      ]
+
+    ,
+      id: "account.externalIds.release"
+      type: "method"
+      title: "Release an external id"
+      v2Tag: true
+      http: "DELETE /account/external-ids/{namespace}"
+      description: """
+                   Unlinks the account's id in the namespace. The id can then be claimed again, by any account. Requires a personal access token. Idempotent: the answer is the same when the account held nothing in the namespace.
+                   """
+      params:
+        properties: [
+          key: "namespace"
+          type: "string"
+          http:
+            text: "set in request path"
+          description: """
+                       The namespace of the id to release.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "released"
+          type: "boolean"
+          description: """
+                       Always `true`.
+                       """
+        ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     The namespace is unknown.
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ]
+      examples: [
+        params:
+          namespace: "clinic-ehr"
+        result:
+          released: true
+      ]
+
+    ,
 
       id: "account.requestPasswordReset"
       type: "method"

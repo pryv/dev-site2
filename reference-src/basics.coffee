@@ -756,6 +756,35 @@ module.exports = exports =
                          """
           ]
         ,
+          key: "externalId"
+          type: "object"
+          optional: true
+          description: """
+                       A record id of your system to link to the account that signs in (see [External ids](/customer-resources/external-ids/)). The request never links by itself: the authentication page asks the user ("link this record to your account?") and links it with [claim an external id](/reference/#claim-an-external-id); when the user declines, the `ACCEPTED` result carries `externalIdDeclined: true`. A registration started from the page links the id to the new account.
+
+                       Refused with `invalid-parameters-format` (HTTP 400, `data.param` naming the field, never the value) for an unknown namespace or a malformed value. The `forced` mode is refused for now (`data.reason: 'forced-mode-not-available'`). The result below echoes `externalId: { namespace, mode }`, without the value, only when the core understood it. Requires an open-pryv.io release later than 2.0.0-rc.56.
+                       """
+          properties: [
+            key: "namespace"
+            type: "string"
+            description: """
+                         The namespace of the id, as registered by the platform administrator.
+                         """
+          ,
+            key: "blindedValue"
+            type: "string"
+            description: """
+                         The blinded value of the record id, `HMAC(K_namespace, recordId)`: base64url without padding, 16 to 64 bytes once decoded. Handle it like a secret.
+                         """
+          ,
+            key: "mode"
+            type: "`hint`"
+            optional: true
+            description: """
+                         Default: the namespace's default mode. `hint` offers the link and never forces it.
+                         """
+          ]
+        ,
           key: "referer"
           type: "string"
           optional: true
@@ -865,6 +894,13 @@ module.exports = exports =
           optional: true
           description: """
                        The `cmcInvites` provided during the auth request, normalised (`mandatory` and `for` filled in with their defaults, `accessName` present only on an entry that carried it). Present, in the creation answer and in the `NEED_SIGNIN` poll, ONLY when the request carried `cmcInvites` and this core understood them. The capability URLs are readable by whoever holds the poll key, like the rest of the request.
+                       """
+        ,
+          key: "externalId"
+          type: "object"
+          optional: true
+          description: """
+                       Present ONLY when the request carried an `externalId` and this core understood it: `{ namespace, mode }` in the creation answer (never the value); `{ namespace, label, blindedValue, mode }` in the `NEED_SIGNIN` poll, where `label` is the namespace's display label. The poll is the one place the blinded value goes back, for the authentication page to look the id up and link it; it is readable by whoever holds the poll key, like the rest of the request.
                        """
         ,
           key: "serviceInfo"
@@ -996,6 +1032,13 @@ module.exports = exports =
                        Present when the request carried `cmcInvites` and the authentication page processed them: one outcome per invite, in the order of the request, each one of `{ acceptEventId, dataGrantAccessId?, acceptedFor?: 'self' }` (accepted; `acceptedFor: 'self'` marks a `for: 'target'` invite accepted by the signed-in account), `{ declined: true }` or `{ reason }` (an optional invite the page could not accept, or an accept still pending when the wait ended, `cmc-capability-timeout`). Carried whether the token is delivered inline or through a `handoff`.
 
                        This is a **hint** posted by the authentication page, not verified by the core. The requester of each invite learns the truth from its own inbox (the `consent/accept-cmc` delivered there). See [Consent invites in the authorisation request](/guides/cross-account-messaging/#consent-invites-in-the-authorisation-request).
+                       """
+        ,
+          key: "externalIdDeclined"
+          type: "`true`"
+          optional: true
+          description: """
+                       Present when the request carried an `externalId` and the user chose not to link it. Absent otherwise, whether the id was linked or not (to know, [look it up](/reference-system/#get-core-holding-an-external-id) or list the account's ids with a personal token). A **hint** posted by the authentication page.
                        """
         ,
           key: "serviceInfo"
@@ -1219,6 +1262,18 @@ module.exports = exports =
                      The error's `data.coreUrl` contains the correct API endpoint for this user. Clients MUST retry the
                      request directly against `coreUrl`. An HTTP redirect is not used because cross-origin redirects strip
                      the `Authorization` header.
+                     """
+      ,
+        key: "external-id-already-claimed"
+        http: "409"
+        description: """
+                     An [external id](/customer-resources/external-ids/) cannot be linked to the account. The error's `data` contains `namespace` and `reason`: `value-taken` when another account holds the id (the error never says which), `namespace-taken` when the account already holds another id in that namespace.
+                     """
+      ,
+        key: "external-id-namespace-in-use"
+        http: "409"
+        description: """
+                     **Admin routes only.** An external-id namespace cannot be deleted while ids are still claimed in it. The error's `data.namespace` names it. Delete it with `force=true` to remove the namespace anyway.
                      """
       ]
     ]
