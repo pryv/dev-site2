@@ -29,7 +29,7 @@ The platform administrator registers each namespace with the admin key (`auth.ad
 - **Name**: 2 to 63 characters, lower-case letters, digits and `-`, starting with a letter or a digit (`^[a-z0-9][a-z0-9-]{1,62}$`).
 - **Salt**: the server generates a random salt when it creates the namespace. The salt never changes and is never returned. A `PUT` on an existing namespace only updates its label and default mode.
 - **`label`**: 1 to 80 characters, shown to users on confirmation screens. It defaults to the namespace name.
-- **`defaultMode`**: `hint` (the default) or `forced`. An access request or a registration that carries an `externalId` without a `mode` takes the namespace's default. The flows run in `hint` mode; `forced`, given explicitly or by default, is refused for now (`forced-mode-not-available`, see [Coming next](#coming-next)), so keep `hint` on namespaces in use.
+- **`defaultMode`**: `hint` (the default) or `forced`. An access request or a registration that carries an `externalId` without a `mode` takes the namespace's default. See [Sign-in and registration](#sign-in-and-registration) for what each mode does. Before open-pryv.io 2.0.0-rc.59, `forced`, given explicitly or by default, is refused (`forced-mode-not-available`).
 - **Delete**: refused with `409 external-id-namespace-in-use` while ids are still claimed in the namespace. With `force=true` only the namespace row is deleted. Each core's [reconcile](#operators) then reports the local ids of that namespace.
 
 Example:
@@ -107,22 +107,36 @@ What the platform never does: store the plaintext record id, or put a blinded va
 
 Whoever holds a blinded value before the patient claims it (for example from an unused invitation link) can claim it first with their own account. The patient then cannot link that id while that account holds it. This is a denial, never a data flow: the first claimer gets no data of the patient, and services that look the id up find the claimer's core, not the patient's data.
 
-## Sign-in and registration (hint mode)
+## Sign-in and registration
 
-A service that invites a patient can put the external id in its [auth request](/reference/#auth-request): `externalId: { namespace, blindedValue }`. The request never links anything by itself:
+A service that invites a patient can put the external id in its [auth request](/reference/#auth-request): `externalId: { namespace, blindedValue, mode? }`. The request never links anything by itself. `mode` defaults to the namespace's `defaultMode`.
+
+In both modes the page never shows the blinded value, never puts it in a URL and never stores it in the browser.
+
+### Hint mode
+
+The page offers the link and never forces it:
 
 - **The id is not linked yet.** After the user signs in, the authentication page asks "Link this record to your account?", naming the namespace's label and the account. With "Link", the page links it with the user's own session ([claim an external id](/reference/#claim-an-external-id)); with "Not now", the access is still granted and the `ACCEPTED` result carries `externalIdDeclined: true`.
 - **An account holds the id already.** The page tells the user to sign in with that account, without showing which one.
 - **The user registers from the page.** The new account is linked at creation when nobody holds the id; the registration answer says so with `externalIdLinked` (see [create user](/reference-system/#create-user)). There is no confirmation step: the user creates the account for that invitation.
 
-The page never shows the blinded value, never puts it in a URL and never stores it in the browser.
+### Forced mode
+
+Available from open-pryv.io 2.0.0-rc.59.
+
+The app receives a credential only for the account that holds the id. The core checks it when the page accepts the request, whatever the delivery (inline token, `credentialHandoff`, a grant for a controlled account, invites accepted on the way):
+
+- **The signed-in account holds the id.** The request is accepted as usual. There is no link dialog and no `externalIdDeclined`.
+- **It does not, or nobody holds the id.** The acceptance is refused with `400 external-id-mismatch`, `data: { namespace, reason: 'not-holder' }`, and the request stays `NEED_SIGNIN`. The auth request never links an id in this mode: link it first (claim or registration). A token that does not belong to the posted username gives `reason: 'token-invalid'`. `not-holder` refusals count in the [lookup budget](#finding-the-core-that-holds-an-id).
+- **The check cannot run.** `503 external-id-check-unavailable`, never a pass; the page can post again.
+- **The user registers from the page.** An id held by any account refuses the registration with `409 external-id-already-claimed` (`reason: 'value-taken'`) before anything is reserved; an unclaimed id is linked (`externalIdLinked: true`).
+
+The hosted authentication page (app-web-user-account, from its next release) shows no link dialog in forced mode. When the signed-in account, or a stored session, holds no id in the namespace, it shows the sign-in form first and asks for the account linked to the record, without continuing as the other account; the stored session itself is kept for other requests. When the core refuses the acceptance, the page deletes the access it has just created and asks the user to sign in with the linked account.
 
 ## Coming next
 
-Not released yet, and documented here when they ship:
-
-- the `forced` mode of a namespace: the sign-in completes only for the account that holds the id, and the page offers to switch accounts;
-- a release of an id by the platform administrator, for an id claimed by the wrong account, with a notice to the account that held it.
+Not released yet, and documented here when it ships: a release of an id by the platform administrator, for an id claimed by the wrong account, with a notice to the account that held it.
 
 ## Operators
 
@@ -140,5 +154,7 @@ It brings the core's local table and the replicated index back in line: stale in
 - on every core after a switch between cleartext and hashed PII mode. For a switch from hashed to cleartext, add `--old-pepper` with the retired pepper.
 
 `bin/platform-pii-rotate.js` refreshes each core's ids itself when it rotates the pepper.
+
+In forced mode the core that holds the request asks the account's home core whether the account holds the id, with the admin key (`POST /system/ext-id/holds`, core to core, not audited). The cores must reach each other over https (unless `cluster.allowInsecurePeerUrl`).
 
 The namespace rows, with their salts, are part of the platform backup of [`bin/backup.js`](/customer-resources/backup/). A lost salt orphans every id of its namespace. The index rows are not backed up: each core's reconcile rebuilds them from its local table. A restore never overwrites a live namespace whose salt differs from the backup: it keeps the live one and reports it.
