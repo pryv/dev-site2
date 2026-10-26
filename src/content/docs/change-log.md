@@ -3,6 +3,13 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.60
+
+External ids: the administrator can release an id claimed by the wrong account, the per-user backup carries the linked ids, and a core rename moves them. No migration. Deployments whose mail templates were seeded earlier add the new `external-id-released` template with `bin/mail.js templates set`.
+
+- **External ids: releasing an id claimed by the wrong account.** `POST /system/admin/ext-id/release { namespace, blindedValue, reason }` (admin key), sent to the core that holds the id, releases it from the account holding it and answers `{ released: true, notified: 'mail' | 'audit-only' }`, never naming the account (`404` when no account holds it). The account gets an `account.externalIds.adminRelease` entry in its own audit trail (namespace and reason, never the value) and the new `external-id-released` mail when mail is configured (`services.email.enabled.externalIdReleased`, template `services.email.externalIdReleasedTemplate`; variables `USERNAME`, `NAMESPACE_LABEL`, `REASON`). A failed mail never undoes the release. A core that does not hold the id answers `307` to the one that does (`{ server }`). See [Releasing an id claimed by the wrong account](/customer-resources/external-ids/#releasing-an-id-claimed-by-the-wrong-account).
+- **External ids: per-user backup and core rename.** The per-user backup of `bin/backup.js` carries each account's linked ids (namespace, blinded value, claim date); a restore links them again on the restoring core, and an id another account holds by then stays with it (counted as lost in the restore report). Renaming a core (`/reg/admin/servers/:src/rename/:dst`) moves its external-id index rows; the answer gains `externalIds` (the number moved). See [Operators](/customer-resources/external-ids/#operators).
+
 ## 2.0.0-rc.59
 
 External ids in forced mode, a fix of the identity host of dnsLess cores configured with `core.url` only, and a dependency security update: upgrade every core. No migration.
