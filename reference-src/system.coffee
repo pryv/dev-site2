@@ -974,7 +974,7 @@ module.exports = exports =
                     Updates the state of an access request. Called by the auth page after the user has
                     signed in and accepted or refused the permissions.
 
-                    On a request whose `externalId` is in `forced` mode, `ACCEPTED` is checked before anything is written: the token must belong to `username` and that account must hold the id (see the `externalId` of the [auth request](/reference/#auth-request)). The token is posted inline; a `handoff` or `externalIdDeclined` field is refused with `invalid-parameters` (HTTP 400). A refused acceptance leaves the request `NEED_SIGNIN`.
+                    On a request whose `externalId` is in `forced` mode, `ACCEPTED` is checked before anything is written: the token must be an app access of `username` and that account must hold the id (see the `externalId` of the [auth request](/reference/#auth-request)). The token is posted inline; a `handoff` or `externalIdDeclined` field is refused with `invalid-parameters` (HTTP 400). A refused acceptance leaves the request `NEED_SIGNIN`.
                     """
         params:
           properties: [
@@ -1031,7 +1031,7 @@ module.exports = exports =
           key: "external-id-mismatch"
           http: "400"
           description: """
-                      (`forced` mode) The token does not belong to `username` (`data.reason: 'token-invalid'`), or the account does not hold the id (`data.reason: 'not-holder'`, which counts in the [external id lookup](#get-core-holding-an-external-id) budget).
+                      (`forced` mode) The token is not an app access of `username` (`data.reason: 'token-invalid'`), or the account does not hold the id (`data.reason: 'not-holder'`, which counts in the [external id lookup](#get-core-holding-an-external-id) budget).
                       """
         ,
           key: "external-id-check-unavailable"
