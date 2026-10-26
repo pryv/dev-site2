@@ -147,7 +147,7 @@ curl -X POST https://<core>/system/admin/ext-id/release \
 ```
 
 - The answer is `{ "released": true, "notified": "mail" | "audit-only" }` and never names the account that held the id. `404` when no account holds it.
-- The account that held it gets an entry in its own audit trail (`account.externalIds.adminRelease`, with the namespace and the reason, never the value) and, when the platform sends mail, the `external-id-released` mail with the namespace label and the reason. A failed mail does not undo the release; the answer then says `audit-only`.
+- The account that held it gets an entry in its own audit trail (`account.externalIds.adminRelease`, with the namespace and the reason, never the value) and, when the platform sends mail, the `external-id-released` mail with the namespace label and the reason. The holder reads the reason as written: keep it factual and free of anyone else's data. A failed mail does not undo the release; the answer then says `audit-only`.
 - Sent to a core that does not hold the id, the request answers `307` to the core that does (`{ "server": "<that core>" }`): send it again there.
 - The patient can claim the id right after.
 
@@ -176,4 +176,4 @@ The namespace rows, with their salts, are part of the platform backup of [`bin/b
 
 From open-pryv.io 2.0.0-rc.60 the per-user backup also carries each account's linked ids (namespace, blinded value, claim date). A restore links them again on the restoring core; an id another account holds by then stays with that account and is counted as lost in the restore report. The blinded values make a per-user backup as sensitive as a claim credential: keep it as you keep the platform backup.
 
-Renaming a core (`/reg/admin/servers/<old>/rename/<new>`) moves its index rows along with its accounts; the answer gives the number moved (`externalIds`).
+Renaming a core (`/reg/admin/servers/<old>/rename/<new>`) moves its index rows along with its accounts; the answer gives the number moved (`externalIds`). Run it with the renamed core stopped: a claim it commits after the rename would still carry its old id.
