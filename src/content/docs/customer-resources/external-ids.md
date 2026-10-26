@@ -3,7 +3,7 @@ title: 'External ids: one account per record id'
 description: How services link a third-party record id (an EHR patient id, for example) to exactly one Pryv.io account, platform-wide, without the platform ever seeing the id. Namespaces, blinding, claim and lookup, deletion, the privacy boundary and the operator tools.
 ---
 
-<!-- TODO: add the open-pryv.io release that ships external ids once it is tagged. -->
+Available from open-pryv.io 2.0.0-rc.58.
 
 An external id links a record id kept by a third-party system (an EHR patient id, for example) to one Pryv.io account. The platform guarantees one account per record id, across all cores, and never sees the record id itself.
 

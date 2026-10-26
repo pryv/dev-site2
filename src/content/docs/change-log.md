@@ -3,6 +3,14 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.58
+
+External ids: a service links a third-party record id (an EHR patient id, for example) to exactly one account on the platform, without the platform ever seeing the id. Also a cross-account messaging fix. No migration; the new tables are created at boot. Runs on Node.js 24.22.1 or later, as 2.0.0-rc.57.
+
+- **External ids: one account per record id, platform-wide.** The service sends a blinded value `HMAC(K_namespace, id)` computed with its own key. Operators create namespaces with `PUT /system/admin/ext-id-ns/<namespace>`; an account links an id with `account.externalIds.claim` (personal token), lists, replaces and releases them; `POST /reg/ext-id/cores` finds the core that holds an id. One id per account per namespace, and one account per id across all cores: a second account gets `409 external-id-already-claimed`, never told which account holds it. Lookups and refused claims share a budget of 10 a minute per client address. See [External ids](/customer-resources/external-ids/).
+- **External ids in sign-in and registration (hint mode).** `POST /reg/access` and `POST /users` accept `externalId: { namespace, blindedValue, mode? }`. On an auth request, the auth page asks the user whether to link the record to the account that signs in; "Not now" posts `externalIdDeclined: true`, which the app then reads in the accepted state. A registration links the id to the new account when no other account holds it and says so in `externalIdLinked`. The `forced` mode is refused for now (`forced-mode-not-available`). See [Sign-in and registration (hint mode)](/customer-resources/external-ids/#sign-in-and-registration-hint-mode).
+- **Cross-account messaging: revoke notices.** On a `consent/revoke-cmc` arriving in `:_cmc:inbox`, the fields the receiving server owns (`superseded`, `backChannelAccessId`, `dataGrantAccessId`, `revokedAccessIds`) are always written by that server, never taken from the sender. Before, a sender could mark its own revoke `superseded`, and apps then showed a torn-down relationship as still live.
+
 ## 2.0.0-rc.57
 
 Security release, runtime only: Node.js 24.22.1. No API change since 2.0.0-rc.56, no migration. Docker: pull the new image. Native installs: upgrade Node to 24.22.1 or later and run `npm rebuild` (a host held on 24.18.1 per the earlier advice must be released first: `sudo apt-mark unhold nodejs`); a native host can take the Node upgrade before this release, 2.0.0-rc.56 runs on 24.22.1 too.
