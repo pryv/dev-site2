@@ -86,6 +86,7 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'`read`|`contribute`|`manage`|`create-only`': () => enumOf('read', 'contribute', 'manage', 'create-only'),
 	'`self`|`target`': () => enumOf('self', 'target'),
 	'`hint`|`forced`': () => enumOf('hint', 'forced'),
+	'`mail`|`audit-only`': () => enumOf('mail', 'audit-only'),
 	'`NEED_SIGNIN`': () => enumOf('NEED_SIGNIN'),
 	'`ACCEPTED`': () => enumOf('ACCEPTED'),
 	'`REFUSED`': () => enumOf('REFUSED'),

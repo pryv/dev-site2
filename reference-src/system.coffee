@@ -73,7 +73,7 @@ module.exports = exports =
                   Admin api calls are tagged with <span class="admin-tag"><span title="Admin Only" class="label">A</span></span>
 
                   They must carry the admin key in the HTTP `Authorization` header.
-                  This key is defined within the platform configuration: `REGISTER_ADMIN_KEY`.
+                  This key is the platform setting `auth.adminAccessKey`. A call without it, or with another value, answers `404 unknown-resource`, as if the route did not exist.
                   """
       sections: [
         id: "users.get"
@@ -215,6 +215,12 @@ module.exports = exports =
                         The count of reassigned users.
                         It can be 0 if `srcServerName` did not match any existing core server.
                         """
+          ,
+            key: "externalIds"
+            type: "number"
+            description: """
+                        The number of [external-id](#external-ids) index rows moved to the new core name (from open-pryv.io 2.0.0-rc.60). Run the rename with the renamed core stopped: a claim it commits after the rename would still carry the old name.
+                        """
           ]
         errors: [
           key: "INVALID_DATA"
@@ -231,6 +237,271 @@ module.exports = exports =
           }
           result:
             count: 1
+            externalIds: 0
+        ]
+      ,
+        id: "external-ids"
+        title: "External ids"
+        adminOnly: true
+        description: """
+                    Namespaces of [external ids](/customer-resources/external-ids/) and the release of an id claimed by the wrong account. Served by every core under `/system/admin/` (not by the register server), with the admin key. The guide explains the model, the blinding and the procedures.
+                    """
+        sections: [
+          id: "extIdNamespaces.list"
+          type: "method"
+          title: "List external-id namespaces"
+          http: "GET /system/admin/ext-id-ns"
+          httpOnly: true
+          server: "core"
+          description: """
+                      Lists the namespaces of the platform (from open-pryv.io 2.0.0-rc.58). The salt of a namespace is never returned. Not audited (a read).
+                      """
+          params:
+            properties: []
+          result:
+            http: "200 OK"
+            properties: [
+              key: "namespaces"
+              type: "array of objects"
+              description: """
+                          One object per namespace, ordered by name: `namespace` (the name), `createdAt` (a [timestamp](/reference/#data-structure-timestamp)), `label` (shown to users on the auth page) and `defaultMode` (`hint` or `forced`).
+                          """
+            ]
+          examples: [
+            title: "Listing the namespaces"
+            params: {}
+            result:
+              namespaces: [
+                namespace: "clinic-ehr"
+                createdAt: 1792800000
+                label: "Clinic patient record"
+                defaultMode: "hint"
+              ]
+          ]
+        ,
+          id: "extIdNamespaces.get"
+          type: "method"
+          title: "Get an external-id namespace"
+          http: "GET /system/admin/ext-id-ns/{namespace}"
+          httpOnly: true
+          server: "core"
+          description: """
+                      Gets one namespace (from open-pryv.io 2.0.0-rc.58), never its salt. Not audited (a read).
+                      """
+          params:
+            properties: [
+              key: "namespace"
+              type: "string"
+              http:
+                text: "set in request path"
+              description: """
+                          The namespace name.
+                          """
+            ]
+          result:
+            http: "200 OK"
+            properties: [
+              key: "namespace"
+              type: "object"
+              description: """
+                          `namespace`, `createdAt`, `label` and `defaultMode`, as in the list.
+                          """
+            ]
+          errors: [
+            key: "unknown-resource"
+            http: "404"
+            description: """
+                        No namespace has this name.
+                        """
+          ]
+          examples: [
+            title: "Getting a namespace"
+            params:
+              namespace: "clinic-ehr"
+            result:
+              namespace:
+                namespace: "clinic-ehr"
+                createdAt: 1792800000
+                label: "Clinic patient record"
+                defaultMode: "hint"
+          ]
+        ,
+          id: "extIdNamespaces.set"
+          type: "method"
+          title: "Create or update an external-id namespace"
+          http: "PUT /system/admin/ext-id-ns/{namespace}"
+          httpOnly: true
+          server: "core"
+          description: """
+                      Creates the namespace, or updates its label or default mode (from open-pryv.io 2.0.0-rc.58). On creation the server generates the namespace's salt; it never changes afterwards and is never returned. Answers `201 Created` on creation, `200 OK` on an update. Audited, without a user.
+                      """
+          params:
+            properties: [
+              key: "namespace"
+              type: "string"
+              http:
+                text: "set in request path"
+              description: """
+                          The namespace name: 2 to 63 characters, lowercase letters, digits and `-`, starting with a letter or a digit (`^[a-z0-9][a-z0-9-]{1,62}$`).
+                          """
+            ,
+              key: "label"
+              type: "string"
+              optional: true
+              description: """
+                          The name shown to users on the auth page, 1 to 80 characters. Defaults to the namespace name on creation; unchanged on an update when omitted.
+                          """
+            ,
+              key: "defaultMode"
+              type: "`hint`|`forced`"
+              optional: true
+              description: """
+                          The mode of an auth request or a registration that carries an id of this namespace without a `mode`. Defaults to `hint` on creation; unchanged on an update when omitted. `forced` is honoured from open-pryv.io 2.0.0-rc.59.
+                          """
+            ]
+          result:
+            http: "201 Created"
+            properties: [
+              key: "namespace"
+              type: "object"
+              description: """
+                          The namespace after the call: `namespace`, `createdAt`, `label` and `defaultMode` (no salt). The same body comes with `200 OK` on an update.
+                          """
+            ]
+          errors: [
+            key: "invalid-parameters-format"
+            http: "400"
+            description: """
+                        The name, the label or the default mode does not follow the rules above.
+                        """
+          ]
+          examples: [
+            title: "Creating a namespace"
+            params:
+              namespace: "clinic-ehr"
+              label: "Clinic patient record"
+            result:
+              namespace:
+                namespace: "clinic-ehr"
+                createdAt: 1792800000
+                label: "Clinic patient record"
+                defaultMode: "hint"
+          ]
+        ,
+          id: "extIdNamespaces.delete"
+          type: "method"
+          title: "Delete an external-id namespace"
+          http: "DELETE /system/admin/ext-id-ns/{namespace}"
+          httpOnly: true
+          server: "core"
+          description: """
+                      Deletes the namespace (from open-pryv.io 2.0.0-rc.58). Refused while any account holds an id of the namespace, unless `force` is set: then only the namespace row goes, and each core's reconcile (`bin/reconcile-user-cores.js --ext-ids`) reports and drops its local ids of that namespace. A deleted salt cannot be recovered: every id of the namespace is orphaned. Answers `204 No Content`. Audited, without a user.
+                      """
+          params:
+            properties: [
+              key: "namespace"
+              type: "string"
+              http:
+                text: "set in request path"
+              description: """
+                          The namespace name.
+                          """
+            ,
+              key: "force"
+              type: "boolean"
+              optional: true
+              http:
+                text: "query parameter"
+              description: """
+                          `true` to delete the namespace even though ids of it are held.
+                          """
+            ]
+          result:
+            http: "204 No Content"
+          errors: [
+            key: "unknown-resource"
+            http: "404"
+            description: """
+                        No namespace has this name.
+                        """
+          ,
+            key: "external-id-namespace-in-use"
+            http: "409"
+            description: """
+                        Accounts hold ids of the namespace and `force` is not set.
+                        """
+          ]
+          examples: []
+        ,
+          id: "extIdRelease"
+          type: "method"
+          title: "Release an external id claimed by the wrong account"
+          http: "POST /system/admin/ext-id/release"
+          httpOnly: true
+          server: "core"
+          description: """
+                      Removes the link between an id and the account that holds it, so the right account can claim it (from open-pryv.io 2.0.0-rc.60). Send it to the core that holds the id; another core answers `307` with that core in `server` (and the `Location` header): send the call again there. The answer never names the account.
+
+                      The account that held the id gets an `account.externalIds.adminRelease` entry in its own audit trail (the namespace and the reason, never the value) and, when the platform sends mail, the `external-id-released` mail with the namespace label and the reason (setting `services.email.enabled.externalIdReleased`, template `services.email.externalIdReleasedTemplate`). The holder reads the reason as written: keep it factual and free of anyone else's data. A failed mail does not undo the release. The call itself is audited without a user. See the guide, [Releasing an id claimed by the wrong account](/customer-resources/external-ids/#releasing-an-id-claimed-by-the-wrong-account).
+                      """
+          params:
+            properties: [
+              key: "namespace"
+              type: "string"
+              description: """
+                          The namespace of the id.
+                          """
+            ,
+              key: "blindedValue"
+              type: "string"
+              description: """
+                          The blinded value of the id, computed as for a claim.
+                          """
+            ,
+              key: "reason"
+              type: "string"
+              description: """
+                          Why the id is released, 1 to 500 characters, shown to the account that held it.
+                          """
+            ]
+          result:
+            http: "200 OK"
+            properties: [
+              key: "released"
+              type: "`true`"
+              description: """
+                          The id was released.
+                          """
+            ,
+              key: "notified"
+              type: "`mail`|`audit-only`"
+              description: """
+                          `mail` when the mail to the account was sent, `audit-only` when only its audit trail records the release (mail off, no template, or the send failed).
+                          """
+            ]
+          errors: [
+            key: "invalid-parameters-format"
+            http: "400"
+            description: """
+                        A parameter is missing or malformed (the value is never echoed).
+                        """
+          ,
+            key: "unknown-resource"
+            http: "404"
+            description: """
+                        No account holds this id.
+                        """
+          ]
+          examples: [
+            title: "Releasing an id"
+            params:
+              namespace: "clinic-ehr"
+              blindedValue: "<blinded value>"
+              reason: "Claimed by the wrong account; the patient will link it again."
+            result:
+              released: true
+              notified: "mail"
+          ]
         ]
       ]
     ,
