@@ -26,6 +26,8 @@ The platform administrator registers each namespace with the admin key (`auth.ad
 | `PUT` | `/system/admin/ext-id-ns/:namespace` | `{ label?, defaultMode? }` | 201 on create, 200 on update: `{ namespace: {...} }` |
 | `DELETE` | `/system/admin/ext-id-ns/:namespace[?force=true]` | | 204, 404 `unknown-resource`, or 409 `external-id-namespace-in-use` |
 
+These routes, and the admin release below, are also in the [system API reference](/reference-system/#external-ids) and its [OpenAPI definition](/open-api/).
+
 - **Name**: 2 to 63 characters, lower-case letters, digits and `-`, starting with a letter or a digit (`^[a-z0-9][a-z0-9-]{1,62}$`).
 - **Salt**: the server generates a random salt when it creates the namespace. The salt never changes and is never returned. A `PUT` on an existing namespace only updates its label and default mode.
 - **`label`**: 1 to 80 characters, shown to users on confirmation screens. It defaults to the namespace name.
@@ -150,6 +152,8 @@ curl -X POST https://<core>/system/admin/ext-id/release \
 - The account that held it gets an entry in its own audit trail (`account.externalIds.adminRelease`, with the namespace and the reason, never the value) and, when the platform sends mail, the `external-id-released` mail with the namespace label and the reason. The holder reads the reason as written: keep it factual and free of anyone else's data. A failed mail does not undo the release; the answer then says `audit-only`.
 - Sent to a core that does not hold the id, the request answers `307` to the core that does (`{ "server": "<that core>" }`): send it again there.
 - The patient can claim the id right after.
+
+Reference entry: [Release an external id claimed by the wrong account](/reference-system/#release-an-external-id-claimed-by-the-wrong-account).
 
 A deployment whose mail templates were seeded before this release does not have `external-id-released` yet: add it with `bin/mail.js templates set` (the bundled default is in `components/mail/templates/external-id-released`). The notice can be switched off with `services.email.enabled.externalIdReleased: false`.
 
