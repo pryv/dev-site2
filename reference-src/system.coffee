@@ -308,6 +308,12 @@ module.exports = exports =
                           """
             ]
           errors: [
+            key: "invalid-parameters-format"
+            http: "400"
+            description: """
+                        The name does not follow the namespace name rule.
+                        """
+          ,
             key: "unknown-resource"
             http: "404"
             description: """
@@ -395,7 +401,7 @@ module.exports = exports =
           httpOnly: true
           server: "core"
           description: """
-                      Deletes the namespace (from open-pryv.io 2.0.0-rc.58). Refused while any account holds an id of the namespace, unless `force` is set: then only the namespace row goes, and each core's reconcile (`bin/reconcile-user-cores.js --ext-ids`) reports and drops its local ids of that namespace. A deleted salt cannot be recovered: every id of the namespace is orphaned. Answers `204 No Content`. Audited, without a user.
+                      Deletes the namespace (from open-pryv.io 2.0.0-rc.58). Refused while any account holds an id of the namespace, unless `force` is set: then only the namespace row goes, and each core's reconcile (`bin/reconcile-user-cores.js --ext-ids`) reports its local ids of that namespace and keeps them. A deleted salt cannot be recovered: every id of the namespace is orphaned. Answers `204 No Content`. Audited, without a user.
                       """
           params:
             properties: [
@@ -419,6 +425,12 @@ module.exports = exports =
           result:
             http: "204 No Content"
           errors: [
+            key: "invalid-parameters-format"
+            http: "400"
+            description: """
+                        The name does not follow the namespace name rule.
+                        """
+          ,
             key: "unknown-resource"
             http: "404"
             description: """
@@ -476,20 +488,20 @@ module.exports = exports =
               key: "notified"
               type: "`mail`|`audit-only`"
               description: """
-                          `mail` when the mail to the account was sent, `audit-only` when only its audit trail records the release (mail off, no template, or the send failed).
+                          `mail` when the mail to the account was sent, `audit-only` when only its audit trail records the release: mail not configured, the notice switched off, the account has no email address, or the send failed.
                           """
             ]
           errors: [
             key: "invalid-parameters-format"
             http: "400"
             description: """
-                        A parameter is missing or malformed (the value is never echoed).
+                        A parameter is missing or malformed, or the namespace does not exist (the value is never echoed).
                         """
           ,
             key: "unknown-resource"
             http: "404"
             description: """
-                        No account holds this id.
+                        No account holds this id. Also when this core's index names it for an account that no longer exists here: the reconcile (`bin/reconcile-user-cores.js --ext-ids`) cleans such a row.
                         """
           ]
           examples: [
