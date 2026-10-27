@@ -54,6 +54,7 @@ What can come back instead:
 
 | Status | Error | Meaning |
 |---|---|---|
+| `400` | `invalid-parameters-format`, `data: { email, reason: "recipient-rejected" }` | The mail server refused the address for good (unknown domain or mailbox). Ask the holder to check it. The challenge is released. Releases up to 2.0.0-rc.62 answered `500` here. |
 | `403` | `forbidden`, `data.emailVerificationRequired: false` | This platform does not gate sign-up. You should not have called this. |
 | `409` | `item-already-exists`, `data.email` | An account already holds the address. Offer sign-in or password recovery. |
 | `429` | `too-many-attempts`, `data.reason`, `data.retryAfterSeconds` | A per-address limit was hit. `reason` is `cooldown` (seconds), `daily-limit` or `failure-budget` (come back later). A `Retry-After` header carries the same delay. |
@@ -111,7 +112,7 @@ PUT /:username/account
 
 - `remove` refuses the primary address;
 - `setPrimary` only accepts an address that is already on the account **and** `verified`, so a newly added address cannot become primary until its link has been used;
-- `resend` mails a fresh link and kills the previous one, subject to a per-address cooldown (5 minutes by default).
+- `resend` mails a fresh link and kills the previous one, subject to a per-address cooldown (5 minutes by default). If the mail server refuses the address for good, the update answers `400 invalid-parameters-format` with `data: { email, reason: "recipient-rejected" }` (releases up to 2.0.0-rc.62 answered `500`).
 
 Adding an address another account already holds answers `409 item-already-exists`. The refusals above answer `400 invalid-operation`, with `data.email` and, for the cooldown, `data.retryAfterSeconds`.
 
