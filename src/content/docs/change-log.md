@@ -3,6 +3,15 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.61
+
+Cross-account messaging fixes for rate-limited counterparties, and the register host now serves three documented methods it answered 404 for. No migration, no configuration change.
+
+- **CMC: a peer answering 408 or 429 is retried, no earlier than its `Retry-After`.** Every 4xx used to be permanent, so a counterparty behind a rate-limiting or slow proxy lost an accept, refusal, chat, system message, revoke notice or member-access deletion for good. A 408 or 429 is now retryable for every delivery kind: `failure.reason: 'cmc-handler-delivery-failed'` with `'http-retry-later'` in `failure.detail.reason` (accept, refusal) or `failure.detail.peerReason` (chat, system), plus `retryAfterMs` when the peer sent a `Retry-After`. The retry queue waits at least that long (capped at 10 minutes for a trigger, 30 minutes for a queued revoke notice). A member-access mint answered 408 or 429 fails with `cmc-member-access-peer-unreachable` (was `cmc-member-access-peer-rejected`), with `failure.detail.retryAfterMs` when given. A 503 (already retried) now honours its `Retry-After` the same way. Every other 4xx stays permanent.
+- **CMC: a refusal answered by the capability itself fails with its typed id and is not retried.** A `consent/refuse-cmc` the requester's core refuses with a 4xx now fails as an accept does (`cmc-capability-consumed`, `cmc-capability-invalidated`, `cmc-capability-already-accepted-by-you`, or `cmc-handler-delivery-rejected` for any other 4xx, with `failure.detail: { status, body }`), and is sent once. It used to fail as `cmc-handler-delivery-failed` and be re-sent up to six more times.
+- **Register host: `GET /apps`, `GET /apps/{appid}` and `POST /access/invitationtoken/check` answered 404 on `reg.<domain>`** (the request fell through to the user route). They are now served there as documented, and still at the root of a core.
+- A mail that fails to send (for example a recipient the mail server refuses) is logged once, at its level, instead of twice.
+
 ## 2.0.0-rc.60
 
 External ids: the administrator can release an id claimed by the wrong account, the per-user backup carries the linked ids, and a core rename moves them. No migration. Deployments whose mail templates were seeded earlier add the new `external-id-released` template with `bin/mail.js templates set`.
