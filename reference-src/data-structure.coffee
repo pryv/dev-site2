@@ -204,7 +204,7 @@ module.exports = exports =
       unique: true
       readOnly: "(except at creation)"
       description: """
-                   The identifier for the stream. Automatically generated if not set when creating the stream; **slugified if necessary**.
+                   The identifier for the stream. Automatically generated if not set when creating the stream. An id made only of lowercase letters, digits and dashes (1 to 100 characters) is kept exactly as given; any other id is **slugified** (e.g. `pas encodé de bleu!` becomes `pas-encode-de-bleu`).
                    """
     ,
       key: "name"
@@ -323,6 +323,8 @@ module.exports = exports =
         description: """
                      To be used with `level` property only.
                      The id of the stream or the tag the permission applies to, or `*` for all streams/tags. Stream permissions are recursively applied to child streams.
+
+                     A stream permission may name a stream that does not exist yet: it is stored as given and applies once a stream with that id is created. To have the stream created along with the permission, add a `defaultName` (the name to give it); [create access](#methods-accesses-accesses-create) and [update access](#methods-accesses-accesses-update) called with a personal access then create it (at the root of its store) or untrash it, and `defaultName` is not stored.
                      """
       ,
         key: "level"
