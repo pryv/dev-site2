@@ -30,6 +30,23 @@ generator pins cuid, `Date`, `Math.random` and `crypto.randomBytes`) so the outp
 identical on every run and machine. `reference-src/` is scoped CommonJS via its own
 `package.json` (the repo root is `type: module`).
 
+## OpenAPI definitions
+
+`openapi.ts` turns this dataset into OpenAPI 3.0.3 documents; the build serves them at
+`/open-api/3.0/api.yaml` (user API; `api_open.yaml` is a byte-identical legacy alias) and
+`/open-api/3.0/api_system.yaml` (system API), rendered by the endpoints under
+`src/pages/open-api/3.0/`. Nothing is committed and nothing is hand-edited: change the
+reference source, and the definitions follow at the next build. The admin reference is not
+published as OpenAPI.
+
+- Every property `type` string must be in the generator's explicit type table; an unknown
+  string throws. When the reference gains a new type string, add its mapping there.
+- `npm run gate:openapi` validates both documents (OpenAPI schema, dangling `$ref`), checks
+  that every documented method appears exactly once (`x-pryv-method-ids`) and that no
+  admin-only method does, and that `info.version` is the reference version.
+  `npm run gate:openapi:dist` also checks the built `dist/open-api/3.0/` files against a
+  fresh generation. CI runs both gates; `just publish` runs them before pushing.
+
 ## Anchors
 
 Two anchor systems are reproduced for stable deep links: the hierarchical section id

@@ -11,6 +11,7 @@ import { userSections, systemSection } from '../reference-data';
 import { adminSections } from '../reference-data/admin';
 import { headingSlug } from '../reference-data/slug';
 import { isVisible } from '../reference-data/render';
+import type { ComponentProps } from 'astro/types';
 import type { Section, ReferenceFlavor } from '../reference-data/types';
 
 // Strip the deploy base (e.g. /dev-site2) so route matching works at root AND under a
@@ -30,9 +31,8 @@ const REF: Record<string, { sections: Section[]; flavor: ReferenceFlavor }> = {
 };
 const ref = REF[path];
 
-type Entry =
-	| { type: 'link'; href: string; label: string; isCurrent: boolean; attrs: Record<string, unknown> }
-	| { type: 'group'; label: string; collapsed: boolean; entries: Entry[] };
+// Starlight's own sidebar entry type, taken from the component it is passed to.
+type Entry = ComponentProps<typeof SidebarSublist>['sublist'][number];
 
 // Level-1 sections become groups; their level-2 children become in-page anchor links.
 // Anchors use the same text-based slug as the rendered heading ids so they resolve.
@@ -41,21 +41,23 @@ type Entry =
 function outline (roots: Section[], flavor: ReferenceFlavor): Entry[] {
 	return roots
 		.filter((l1) => l1.title && isVisible(l1, flavor))
-		.map((l1) => ({
+		.map((l1): Entry => ({
 			type: 'group' as const,
 			label: l1.title as string,
 			collapsed: false,
+			badge: undefined,
 			entries: (l1.sections ?? [])
 				.filter((l2) => l2.title && isVisible(l2, flavor))
-				.map((l2) => ({
+				.map((l2): Entry => ({
 					type: 'link' as const,
 					href: '#' + headingSlug(l2.title as string),
 					label: l2.title as string,
 					isCurrent: false,
+					badge: undefined,
 					attrs: {},
 				})),
 		}))
-		.filter((group) => group.entries.length > 0);
+		.filter((group) => group.type === 'group' && group.entries.length > 0);
 }
 ---
 

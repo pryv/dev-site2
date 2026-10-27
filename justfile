@@ -29,6 +29,13 @@ serve:
 clean:
     rm -rf dist .astro
 
+# Fidelity gates: reference.json matches reference-src/, the site type-checks, and the
+# generated OpenAPI definitions are valid and complete (publish runs them all)
+gate:
+    npm run gate:reference
+    npm run typecheck
+    npm run gate:openapi
+
 # Import the event-types catalogue from a data-types checkout (its committed dist/,
 # assumed rebuilt from its src/):
 #   public/event-types/flat.json         <- dist/flat.json         (the URL cores fetch)
@@ -71,9 +78,14 @@ publish:
     set -euo pipefail
     pages_repo="git@github.com:pryv/pryv.github.io.git"
     work=".publish"
-    # 1. fresh ROOT build (SITE_BASE unset so links resolve at '/')
+    # 1. gates, then a fresh ROOT build (SITE_BASE unset so links resolve at '/'), then
+    #    the built OpenAPI files checked against a fresh generation
+    npm run gate:reference
+    npm run typecheck
+    npm run gate:openapi
     rm -rf dist .astro
     env -u SITE_BASE astro build
+    npm run gate:openapi:dist
     # 2. ensure a clean checkout of the pages repo at origin/master
     if [ ! -d "$work/.git" ]; then rm -rf "$work"; git clone "$pages_repo" "$work"; fi
     git -C "$work" fetch origin

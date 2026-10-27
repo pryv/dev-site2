@@ -37,6 +37,7 @@ const STRUCTURED_DATA = JSON.stringify({
 	],
 });
 
+/** @returns {import('astro').AstroIntegration} */
 function stagingSubpath () {
 	const baseName = SITE_BASE.replace(/^\//, '');
 	return {
@@ -48,6 +49,7 @@ function stagingSubpath () {
 				// Prefix root-absolute urls that Astro/Starlight did not already base:
 				// skip protocol-relative (//) and anything already under the base.
 				const skip = new RegExp('^/' + baseName + '(/|$)');
+				/** @param {string} s */
 				const rewrite = (s) => s
 					.replace(/(href|src|action|poster|content)="(\/[^"/][^"]*|\/)"/g, (m, attr, url) =>
 						skip.test(url) ? m : `${attr}="${SITE_BASE}${url}"`)
@@ -56,6 +58,7 @@ function stagingSubpath () {
 						skip.test(url) ? m : `content="${prefix}${SITE_BASE}${url}"`)
 					.replace(/location(\.href)?\s*=\s*'(\/[^'/][^']*)'/g, (m, p1, url) =>
 						skip.test(url) ? m : `location${p1 || ''}='${SITE_BASE}${url}'`);
+				/** @param {string} d */
 				const walk = async (d) => {
 					for (const e of await readdir(d, { withFileTypes: true })) {
 						const p = path.join(d, e.name);
@@ -127,7 +130,7 @@ export default defineConfig({
 				{ tag: 'script', attrs: { type: 'application/ld+json' }, content: STRUCTURED_DATA },
 				// Staging/preview: keep it out of every search index so it never competes
 				// with the live site (belt-and-braces with the Disallow robots.txt).
-				...(SITE_BASE ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } }] : []),
+				...(SITE_BASE ? [{ tag: /** @type {'meta'} */ ('meta'), attrs: { name: 'robots', content: 'noindex, nofollow' } }] : []),
 			],
 			customCss: [
 				// Self-hosted Roboto (body) + Roboto Condensed (headings), matching the

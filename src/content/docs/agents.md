@@ -15,10 +15,11 @@ Everything here is stable, machine-readable, and safe to fetch.
 
 ## API definitions
 
-- **OpenAPI 3.0**: [api.yaml](/open-api/3.0/api.yaml) (hosted platforms),
-  [api_open.yaml](/open-api/3.0/api_open.yaml) (open-source),
-  [api_system.yaml](/open-api/3.0/api_system.yaml),
-  [api_admin.yaml](/open-api/3.0/api_admin.yaml).
+- **OpenAPI 3.0.3** (generated from the API reference at every build):
+  [api.yaml](/open-api/3.0/api.yaml) (the API),
+  [api_system.yaml](/open-api/3.0/api_system.yaml) (system API);
+  [api_open.yaml](/open-api/3.0/api_open.yaml) is a legacy alias of `api.yaml`.
+  Operations carry the reference method id in `operationId` and `x-pryv-method-ids`.
 - **Event types**: [flat.json](/event-types/flat.json)
   (`types['{class}/{format}']`) and
   [hierarchical.json](/event-types/hierarchical.json)

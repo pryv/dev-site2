@@ -15,7 +15,10 @@
     "preview": "astro preview",
     "astro": "astro",
     "gen:reference": "node scripts/generate-reference.cjs",
-    "gate:reference": "node scripts/gate-reference.cjs"
+    "gate:reference": "node scripts/gate-reference.cjs",
+    "gate:openapi": "node scripts/gate-openapi.mjs",
+    "gate:openapi:dist": "node scripts/gate-openapi.mjs --dist",
+    "typecheck": "astro check"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.0",
@@ -36,9 +39,13 @@
     }
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@seriousme/openapi-schema-validator": "^2.11.0",
     "coffeescript": "^2.7.0",
     "lodash": "^4.17.21",
     "starlight-links-validator": "^0.26.0",
-    "unix-timestamp": "^1.0.2"
+    "typescript": "^5.9.3",
+    "unix-timestamp": "^1.0.2",
+    "yaml": "^2.9.1"
   }
 }

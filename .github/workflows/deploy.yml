@@ -24,7 +24,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run gate:reference
+      - run: npm run typecheck
       - run: npm run build
+      - run: npm run gate:openapi:dist
       - uses: actions/upload-artifact@v4
         with:
           name: site

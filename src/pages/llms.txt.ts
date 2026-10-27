@@ -16,7 +16,7 @@ export const GET: APIRoute = async ({ site }) => {
 	lines.push(`- [System API](${base}/reference-system/)`);
 	lines.push(`- [Admin API](${base}/reference-admin/)`);
 	lines.push(`- [Event types](${base}/event-types/): flat.json at ${base}/event-types/flat.json`);
-	lines.push(`- [OpenAPI 3.0](${base}/open-api/): api.yaml, api_open.yaml, api_system.yaml, api_admin.yaml`);
+	lines.push(`- [OpenAPI 3.0.3](${base}/open-api/): ${base}/open-api/3.0/api.yaml and ${base}/open-api/3.0/api_system.yaml, generated from the reference (api_open.yaml is a legacy alias of api.yaml)`);
 	lines.push(`- [Functional specifications](${base}/functional-specifications/)`);
 	lines.push(`- [Full reference dump](${base}/llms-full.txt)`);
 	lines.push('');
