@@ -7510,6 +7510,11 @@
                     "key": "external-id-already-claimed",
                     "http": "409",
                     "description": "(`externalId` in `forced` mode) Another account holds the id (`data: { namespace, reason: 'value-taken' }`, never which account). Nothing is reserved: send the user to sign in with the account that holds it."
+                  },
+                  {
+                    "key": "cross-core-registration-failed",
+                    "http": "503",
+                    "description": "(Multi-core platform) The registration landed on one core for another core's hosting, and that core could not take it: it is unreachable, or it refused the forward itself. Nothing is created; retry later. A refusal of the registration by that core (e.g. `409 item-already-exists`) is answered as that core answered it. From an open-pryv.io release later than 2.0.0-rc.60 (earlier releases answer `500 unexpected-error` in these cases, and for any refusal by the other core)."
                   }
                 ],
                 "examples": [
