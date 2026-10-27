@@ -3,6 +3,13 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.62
+
+Multi-core registration answers: a registration forwarded to another core now carries that core's refusal to the client, and a forward that cannot complete answers `503`. No migration, no configuration change.
+
+- **Multi-core registration: a refusal from the core the registration is forwarded to reaches the client with its own status.** A `POST /users` that the landing core forwards to another core (the account's hosting is on that core) answered `500 unexpected-error` whenever that core refused it, for example `409 item-already-exists` for a taken username or `409 external-id-already-claimed`. Such a refusal now reaches the client with that core's status, error id, message and `data`. A forward the other core does not accept, an answer that is not an API error (a proxy's page), a 5xx from that core, or a core that cannot be reached answers `503 cross-core-registration-failed`: nothing is created, retry later. See [`users.create`](/reference-system/#create-user) errors.
+- A restore no longer leaves an attachment it does not restore open behind it (an encrypted backup kept one file descriptor per such attachment).
+
 ## 2.0.0-rc.61
 
 Cross-account messaging fixes for rate-limited counterparties, and the register host now serves three documented methods it answered 404 for. No migration, no configuration change.
