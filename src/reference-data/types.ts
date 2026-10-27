@@ -8,6 +8,8 @@ export interface Property {
 	optional?: boolean | string;
 	unique?: boolean | string;
 	readOnly?: boolean | string;
+	// the value may be `null` (stated in the description too)
+	nullable?: boolean;
 	http?: string | { code?: string; text?: string };
 	description?: string;
 	properties?: Property[];
@@ -35,6 +37,8 @@ export interface Section {
 	type?: 'method' | string;
 	description?: string;
 	sections?: Section[];
+	// property table of a data-structure or descriptive section
+	properties?: Property[];
 	// visibility gates / badges
 	trustedOnly?: boolean;
 	previewOnly?: boolean;

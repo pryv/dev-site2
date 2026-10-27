@@ -1067,6 +1067,7 @@
                   {
                     "key": "phone",
                     "type": "string",
+                    "optional": true,
                     "description": "`sms` method only, required: the phone number to send codes to, in E.164 format: `+` followed by the country code and number, 7 to 15 digits, the first not `0` (e.g. `+41791234567`)."
                   },
                   {
@@ -4419,121 +4420,6 @@
           ]
         },
         {
-          "id": "followed-slices",
-          "title": "Followed slices",
-          "trustedOnly": true,
-          "description": "Methods to retrieve and manipulate [followed slices](#data-structure-followed-slice).",
-          "sections": [
-            {
-              "id": "followedSlices.get",
-              "type": "method",
-              "title": "Get followed slices",
-              "http": "GET /followed-slices",
-              "description": "Gets followed slices.",
-              "result": {
-                "http": "200 OK",
-                "properties": [
-                  {
-                    "key": "followedSlices",
-                    "type": "array of [followed slices](#data-structure-followed-slice)",
-                    "description": "All followed slices in the user's account, ordered by name."
-                  }
-                ]
-              },
-              "examples": []
-            },
-            {
-              "id": "followedSlices.create",
-              "type": "method",
-              "title": "Create followed slice",
-              "http": "POST /followed-slices",
-              "description": "Creates a new followed slice.",
-              "params": {
-                "description": "An object with the new followed slice's data: see [followed slice](#data-structure-followed-slice)."
-              },
-              "result": {
-                "http": "201 Created",
-                "properties": [
-                  {
-                    "key": "followedSlice",
-                    "type": "[followed slice](#data-structure-followed-slice)",
-                    "description": "The created followed slice."
-                  }
-                ]
-              },
-              "examples": []
-            },
-            {
-              "id": "followedSlices.update",
-              "type": "method",
-              "title": "Update followed slice",
-              "http": "PUT /followed-slices/{id}",
-              "description": "Modifies the specified followed slice.",
-              "params": {
-                "properties": [
-                  {
-                    "key": "id",
-                    "type": "[identifier](#data-structure-identifier)",
-                    "http": {
-                      "text": "set in request path"
-                    },
-                    "description": "The id of the followed slice."
-                  },
-                  {
-                    "key": "update",
-                    "type": "object",
-                    "http": {
-                      "text": "request body"
-                    },
-                    "description": "New values for the followed slice's fields: see [followed slice](#data-structure-followed-slice). All fields are optional, and only modified values must be included."
-                  }
-                ]
-              },
-              "result": {
-                "http": "200 OK",
-                "properties": [
-                  {
-                    "key": "followedSlice",
-                    "type": "[followed slice](#data-structure-followed-slice)",
-                    "description": "The updated followed slice."
-                  }
-                ]
-              },
-              "examples": []
-            },
-            {
-              "id": "followedSlices.delete",
-              "type": "method",
-              "title": "Delete followed slice",
-              "http": "DELETE /followed-slices/{id}",
-              "description": "Deletes the specified followed slice.",
-              "params": {
-                "properties": [
-                  {
-                    "key": "id",
-                    "type": "[identifier](#data-structure-identifier)",
-                    "http": {
-                      "text": "set in request path"
-                    },
-                    "description": "The id of the followed slice."
-                  }
-                ]
-              },
-              "result": {
-                "http": "200 OK",
-                "properties": [
-                  {
-                    "key": "followedSliceDeletion",
-                    "type": "[item deletion](#data-structure-item-deletion)",
-                    "description": "The deletion record."
-                  }
-                ]
-              },
-              "examples": []
-            }
-          ]
-        },
-        {
           "id": "profile",
           "title": "Profile sets",
           "description": "Methods to read and write profile sets. Profile sets are plain key-value stores of user-level settings.",
@@ -5860,6 +5746,7 @@
               "key": "duration",
               "type": "[timestamp](#data-structure-timestamp)",
               "optional": true,
+              "nullable": true,
               "description": "If present and non-zero, indicates that the event is a period event. **Running period events have a duration set to `null`**. **A duration set to zero is equivalent to no duration**."
             },
             {
@@ -6065,6 +5952,7 @@
               "key": "parentId",
               "type": "[identifier](#data-structure-identifier)",
               "optional": true,
+              "nullable": true,
               "description": "The identifier of the stream's parent, if any. A value of `null` indicates that the stream has no parent (i.e. root stream)."
             },
             {
@@ -6428,38 +6316,6 @@
               }
             }
           ]
-        },
-        {
-          "id": "followed-slice",
-          "title": "Followed slice",
-          "trustedOnly": true,
-          "description": "See also: [core concepts](/concepts/#followed-slices).",
-          "properties": [
-            {
-              "key": "id",
-              "type": "[identifier](#data-structure-identifier)",
-              "unique": true,
-              "readOnly": true,
-              "description": "The server-assigned identifier for the followed slice."
-            },
-            {
-              "key": "name",
-              "type": "string",
-              "unique": true,
-              "description": "A name identifying the followed slice for the user."
-            },
-            {
-              "key": "url",
-              "type": "URL",
-              "description": "The URL of the API endpoint of the account hosting the slice. Not modifiable after creation."
-            },
-            {
-              "key": "accessToken",
-              "type": "string",
-              "description": "The token of the shared access itself. Not modifiable after creation."
-            }
-          ],
-          "examples": []
         },
         {
           "id": "account",
@@ -6895,27 +6751,20 @@
                 "id": "users.get",
                 "type": "method",
                 "title": "Get users",
-                "http": "GET /admin/users",
+                "http": "GET /system/admin/users",
                 "httpOnly": true,
-                "server": "register",
+                "server": "core",
                 "description": "Get the list of all users registered on the platform.",
                 "params": {
-                  "properties": [
-                    {
-                      "key": "toHTML",
-                      "type": "boolean",
-                      "optional": true,
-                      "description": "If `true`, format the resulting users list as HTML tables."
-                    }
-                  ]
+                  "properties": []
                 },
                 "result": {
                   "http": "200 OK",
                   "properties": [
                     {
                       "key": "users",
-                      "type": "array",
-                      "description": "Array of user data."
+                      "type": "array of objects",
+                      "description": "One object per user: `username`, `id`, `email` and `language`, plus `core`, the URL of the core that hosts the account, on a multi-core platform."
                     }
                   ]
                 },
@@ -6927,25 +6776,15 @@
                       "users": [
                         {
                           "username": "user1",
-                          "email": "red.miller@mail.ch",
-                          "language": "en",
-                          "invitationToken": "enjoy",
-                          "referer": "null",
                           "id": "c000000000000000000000046",
-                          "registeredTimestamp": "1557743399558",
-                          "server": "core1.pryv.me",
-                          "registeredDate": "Mon, 13 May 2019 10:29:59 GMT"
+                          "email": "red.miller@mail.ch",
+                          "language": "en"
                         },
                         {
                           "username": "user2",
-                          "email": "user2@gmail.com",
-                          "language": "fr",
-                          "invitationToken": "enjoy",
-                          "referer": "null",
                           "id": "c000000000000000000000047",
-                          "registeredTimestamp": "1536930239805",
-                          "server": "core2.pryv.me",
-                          "registeredDate": "Fri, 14 Sep 2018 13:03:59 GMT"
+                          "email": "user2@gmail.com",
+                          "language": "fr"
                         }
                       ]
                     }

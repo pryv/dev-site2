@@ -74,6 +74,7 @@ module.exports = exports =
       key: "duration"
       type: "[timestamp](##{_getDocId("timestamp")})"
       optional: true
+      nullable: true
       description: """
                    If present and non-zero, indicates that the event is a period event. **Running period events have a duration set to `null`**. **A duration set to zero is equivalent to no duration**.
                    """
@@ -216,6 +217,7 @@ module.exports = exports =
       key: "parentId"
       type: "[identifier](##{_getDocId("identifier")})"
       optional: true
+      nullable: true
       description: """
                    The identifier of the stream's parent, if any. A value of `null` indicates that the stream has no parent (i.e. root stream).
                    """
@@ -409,44 +411,6 @@ module.exports = exports =
       title: "An app access with create-only and forbidden selfRevoke permissions"
       content: examples.accesses.createOnly
     ]
-
-  ,
-
-    id: "followed-slice"
-    title: "Followed slice"
-    trustedOnly: true
-    description: """
-                 See also: [core concepts](/concepts/#followed-slices).
-                 """
-    properties: [
-      key: "id"
-      type: "[identifier](##{_getDocId("identifier")})"
-      unique: true
-      readOnly: true
-      description: """
-                   The server-assigned identifier for the followed slice.
-                   """
-    ,
-      key: "name"
-      type: "string"
-      unique: true
-      description: """
-                   A name identifying the followed slice for the user.
-                   """
-    ,
-      key: "url"
-      type: "URL"
-      description: """
-                   The URL of the API endpoint of the account hosting the slice. Not modifiable after creation.
-                   """
-    ,
-      key: "accessToken"
-      type: "string"
-      description: """
-                   The token of the shared access itself. Not modifiable after creation.
-                   """
-    ]
-    examples: []
 
   ,
 

@@ -79,28 +79,21 @@ module.exports = exports =
         id: "users.get"
         type: "method"
         title: "Get users"
-        http: "GET /admin/users"
+        http: "GET /system/admin/users"
         httpOnly: true
-        server: "register"
+        server: "core"
         description: """
                     Get the list of all users registered on the platform.
                     """
         params:
-          properties: [
-            key: "toHTML"
-            type: "boolean"
-            optional: true
-            description: """
-                        If `true`, format the resulting users list as HTML tables.
-                        """
-          ]
+          properties: []
         result:
           http: "200 OK"
           properties: [
             key: "users"
-            type: "array"
+            type: "array of objects"
             description: """
-                        Array of user data.
+                        One object per user: `username`, `id`, `email` and `language`, plus `core`, the URL of the core that hosts the account, on a multi-core platform.
                         """
           ]
         examples: [
@@ -108,8 +101,15 @@ module.exports = exports =
           params: {}
           result:
             users: [
-              examples.users.three,
-              examples.users.four
+              username: examples.users.three.username
+              id: examples.users.three.id
+              email: examples.users.three.email
+              language: examples.users.three.language
+            ,
+              username: examples.users.four.username
+              id: examples.users.four.id
+              email: examples.users.four.email
+              language: examples.users.four.language
             ]
         ]
       ,
