@@ -3,6 +3,18 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.63
+
+Cross-account messaging: the revoke notices of a deleted account are no longer lost, and a failed accept no longer leaves its data grant behind. Also stream and access fixes, a `400` for a refused mail address, and dependency security updates: upgrade every core. No migration; the new outbox table is created at boot.
+
+- **CMC: the revoke notices of an account being deleted are queued and re-sent.** A `consent/revoke-cmc` notice whose counterparty core could not be reached during the deletion (network error, timeout, 5xx, 408 / 429) was logged and lost, so the counterparty kept the relationship as active. It is now held in a core-level outbox that outlives the account and re-sent on the schedule of any other revoke notice (8 re-sends over about 27 hours, then `failed-permanent` for the operator). Nothing is queued when the retry loop is off. See [Revoking](/guides/cross-account-messaging/#revoking).
+- **CMC: a revoke notice answered `403 invalid-access-token` counts as delivered.** The counterparty already deleted the access the notice is sent through (it revoked first): a revoke trigger now reports `content.peerNotified: true` with no `deliveryFailure`, and a queued notice is marked `succeeded`. Any other 4xx, including `403 forbidden`, is still a failure.
+- **CMC: an accept that fails for good no longer leaves its data grant behind.** When an accept's retries end `failed-permanent`, the retry loop deletes the data grant it minted, unless the grant already carries the requester's back-channel (the relationship did form). A retried accept refused as `cmc-capability-consumed` or `cmc-capability-already-accepted-by-you` on such a grant now completes instead of rolling the live grant back.
+- **`streams.create` keeps a valid predefined id as given.** An id of lowercase letters, digits and dashes (1 to 100 characters) is stored exactly as sent; a double dash was collapsed (`a--b` became `a-b`) and leading or trailing dashes dropped. Other ids are still slugified. Re-sending such an id now creates that stream instead of answering `409` on the normalised one.
+- **`accesses.update` creates a missing stream from a permission's `defaultName`, as `accesses.create` does**, and on both methods a `defaultName` no longer creates a stream with a reserved id (`400 invalid-item-id`, as `streams.create`).
+- **A mail address the SMTP server rejects answers `400`, not `500`, where the address is the caller's own input**: the registration email code and the verification resend answer `400 invalid-parameters-format` with `data: { email, reason: 'recipient-rejected' }`. The password reset keeps the generic `500`. See [Email verification](/guides/email-verification/).
+- **Security: dependencies.** `node-forge` 1.4.2 (GHSA-86w9-cpqp-85rv, RSA PKCS#1 v1.5 signature verification), `qs` 6.16.1 (GHSA-6pq8-jhm2-2vcw, denial of service in `qs.stringify`, not called by the server at runtime).
+
 ## 2.0.0-rc.62
 
 Multi-core registration answers: a registration forwarded to another core now carries that core's refusal to the client, and a forward that cannot complete answers `503`. No migration, no configuration change.
