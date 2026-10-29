@@ -284,7 +284,7 @@ module.exports = exports =
       readOnly: true
       optional: true
       description: """
-                   A platform-unique, routable de-identifying name (`r-` followed by 8 characters) substituted for the username in this access's `apiEndpoint` and in the access-info response. Set by passing `randomAlias: true` when creating the access; released when the access is deleted.
+                   A platform-unique, routable de-identifying name (`r-` followed by 8 characters) substituted for the username in this access's `apiEndpoint` and in the access-info response. Set by passing `randomAlias: true` when creating the access; released when the access is deleted (an expired access keeps its alias until then). The alias routes on every topology and is kept by a backup and restore of the account. It hides the username from the holder of the access, but does not stop a holder who suspects which account it is from confirming the guess (see `randomAlias` in [create access](/reference/#methods-accesses-accesses-create)).
                    """
     ,
       key: "type"

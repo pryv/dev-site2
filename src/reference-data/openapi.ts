@@ -82,6 +82,7 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'Array of fields': () => arrayOf({ description: 'Described in the reference as: field.' }),
 	'Array of data points': () => arrayOf({ description: 'Described in the reference as: data point.' }),
 	'`totp`|`sms`': () => enumOf('totp', 'sms'),
+	'`access-index`|`hf-series`|`webhooks`': () => enumOf('access-index', 'hf-series', 'webhooks'),
 	'`read`|`contribute`|`manage`': () => enumOf('read', 'contribute', 'manage'),
 	'`read`|`contribute`|`manage`|`create-only`': () => enumOf('read', 'contribute', 'manage', 'create-only'),
 	'`self`|`target`': () => enumOf('self', 'target'),

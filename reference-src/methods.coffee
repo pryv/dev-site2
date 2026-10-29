@@ -44,7 +44,7 @@ module.exports = exports =
           key: "username"
           type: "string"
           description: """
-                       The user's username.
+                       The user's username. After a [username change](##{_getDocId("account", "account.changeUsername")}), a former username of the account is accepted too: the session opens under the current username, which the returned `apiEndpoint` carries. The alias of an access (`r-` followed by 8 characters, see `randomAlias` in [create access](##{_getDocId("accesses", "accesses.create")})) is not a sign-in name. A username of another account answers `400 invalid-operation`.
                        """
         ,
           key: "password"
@@ -65,7 +65,7 @@ module.exports = exports =
           key: "apiEndpoint"
           type: "string"
           description: """
-                       The API endpoint containing the authorization token. See [app guidelines](/guides/app-guidelines/).
+                       The API endpoint containing the authorization token, built with the account's current username. See [app guidelines](/guides/app-guidelines/).
                        """
         ,
           key: "token"
@@ -1862,7 +1862,11 @@ module.exports = exports =
           type: "boolean"
           optional: true
           description: """
-                       When `true`, the access is issued a platform-unique, routable alias (`r-` followed by 8 characters) that replaces the username in the returned `apiEndpoint` and in the access-info response. The real username never appears for this access, so accesses handed to different parties cannot be cross-matched back to one account. The resolved value is returned as the access's `alias`.
+                       When `true`, the access is issued a platform-unique, routable alias (`r-` followed by 8 characters) that replaces the username in the returned `apiEndpoint` and in the access-info response. The real username never appears for this access, so accesses handed to different parties cannot be cross-matched back to one account through what the server returns. The resolved value is returned as the access's `alias`.
+
+                       The alias routes like the username on every topology (path-style on a DNSless core, `https://r-xxxxxxxx.<domain>/` where the core answers DNS, across cores on a multi-core platform), survives a backup and restore of the account, and stays held until the access is deleted (an expired access keeps its alias). An account holds at most `accesses.maxAliasesPerAccount` aliases (operator setting, default 1000; its access aliases plus its former usernames); past it the request is refused, see errors.
+
+                       Limit: an alias hides the username from the app, it does not stop an app that already suspects which account it holds from confirming the guess. The token also works under the account's other names, so a call made with it under a guessed username succeeds exactly when the guess is right.
                        """
         ]
       result:
@@ -1879,6 +1883,12 @@ module.exports = exports =
         http: "400"
         description: """
                      The specified token is invalid (e.g. it's a reserved word such as `null`).
+                     """
+      ,
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     With `randomAlias`: the account already holds `accesses.maxAliasesPerAccount` aliases (`data: { maxAliasesPerAccount }`). Delete the accesses the account no longer uses (an expired access keeps its alias until it is deleted), or create the access without `randomAlias`. No alias is reserved by a refused request.
                      """
       ]
       examples: [
@@ -2111,7 +2121,9 @@ module.exports = exports =
       ,
         key: "user"
         type: "[key-value](##{_getDocId("key-value")})"
-        description: "A map of user account properties."
+        description: """
+                     A map of user account properties. `user.username` is the access's `alias` when it has one (the real username is never reported to an aliased access), otherwise the account's current username, also for an access issued before a username change and called under the former name.
+                     """
       ,
         key: "delegation"
         type: "object"
@@ -2975,14 +2987,24 @@ module.exports = exports =
       description: """
                    Changes the user's username. Requires a personal access token.
 
-                   Accesses already issued under the previous username keep working: the old name is retained as a routable alias, and the access-info response for those accesses reports the new (current) username. The number of changes a user may perform is capped by the operator (default 2); see Username changes to read the remaining allowance.
+                   Every former username stays held by the account as a routable alias: nobody else can register it or take it with a change, and the account cannot take it back as its username. What was issued under the former name keeps working:
+
+                   - **Tokens** issued before the change work under either name; [access-info](#access-info) reports the new (current) username (or the access's own `alias`, for an aliased access).
+                   - **Sign-in**: [login](##{_getDocId("auth", "auth.login")}) accepts the former username in its credentials; the session opens under the new one.
+                   - **High-frequency series** stored before the change are moved under the new name and are returned under either name.
+                   - **Socket.IO**: sockets opened before the change are disconnected (`io server disconnect`); the client reconnects, under either name, and is notified again.
+                   - **Routing**: the new name routes on every topology, including a single core that answers DNS itself.
+
+                   The change is atomic towards other accounts: a name taken while it runs is refused (`409 item-already-exists`) before anything is written, and a change that fails part way is undone (`500 unexpected-error`, the account whole under its former name). Two changes of one account sent at once: one applies, the other answers `400 invalid-operation`.
+
+                   The number of changes is capped by the operator setting `auth.usernameChangeLimit` (default 2; `0` disables the change); see [Username changes](##{_getDocId("account", "account.usernameChanges")}) to read the remaining allowance.
                    """
       params:
         properties: [
           key: "newUsername"
           type: "string"
           description: """
-                       The new username. Must be available (not used by any account or alias) and not reserved.
+                       The new username. Must be available (not used by any account, as a username or as an alias) and not reserved. Names of the shape of an access alias (`r-` followed by 8 letters or digits) are reserved.
                        """
         ]
       result:
@@ -2999,18 +3021,43 @@ module.exports = exports =
           description: """
                        How many further username changes the user may perform.
                        """
+        ,
+          key: "warnings"
+          type: "array of objects"
+          description: """
+                       The steps of the change that did not complete, as `{ step, message }`. The change itself stands: these steps do not undo it. Always present, empty when every step completed.
+                       """
+          properties: [
+            key: "step"
+            type: "`access-index`|`hf-series`|`webhooks`"
+            description: """
+                         `access-index`: the breach-scope index rows of the accesses still name the former username (repaired by the next resync of that index). `hf-series`: high-frequency series kept under a former username could not be moved (they are moved at the next username change, or by the operator). `webhooks`: the webhooks could not be moved to the new username (they run under it again at the next start of the webhooks service).
+                         """
+          ,
+            key: "message"
+            type: "string"
+            description: """
+                         A human-readable description of what did not complete.
+                         """
+          ]
         ]
       errors: [
         key: "invalid-operation"
         http: "400"
         description: """
-                     The new username equals the current one, is reserved, or the per-user change limit has been reached (`data: { usernameChangesUsed, usernameChangesLimit }`).
+                     The new username equals the current one, is reserved, the per-user change limit has been reached (`data: { usernameChangesUsed, usernameChangesLimit }`; `auth.usernameChangeLimit: 0` refuses every change this way), another change of the account is running, or the current username could not be kept as an alias.
                      """
       ,
         key: "item-already-exists"
         http: "409"
         description: """
-                     The requested username is already taken by another account or alias.
+                     The requested username is already taken by another account or alias, including a name taken while the change was running (nothing is written then).
+                     """
+      ,
+        key: "unexpected-error"
+        http: "500"
+        description: """
+                     A storage failure part way through the change. The steps made are undone: the account stays whole under its former username and the new name is free.
                      """
       ,
         key: "forbidden"
@@ -3028,6 +3075,7 @@ module.exports = exports =
             email: "ada@pryv.io"
             language: "en"
           usernameChangesRemaining: 1
+          warnings: []
       ]
 
     ,

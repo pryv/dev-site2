@@ -209,6 +209,7 @@ export default defineConfig({
 						{ slug: 'customer-resources/auth-oauth2' },
 						{ slug: 'customer-resources/auth-sso', badge: { text: 'Beta', variant: 'caution' } },
 						{ slug: 'customer-resources/external-ids' },
+						{ slug: 'customer-resources/aliases-and-username-changes' },
 						{ slug: 'customer-resources/system-streams' },
 						{ slug: 'customer-resources/audit-setup' },
 						{ slug: 'customer-resources/observability' },

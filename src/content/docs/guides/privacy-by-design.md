@@ -164,7 +164,7 @@ The defaults above are structural — Pryv.io enforces them. But Art.25(2) also 
 
 Cryptography-based PETs that you can layer on top of Pryv.io's substrate:
 
-- **Pseudonymisation** — personal-data fields replaced by artificial identifiers before analysis or sharing. The access + stream model already provides structural pseudonymisation; a randomised-alias primitive is on the roadmap.
+- **Pseudonymisation** — personal-data fields replaced by artificial identifiers before analysis or sharing. The access + stream model already provides structural pseudonymisation, and an access created with `randomAlias` addresses the account through a random alias instead of the username (see [aliases and username changes](/customer-resources/aliases-and-username-changes/) for what an alias does and does not hide).
 - **Proxy re-encryption** — data is encrypted per segment with the data subject's public keys; the backend re-crypts for accredited recipients on demand. Defends against full-dataset breach because the attacker needs the secret keys of accredited recipients. A working proof of concept is available at [github.com/perki/test-proxy-re-encrypt](https://github.com/perki/test-proxy-re-encrypt).
 - **Multiparty computation** (federated learning, mining data without revealing sensitive information) — multiple parties compute a function over their private inputs without revealing them.
 - **Homomorphic encryption** — computations performed on encrypted data without decrypting it.
