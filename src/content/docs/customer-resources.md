@@ -121,6 +121,10 @@ If you are migrating a v1 register service, the historical [register migration g
 
   This document describes how services link a third-party record id (an EHR patient id, for example) to exactly one account, platform-wide, without the platform seeing the id: namespaces, blinding, claim and lookup, the privacy boundary and the operator tools.
 
+- Account auto-deletion: [HTML](/customer-resources/account-auto-deletion/)
+
+  This document describes how accounts are deleted at a date their holder chose or after a period without use: the optional operator preset, reminder mails and minimum notice, the deletion sweep and its safeguards, the settings and the mail templates.
+
 
 ## Contact and support
 

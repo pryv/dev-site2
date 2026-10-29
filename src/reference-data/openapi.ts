@@ -98,6 +98,13 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'`selfRevoke`|`secretSharing`|`webhooks`': () => enumOf('selfRevoke', 'secretSharing', 'webhooks'),
 	'`forbidden`|`allowed`': () => enumOf('forbidden', 'allowed'),
 	'`active`|`inactive`': () => enumOf('active', 'inactive'),
+	'`default`|`never`|`date`|`inactivity`': () => enumOf('default', 'never', 'date', 'inactivity'),
+	'`never`|`date`|`inactivity`': () => enumOf('never', 'date', 'inactivity'),
+	'`delete`|`transfer`': () => enumOf('delete', 'transfer'),
+	'`user`|`operator`|`none`': () => enumOf('user', 'operator', 'none'),
+	'`owner`|`delegate`': () => enumOf('owner', 'delegate'),
+	'`date`|`inactivity`|`minimum-notice`': () => enumOf('date', 'inactivity', 'minimum-notice'),
+	'`available`|`no-email`|`not-configured`': () => enumOf('available', 'no-email', 'not-configured'),
 };
 
 /** The type strings the generator knows (the gate checks the reference against it). */

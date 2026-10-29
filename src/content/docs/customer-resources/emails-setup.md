@@ -1,10 +1,10 @@
 ---
 title: 'Open Pryv.io email configuration'
-description: How to configure transactional emails in Open Pryv.io (welcome, password reset, email verification, registration code), comparing the in-process and legacy microservice delivery paths.
+description: How to configure transactional emails in Open Pryv.io (welcome, password reset, email verification, registration code, and the MFA change, external id release and auto-deletion notices), comparing the in-process and legacy microservice delivery paths.
 ---
 
 
-Open Pryv.io sends five kinds of transactional email:
+Open Pryv.io sends seven kinds of transactional email:
 
 | Type | Sent when | Template | Switch |
 |---|---|---|---|
@@ -13,8 +13,10 @@ Open Pryv.io sends five kinds of transactional email:
 | **email verification** | an address is added to an account, or a verification is requested again. Carries a one-time link. | `verify-email` | `services.email.enabled.verifyEmail` (**on by default**) |
 | **registration code** | the sign-up gate is on and a client requests a code for an address. Carries a copy/paste code, not a link. | `email-challenge` | `account.emailVerification.requireAtRegistration` |
 | **MFA change notice** | the account's MFA is enrolled, replaced, deactivated, removed with a recovery code or reset by the administrator | `mfa-change` | `services.email.enabled.mfaChange` (**on by default**) |
+| **external id released** | the administrator releases an external id the account held | `external-id-released` | `services.email.enabled.externalIdReleased` (**on by default**) |
+| **auto-deletion confirmation** | the holder changes the account's auto-deletion setting, clearing included | `account-deletion-scheduled` | `services.email.enabled.accountDeletionScheduled` (**on by default**) |
 
-All five share the same SMTP transport and Pug template pipeline. The registration code and email verification are described in [Email verification](#email-verification), the MFA change notice in [MFA change notice](#mfa-change-notice).
+All seven share the same SMTP transport and Pug template pipeline. The registration code and email verification are described in [Email verification](#email-verification), the MFA change notice in [MFA change notice](#mfa-change-notice), the external id release in [External ids](/customer-resources/external-ids/#releasing-an-id-claimed-by-the-wrong-account) and the auto-deletion confirmation in [Account auto-deletion](/customer-resources/account-auto-deletion/#mails). The notices (MFA change, external id released, auto-deletion confirmation) are best-effort: sent only when mail is configured and the account has an address, and a failed send never fails the action they report.
 
 v2 supports two delivery paths. Pick one at `services.email.method` in `override-config.yml`:
 
@@ -38,6 +40,8 @@ services:
       resetPassword: true
       verifyEmail: true           # on by default, see 'Email verification' below
       mfaChange: true             # on by default, see 'MFA change notice' below
+      externalIdReleased: true    # on by default
+      accountDeletionScheduled: true   # on by default
 ```
 
 
@@ -54,6 +58,8 @@ services:
     verifyEmailTemplate: verify-email
     emailChallengeTemplate: email-challenge
     mfaChangeTemplate: mfa-change
+    externalIdReleasedTemplate: external-id-released
+    accountDeletionScheduledTemplate: account-deletion-scheduled
     from:
       name: 'Pryv Lab no-reply'
       address: 'no-reply@your-domain.example'
@@ -198,7 +204,7 @@ In-process mode renders Pug templates inside the api-server workers that already
 
 ### Boot-time template seeding <a name="boot-time-template-seeding"></a>
 
-On the **first** boot with an empty PlatformDB, the master seeds the **template set bundled with the mail component** (`welcome-email`, `reset-password`, `verify-email`, `email-challenge` and `mfa-change`, each in `en` and `fr`). A fresh install can therefore send all five mail classes without anyone authoring a template first. A deployment seeded before a template was added to the bundled set does not get it automatically: add it with `bin/mail.js templates set` (see below).
+On the **first** boot with an empty PlatformDB, the master seeds the **template set bundled with the mail component** (`welcome-email`, `reset-password`, `verify-email`, `email-challenge`, `mfa-change`, `external-id-released` and `account-deletion-scheduled`, each in `en` and `fr`). A fresh install can therefore send all seven mail classes without anyone authoring a template first. A deployment seeded before a template was added to the bundled set does not get it automatically: add it with `bin/mail.js templates set` (see below).
 
 To seed your own set instead, point `templatesRootDir` at an on-disk Pug directory. When the key is set, the bundled set is not used:
 
@@ -228,7 +234,11 @@ Directory layout expected:
 │   └── ...
 ├── email-challenge/
 │   └── ...
-└── mfa-change/
+├── mfa-change/
+│   └── ...
+├── external-id-released/
+│   └── ...
+└── account-deletion-scheduled/
     └── ...
 ```
 
@@ -369,6 +379,36 @@ Show the verification block conditionally (`if VERIFY_LINK` in Pug). The token l
 | `CODE_MAX_AGE_MINUTES` | `10` |
 
 Keep the code out of the subject line of a custom `email-challenge` template: subjects show up in lock-screen previews and in mail-server logs, and this code stamps an address as proved. The bundled subject says only that a code is inside.
+
+### `mfa-change`
+
+See [MFA change notice](#mfa-change-notice).
+
+### `external-id-released`
+
+| Local | Example |
+|---|---|
+| `USERNAME` | `alice` |
+| `NAMESPACE_LABEL` | the label of the namespace the id belonged to |
+| `REASON` | the reason given by the administrator, as written |
+
+The id itself is never passed to the template.
+
+### `account-deletion-scheduled`
+
+| Local | Example |
+|---|---|
+| `USERNAME` | `alice` |
+| `DEADLINE` | date and time of the deletion (UTC), `''` when nothing is scheduled |
+| `DAYS_LEFT` | days left before the deletion |
+| `TRIGGER` | `date`, `inactivity`, or `none` |
+| `SCHEDULED`, `TRIGGER_DATE`, `TRIGGER_INACTIVITY` | `'true'` or `''`, for conditionals |
+| `INACTIVITY_DAYS` | the period, with the `inactivity` trigger |
+| `ACTION` | `delete` |
+| `ACCOUNT_APP_URL` | `service.account` |
+| `EXPORT_URL` | the account app's data page |
+
+See [Account auto-deletion](/customer-resources/account-auto-deletion/#mails).
 
 
 ## SPF record reminder <a name="spf-record-reminder"></a>
