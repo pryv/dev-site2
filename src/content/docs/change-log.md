@@ -3,6 +3,18 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.64
+
+Two security fixes (OAuth2 consent withdrawal, event history reads) and fixes for OAuth2 confidential clients, the SQLite engine, deletion records, notification scopes and streamed errors: upgrade every core. No migration.
+
+- **Security: withdrawing an OAuth2 consent ends the app's live tokens at once.** Deleting the consent data grant of an OAuth2 client (from the account app, `accesses.delete`, or a revoke from the client) ended the refresh chain but left the client's current session accesses valid until their own expiry (one hour by default). They are now deleted with the grant, together with the accesses they created, and listed in the answer's `relatedDeletions`. A session access names its grant in `clientData.oauth.dataGrantId`, which `accesses.update` cannot change or remove (`403`). Sessions minted before the upgrade expire on their own.
+- **Security: `events.getOne` with `includeHistory` no longer returns versions the access cannot read.** Each earlier version now goes through the read check of the event itself; a version that fails it is left out of `history`.
+- **`/oauth2/token` accepts a confidential client identified by HTTP Basic alone**, without repeating `client_id` in the body.
+- **`events.get` with `includeDeletions` no longer returns the deletion record of an event that also sits in a stream the access cannot read.**
+- **Notification scopes match `class/*` event types as `events.get` does.**
+- **A streamed answer whose storage fails before the first byte returns a JSON error** instead of a dropped connection.
+- **SQLite engine:** `events.get` no longer fails when an excluded subtree holds more than about 250 streams, and stream ids are escaped in the full-text query.
+
 ## 2.0.0-rc.63
 
 Cross-account messaging: the revoke notices of a deleted account are no longer lost, and a failed accept no longer leaves its data grant behind. Also stream and access fixes, a `400` for a refused mail address, and dependency security updates: upgrade every core. No migration; the new outbox table is created at boot.
