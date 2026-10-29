@@ -3,6 +3,17 @@ title: API change log
 description: Release notes for the Pryv.io API, tracking breaking changes, new webhook and websocket features, storage options and version-by-version updates.
 ---
 
+## 2.0.0-rc.65
+
+One breaking security change (account fields are written by the personal access only), a consent-integrity fix, and fixes for deletion records, OAuth2 token timing and the SQLite engine: upgrade every core. No migration.
+
+- **BREAKING (security): account fields are written by the personal access only.** App and shared accesses, including those granted through an app access request, a consent offer or an OAuth2 authorization, are limited to `read` (or `none`) on account streams. `accesses.create` / `accesses.update` refuse a higher level with `400 invalid-operation`; a consent offer holding one, or a hidden or unknown account stream, fails at accept with `cmc-offer-invalid-permissions`. An access already stored with a higher level keeps reading, but its writes on account streams are refused with `403 forbidden` (a write on the email field by an app or shared access now also answers `403`, instead of `400`). Apps that set account fields for the user must ask for `read` and let the user change them in a personal session (the account app or `account.update`).
+- **Security: a consent refused for its permissions is final.** A consent accept or a scope update refused for its permissions was retried without the checks that refused it, and could complete shortly after being reported as failed. These refusals are no longer retried.
+- **Deletion records of internal streams are no longer returned to non-personal accesses**, in `events.get` with `includeDeletions` and in `streams.get` with `includeDeletionsSince`. The filter applies after `limit` and `skip`: a page can hold fewer records than `limit`, so a sync client must not treat a short page as the end of the listing.
+- **OAuth2:** a token minted right after an operator revoke of its client is no longer refused as revoked, and the refresh grant refuses a consent that expired less than a second ago.
+- **SQLite engine:** `events.getOne` no longer serves a history version by its own storage id.
+- **Operators:** `oauth.consentUrl` is declared in the default configuration and asked by the install wizard; an empty value is reported at boot and by `check-config`.
+
 ## 2.0.0-rc.64
 
 Two security fixes (OAuth2 consent withdrawal, event history reads) and fixes for OAuth2 confidential clients, the SQLite engine, deletion records, notification scopes and streamed errors: upgrade every core. No migration.
