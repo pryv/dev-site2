@@ -183,7 +183,7 @@ _autoDeletionResult =
       type: "object"
       nullable: true
       description: """
-                   The current or last transfer of the account, `null` when there was none: `status` (`named`: the beneficiary was told at setup; `open`: the claim window is open; `claimed`: claimed by an account, its acceptance pending; `completed`, `declined`, `cancelled`, `lapsed`: the window ended without a claim and the account was kept; `fallback-delete`), `email` (the beneficiary's address), `beneficiaryNotifiedAt`, `openedAt` and `endsAt` (the claim window), `claimedBy` (`{ username, at }`), `locked` (`{ at }`: too many failed claims, refused until the platform's next pass), `closedAt` and `closedReason` (`owner-activity`, `delegate-activity`, `owner-change`, `declined`). Never the beneficiary's name or date of birth.
+                   The current or last transfer of the account, `null` when there was none: `status` (`named`: the beneficiary was told at setup; `open`: the claim window is open; `claimed`: claimed by an account, its acceptance pending; `completed`, `declined`, `cancelled`, `lapsed`: the window ended without a claim and the account was kept; `fallback-delete`), `email` (the beneficiary's address), `beneficiaryNotifiedAt`, `openedAt` and `endsAt` (the claim window), `claimedBy` (`{ username, at }`), `failedClaims` (`{ count, lastAt }`: claims made with a wrong link; they refuse nothing), `ownerNotifiedAt`, `closedAt` and `closedReason` (`owner-activity`, `delegate-activity`, `owner-change`, `declined`). Never the beneficiary's name or date of birth.
                    """
     ,
       key: "claimWindowDays"
@@ -3839,7 +3839,7 @@ module.exports = exports =
 
                    The first claim binds the transfer to `claimant` and sends it a delegation invite on the holder's behalf (`status: "invited"`). The claimant accepts it with [accept attach](/guides/account-delegation/) (`delegations.acceptAttach`) on its own core, signed in to its own account; the next claim then completes the transfer (`status: "completed"`): the claimant controls the account, the holder's auto-deletion setting is cleared, the beneficiary's name and date of birth are erased, and both are mailed. A repeat by the same account answers the same; an invite that expired inside the window is sent again; a claimant that already controls the account completes the transfer at once.
 
-                   Failed claims count on the client address's budget of failed secrets (as wrong passwords do), and after ten failed claims of one transfer, claims are refused until the platform's next pass.
+                   A valid link always proceeds. Claims with a wrong link count on the client address's budget of failed secrets (as wrong passwords do) and are reported to the holder (`transfer.failedClaims`); they refuse nothing else.
                    """
       params:
         properties: [
@@ -3887,12 +3887,6 @@ module.exports = exports =
         http: "410"
         description: """
                      The claim window has ended.
-                     """
-      ,
-        key: "auto-deletion-transfer-locked"
-        http: "429"
-        description: """
-                     Too many failed claims of this transfer; claims are refused until the platform's next pass (`data.retryAfterSeconds`, an upper bound).
                      """
       ,
         key: "too-many-attempts"
@@ -3949,7 +3943,7 @@ module.exports = exports =
         key: "auto-deletion-transfer-invalid-link"
         http: "403"
         description: """
-                     The token is not valid, or the transfer can no longer be declined.
+                     The token is not valid, or the transfer can no longer be declined. A beneficiary who already claimed may still decline: the delegation invite is withdrawn.
                      """
       ]
       examples: [
