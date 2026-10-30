@@ -43,13 +43,13 @@ In multi-core, the DNS server on each core reads from the same PlatformDB and re
 
 ### Upgrading from 2.0.0-rc.65 or earlier: set `dnsLess.isActive` explicitly
 
-**BREAKING (configuration).** From the first release after 2.0.0-rc.65, a configuration that sets `dns.domain` but leaves `dnsLess.isActive` out **refuses to boot**, with or without `core.url`, and `bin/check-config.js` reports it as a problem. Such a core was silently broken: it was treated as multi-core under the domain (without `core.url`, its own URL became `https://<core.id>.<dns.domain>`) and `/service/info` advertised `https://{username}.<domain>/`, `reg.<domain>` and `access.<domain>` in place of your own `service.*` URLs, while requests were routed path-style under the shipped default `dnsLess.isActive: true`.
+**BREAKING (configuration).** From 2.0.0-rc.66, a configuration that sets `dns.domain` but leaves `dnsLess.isActive` out **refuses to boot**, with or without `core.url`, and `bin/check-config.js` reports it as a problem. Such a core was silently broken: it was treated as multi-core under the domain (without `core.url`, its own URL became `https://<core.id>.<dns.domain>`) and `/service/info` advertised `https://{username}.<domain>/`, `reg.<domain>` and `access.<domain>` in place of your own `service.*` URLs, while requests were routed path-style under the shipped default `dnsLess.isActive: true`.
 
-Before restarting a core on that release:
+Before restarting a core on 2.0.0-rc.66 or later:
 
 - Set `dnsLess.isActive` explicitly: `false` for a deployment with per-user subdomains under `dns.domain` (as in the snippet above), `true` for a single core with path-style routing (`dnsLess.publicUrl` then sets its URLs).
 - A DNSless multi-core member (its own `core.url`, path-style routing) should drop `dns.domain`: such a member with no `dns.domain` and no `dnsLess` key is accepted as before.
-- Run `node bin/check-config.js <your config file>` on the new release and fix what it reports before restarting.
+- Run `node bin/check-config.js <your config file>` on the new release (2.0.0-rc.66 or later) and fix what it reports before restarting.
 
 Configurations written by `bin/init.js` or `bin/bootstrap.js` already set the key. A core without `dns.domain` is not affected.
 

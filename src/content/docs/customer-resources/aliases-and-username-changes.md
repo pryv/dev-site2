@@ -54,7 +54,7 @@ Aliases and former usernames route like the username:
 
 ## Backup and restore
 
-`bin/backup.js` lists each account's aliases (its access aliases and its former usernames) in the backup manifest (`aliases`), and the restore reserves them again, so aliased accesses and endpoints under a former username keep routing and a former username cannot be registered by someone else after a restore. An alias another account or core took in the meantime stays with its holder; the restore reports it (`Aliases: <n> restored, <m> held by another account or core (not restored)`). Backups written by earlier releases list no aliases.
+`bin/backup.js` lists each account's aliases (its access aliases and its former usernames) in the backup manifest (`aliases`), and the restore reserves them again, so aliased accesses and endpoints under a former username keep routing and a former username cannot be registered by someone else after a restore. An alias another account or core took in the meantime stays with its holder; the restore reports it (`Aliases: <n> restored, <m> held by another account or core (not restored)`). Backups written by releases before 2.0.0-rc.66 list no aliases: take a new backup after upgrading.
 
 The backup also exports the high-frequency series an account still has under a former username; the restore writes them under the username. See [backup](/customer-resources/backup/).
 
@@ -64,9 +64,9 @@ An alias hides the username from the holder of the access: nothing the server re
 
 ## Upgrading from 2.0.0-rc.65 or earlier
 
-**Before restarting on the new release**, check your configuration: the same release refuses to boot a configuration that sets `dns.domain` without an explicit `dnsLess.isActive` (BREAKING, configuration). Run `node bin/check-config.js <your config file>` first; see [DNS configuration](/customer-resources/dns-config/#upgrading-from-200-rc65-or-earlier-set-dnslessisactive-explicitly).
+**Before restarting on 2.0.0-rc.66 or later**, check your configuration: 2.0.0-rc.66 also refuses to boot a configuration that sets `dns.domain` without an explicit `dnsLess.isActive` (BREAKING, configuration). Run `node bin/check-config.js <your config file>` first; see [DNS configuration](/customer-resources/dns-config/#upgrading-from-200-rc65-or-earlier-set-dnslessisactive-explicitly).
 
-Releases up to 2.0.0-rc.65 left three gaps that new releases no longer create but do not repair by themselves. Run each repair once per core after upgrading.
+Releases up to 2.0.0-rc.65 left three gaps that 2.0.0-rc.66 and later no longer create but do not repair by themselves. Run each repair once per core after upgrading.
 
 ### 1. Single core serving its own DNS: `bin/reconcile-user-cores.js`
 
@@ -92,7 +92,7 @@ node bin/gather-former-series.js                      # move
 node bin/gather-former-series.js --user <username>    # one account only
 ```
 
-- Run it once per core, once every API and HF worker of the core runs the new release. Idempotent: a second run finds nothing to move. An account's next username change makes the same move.
+- Run it once per core, once every API and HF worker of the core runs 2.0.0-rc.66 or later. Idempotent: a second run finds nothing to move. An account's next username change makes the same move.
 - On a clash, the point already under the current username is kept on PostgreSQL and SQLite; on InfluxDB, the moved one.
 - **Cached credentials.** HF workers cache the series credentials of a name for a while. A worker that still holds those of a former name can write under it during and after the move: a point written after the move is moved by a second run (or the next username change); a point written during the move itself is lost on SQLite and InfluxDB (copied, then the source dropped; PostgreSQL moves in one statement). For a strict guarantee, run it with the HF workers stopped.
 
