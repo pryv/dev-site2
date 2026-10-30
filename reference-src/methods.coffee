@@ -3945,6 +3945,12 @@ module.exports = exports =
         description: """
                      The token is not valid, or the transfer can no longer be declined. A beneficiary who already claimed may still decline: the delegation invite is withdrawn.
                      """
+      ,
+        key: "auto-deletion-transfer-claimed"
+        http: "409"
+        description: """
+                     The claimant already accepted the delegation invite: the transfer is completed, a decline comes too late.
+                     """
       ]
       examples: [
         params:
