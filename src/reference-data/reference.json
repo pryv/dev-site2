@@ -908,7 +908,7 @@
                   {
                     "key": "username",
                     "type": "string",
-                    "description": "The user's username."
+                    "description": "The user's username. After a [username change](#methods-account-account-changeUsername), a former username of the account is accepted too: the session opens under the current username, which the returned `apiEndpoint` carries. The alias of an access (`r-` followed by 8 characters, see `randomAlias` in [create access](#methods-accesses-accesses-create)) is not a sign-in name. A username of another account answers `400 invalid-operation`."
                   },
                   {
                     "key": "password",
@@ -928,7 +928,7 @@
                   {
                     "key": "apiEndpoint",
                     "type": "string",
-                    "description": "The API endpoint containing the authorization token. See [app guidelines](/guides/app-guidelines/)."
+                    "description": "The API endpoint containing the authorization token, built with the account's current username. See [app guidelines](/guides/app-guidelines/)."
                   },
                   {
                     "key": "token",
@@ -3379,7 +3379,7 @@
                     "key": "randomAlias",
                     "type": "boolean",
                     "optional": true,
-                    "description": "When `true`, the access is issued a platform-unique, routable alias (`r-` followed by 8 characters) that replaces the username in the returned `apiEndpoint` and in the access-info response. The real username never appears for this access, so accesses handed to different parties cannot be cross-matched back to one account. The resolved value is returned as the access's `alias`."
+                    "description": "When `true`, the access is issued a platform-unique, routable alias (`r-` followed by 8 characters) that replaces the username in the returned `apiEndpoint` and in the access-info response. The real username never appears for this access, so accesses handed to different parties cannot be cross-matched back to one account through what the server returns. The resolved value is returned as the access's `alias`.\n\nThe alias routes like the username on every topology (path-style on a DNSless core, `https://r-xxxxxxxx.<domain>/` where the core answers DNS, across cores on a multi-core platform), survives a backup and restore of the account, and stays held until the access is deleted (an expired access keeps its alias). An account holds at most `accesses.maxAliasesPerAccount` aliases (operator setting, default 1000; its access aliases plus its former usernames); past it the request is refused, see errors.\n\nLimit: an alias hides the username from the app, it does not stop an app that already suspects which account it holds from confirming the guess. The token also works under the account's other names, so a call made with it under a guessed username succeeds exactly when the guess is right."
                   }
                 ]
               },
@@ -3398,6 +3398,11 @@
                   "key": "invalid-item-id",
                   "http": "400",
                   "description": "The specified token is invalid (e.g. it's a reserved word such as `null`)."
+                },
+                {
+                  "key": "invalid-operation",
+                  "http": "400",
+                  "description": "With `randomAlias`: the account already holds `accesses.maxAliasesPerAccount` aliases (`data: { maxAliasesPerAccount }`). Delete the accesses the account no longer uses (an expired access keeps its alias until it is deleted), or create the access without `randomAlias`. No alias is reserved by a refused request."
                 }
               ],
               "examples": [
@@ -3649,7 +3654,7 @@
               {
                 "key": "user",
                 "type": "[key-value](#methods-key-value-)",
-                "description": "A map of user account properties."
+                "description": "A map of user account properties. `user.username` is the access's `alias` when it has one (the real username is never reported to an aliased access), otherwise the account's current username, also for an access issued before a username change and called under the former name."
               },
               {
                 "key": "delegation",
@@ -4733,13 +4738,13 @@
               "title": "Change username",
               "v2Tag": true,
               "http": "POST /account/change-username",
-              "description": "Changes the user's username. Requires a personal access token.\n\nAccesses already issued under the previous username keep working: the old name is retained as a routable alias, and the access-info response for those accesses reports the new (current) username. The number of changes a user may perform is capped by the operator (default 2); see Username changes to read the remaining allowance.",
+              "description": "Changes the user's username. Requires a personal access token.\n\nEvery former username stays held by the account as a routable alias: nobody else can register it or take it with a change, and the account cannot take it back as its username. What was issued under the former name keeps working:\n\n- **Tokens** issued before the change work under either name; [access-info](#access-info) reports the new (current) username (or the access's own `alias`, for an aliased access).\n- **Sign-in**: [login](#methods-auth-auth-login) accepts the former username in its credentials; the session opens under the new one.\n- **High-frequency series** stored before the change are moved under the new name and are returned under either name.\n- **Socket.IO**: sockets opened before the change are disconnected (`io server disconnect`); the client reconnects, under either name, and is notified again.\n- **Routing**: the new name routes on every topology, including a single core that answers DNS itself.\n\nThe change is atomic towards other accounts: a name taken while it runs is refused (`409 item-already-exists`) before anything is written, and a change that fails part way is undone (`500 unexpected-error`, the account whole under its former name). Two changes of one account sent at once: one applies, the other answers `400 invalid-operation`.\n\nThe number of changes is capped by the operator setting `auth.usernameChangeLimit` (default 2; `0` disables the change); see [Username changes](#methods-account-account-usernameChanges) to read the remaining allowance.",
               "params": {
                 "properties": [
                   {
                     "key": "newUsername",
                     "type": "string",
-                    "description": "The new username. Must be available (not used by any account or alias) and not reserved."
+                    "description": "The new username. Must be available (not used by any account, as a username or as an alias) and not reserved. Names of the shape of an access alias (`r-` followed by 8 letters or digits) are reserved."
                   }
                 ]
               },
@@ -4755,6 +4760,23 @@
                     "key": "usernameChangesRemaining",
                     "type": "number",
                     "description": "How many further username changes the user may perform."
+                  },
+                  {
+                    "key": "warnings",
+                    "type": "array of objects",
+                    "description": "The steps of the change that did not complete, as `{ step, message }`. The change itself stands: these steps do not undo it. Always present, empty when every step completed.",
+                    "properties": [
+                      {
+                        "key": "step",
+                        "type": "`access-index`|`hf-series`|`webhooks`",
+                        "description": "`access-index`: the breach-scope index rows of the accesses still name the former username (repaired by the next resync of that index). `hf-series`: high-frequency series kept under a former username could not be moved (they are moved at the next username change, or by the operator). `webhooks`: the webhooks could not be moved to the new username (they run under it again at the next start of the webhooks service)."
+                      },
+                      {
+                        "key": "message",
+                        "type": "string",
+                        "description": "A human-readable description of what did not complete."
+                      }
+                    ]
                   }
                 ]
               },
@@ -4762,12 +4784,17 @@
                 {
                   "key": "invalid-operation",
                   "http": "400",
-                  "description": "The new username equals the current one, is reserved, or the per-user change limit has been reached (`data: { usernameChangesUsed, usernameChangesLimit }`)."
+                  "description": "The new username equals the current one, is reserved, the per-user change limit has been reached (`data: { usernameChangesUsed, usernameChangesLimit }`; `auth.usernameChangeLimit: 0` refuses every change this way), another change of the account is running, or the current username could not be kept as an alias."
                 },
                 {
                   "key": "item-already-exists",
                   "http": "409",
-                  "description": "The requested username is already taken by another account or alias."
+                  "description": "The requested username is already taken by another account or alias, including a name taken while the change was running (nothing is written then)."
+                },
+                {
+                  "key": "unexpected-error",
+                  "http": "500",
+                  "description": "A storage failure part way through the change. The steps made are undone: the account stays whole under its former username and the new name is free."
                 },
                 {
                   "key": "forbidden",
@@ -4786,7 +4813,8 @@
                       "email": "ada@pryv.io",
                       "language": "en"
                     },
-                    "usernameChangesRemaining": 1
+                    "usernameChangesRemaining": 1,
+                    "warnings": []
                   }
                 }
               ]
@@ -6716,7 +6744,7 @@
               "type": "string",
               "readOnly": true,
               "optional": true,
-              "description": "A platform-unique, routable de-identifying name (`r-` followed by 8 characters) substituted for the username in this access's `apiEndpoint` and in the access-info response. Set by passing `randomAlias: true` when creating the access; released when the access is deleted."
+              "description": "A platform-unique, routable de-identifying name (`r-` followed by 8 characters) substituted for the username in this access's `apiEndpoint` and in the access-info response. Set by passing `randomAlias: true` when creating the access; released when the access is deleted (an expired access keeps its alias until then). The alias routes on every topology and is kept by a backup and restore of the account. It hides the username from the holder of the access, but does not stop a holder who suspects which account it is from confirming the guess (see `randomAlias` in [create access](/reference/#methods-accesses-accesses-create))."
             },
             {
               "key": "type",

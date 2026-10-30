@@ -132,6 +132,8 @@ custom:
 
 At runtime the IDs are accessed as `:system:email`, `:system:insuranceNumber`, etc.
 
+The ids `username` and `usernameChangeCount` are reserved: the server keeps account fields of these names itself (the username and the count of [username changes](/customer-resources/aliases-and-username-changes/)), and a custom stream of that name would expose them as events, to an aliased access too. A config declaring either is refused at boot.
+
 ### No custom *other* streams
 
 Since 2.0.0-rc.51, a config that declares any entry under `custom.systemStreams.other` is **refused at boot** (and by `bin/check-config.js`) with a message. Such streams were listed among the system streams but had no storage: `streams.get` did not return them and no event could be written in them. Remove the section (an empty list is accepted); account fields belong under `custom.systemStreams.account`, as above. For other data, use regular streams.

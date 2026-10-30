@@ -120,6 +120,7 @@ Useful restore flags:
 - attachments (file blobs)
 - high-frequency series
 - audit records (if audit is active)
+- the account's aliases (those of its `randomAlias` accesses and its former usernames), reserved again on restore; high-frequency series still kept under a former username are exported too and restored under the username (see [aliases and username changes](/customer-resources/aliases-and-username-changes/#backup-and-restore))
 
 It does **not** export: sessions and password-reset tokens (add `--include-ephemeral` if you want them), rqlite platform-DB state (see below), user-level webhooks' ephemeral queue, or your YAML configuration files.
 
