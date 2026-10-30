@@ -1,6 +1,6 @@
 ---
 title: 'Account auto-deletion'
-description: How a Pryv.io platform deletes accounts at a date their holder chose or after a period without use, with reminder mails, a minimum notice and an optional operator preset. Settings, safeguards, mail templates and what the holder sees.
+description: How a Pryv.io platform deletes accounts, or hands them over to a beneficiary, at a date their holder chose or after a period without use, with reminder mails, a minimum notice and an optional operator preset. Settings, safeguards, mail templates and what the holder sees.
 ---
 
 An account can be deleted automatically, at a date its holder chose, or after a period without use. The period is either the holder's choice or a preset of the platform. Reminder mails go out before the deletion, and no account is deleted without notice.
@@ -112,7 +112,10 @@ account:
 | `sweepIntervalMs` | `21600000` (6 h) | How often the sweep runs; at least `60000` (1 min). |
 | `maxDeletionsPerPass` | `20` | Deletions per pass at most; `0` = no limit. |
 
-The `transfer.*` keys of the block (`claimWindowDays`, `identitySecretsKey`) belong to the transfer action, which is not offered yet; leave them at their defaults.
+| `transfer.claimWindowDays` | `90` | How long a beneficiary has to claim an account once its transfer starts (see [Transfer to a beneficiary](#transfer-to-a-beneficiary)). |
+| `transfer.identitySecretsKey` | `null` | Key (base64, 32 bytes; YAML only, like other secrets) encrypting the beneficiaries' names and dates of birth and deriving the claim and decline links. `null`: derived from `auth.adminAccessKey`. |
+
+**Rotating the key.** With `identitySecretsKey: null`, rotating `auth.adminAccessKey` makes the stored names and dates of birth unreadable and the claim and decline links already mailed invalid. Set a dedicated `identitySecretsKey` before you rely on transfers if you rotate the admin key; changing the dedicated key has the same effect.
 
 **Boot checks** (also run offline by `node bin/check-config.js <your-config.yml>`): `minDays <= defaultDays <= maxDays`, valid `leadDays`, `minNoticeDays` between 1 and `minLeadDays`. A preset with `accessTracking.isActive: false` refuses to boot (inactivity could not be measured). A preset on a core without mail, or without `service.account` (the account app the mails link to), boots with a warning.
 
@@ -131,6 +134,28 @@ user-account:
 
 - **A delegate cannot set it.** A [delegate](/guides/account-delegation/) can read the schedule but not change it: only the account's own sign-in can, as for detaching a delegate.
 - **Arming or shortening needs the password.** Setting a schedule, or bringing the deletion nearer, requires the account password, counted like a sign-in attempt. Clearing it or moving it later does not.
+- **Choosing who gets the account needs the password.** Setting or changing a transfer (the beneficiary, the fallback, the notice, a name or a date of birth) requires it too, and so does turning a transfer into a deletion.
+
+## Transfer to a beneficiary
+
+Instead of a deletion, a holder may choose `action: transfer`: at the date, or after the period without use, the account is handed over to a beneficiary, who becomes its **controller** through [account delegation](/guides/account-delegation/) and manages it from their own account. The holder's sign-in is left as it is. A platform preset always deletes; a transfer is always the holder's own choice.
+
+**Offered where it can work:** account delegation on (`delegation.active`), mail configured, and `service.account` set (the claim and decline pages are pages of the account app). `features.autoDeletion.actions` then lists `transfer`. Where holders may not delete their account (`user-account.delete`), a transfer is still offered, with `keep` as the only fallback.
+
+**What the holder gives:**
+
+- the beneficiary's **email address** (required): the beneficiary is reached by mail only;
+- optionally their **name** and **date of birth**: used only if the email cannot reach the beneficiary, by you, the operator, to check the identity of a person who asks for the account. They are stored encrypted in their own account field, never returned by the API (not even to the holder), and erased, with every earlier version, when the transfer completes, is cancelled, declined or lapses, when the beneficiary changes, and with the account. The account app shows the holder this notice next to the two fields. **No reading method is shipped yet:** nothing can read them for now. When one is, the notice promises that every reading is logged and reported to the holder's address, and that you read them only after the transfer started;
+- when to tell the beneficiary: **at setup** (`atSetup`: mailed at once, with a link to decline) or only **when the transfer starts** (`atTrigger`);
+- the **fallback** if nobody claims it: `delete` (only where the holder may delete the account) or `keep`.
+
+**When it is due,** the sweep opens a **claim window** of `transfer.claimWindowDays` days instead of erasing: the beneficiary is mailed a claim link (sent again 30 and 60 days later, the same link), and the holder is told. The reminders before it say "will be transferred to". In `inactivity` mode, a use of the account before anyone claims it (the holder's, or a delegate's) cancels the transfer: both are mailed and the clock starts again. In `date` mode the holder cancels it in the account app.
+
+**The claim.** The link opens the account app's claim page. The beneficiary signs in to their own account on the platform (any core), or creates one, and accepts: the page calls [`account.transferClaim`](/reference/#methods-account-account-transferClaim) on the holder's core, which binds the transfer to that account and sends it a delegation invite on the holder's behalf; the page accepts the invite on the beneficiary's core and claims again, which completes the transfer. The holder's auto-deletion setting is then cleared (a new schedule needs the holder's own sign-in) and both are mailed. Possession of the link is the proof of being the beneficiary; the name and date of birth are never asked. The first account to claim is the only one that can; a claim with a wrong link counts on the address's budget of failed secrets (`auth.passwordAttempts.perIp`), and after ten failed claims of one transfer, claims are refused until the next sweep pass (the holder sees it in the app).
+
+**At the end of the window without a claim,** the fallback applies: `keep` leaves the account (the holder's setting becomes `never`, or your preset where opting out is not allowed, with its full reminder schedule from that day); `delete` erases it as a scheduled deletion would, through the same checks (deletion guards, self-deletion, `maxDeletionsPerPass`), recorded with the trigger `transfer-fallback`. A beneficiary who declines makes the fallback apply at once (before the deadline: the schedule becomes a deletion, or `never`).
+
+**Data protection.** The beneficiary's address, and their name and date of birth when given, are personal data of someone who did not give them to you; the beneficiary mails tell them who named them and on what terms. Whether a notice only when the transfer starts (`atTrigger`) is enough for your jurisdiction is a question for your data protection officer.
 
 ## Mails
 
@@ -139,6 +164,14 @@ user-account:
 | **Confirmation** | the holder changes the setting, clearing included; it names the deadline, or says nothing is scheduled | `account-deletion-scheduled` | `services.email.enabled.accountDeletionScheduled` |
 | **Reminder** | at each `reminders.leadDays` before the deletion | `account-deletion-reminder` | `services.email.enabled.accountDeletionReminder` |
 | **Deletion held** | a check refused the deletion (sent once) | `account-deletion-blocked` | `services.email.enabled.accountDeletionBlocked` |
+| **Beneficiary named** | to the beneficiary, when named with `atSetup` (with a decline link) | `account-transfer-named` | `services.email.enabled.accountTransferNamed` |
+| **Claim link** | to the beneficiary, when the claim window opens, and again 30 and 60 days later | `account-transfer-claim` | `services.email.enabled.accountTransferClaim` |
+| **Transfer started** | to the holder, when the claim window opens | `account-transfer-started` | `services.email.enabled.accountTransferStarted` |
+| **Transfer cancelled** | to the holder and the beneficiary: the account was used, the holder changed it, or the beneficiary declined | `account-transfer-cancelled` | `services.email.enabled.accountTransferCancelled` |
+| **Transfer lapsed** | to the holder, when the window ends without a claim and the account is kept | `account-transfer-lapsed` | `services.email.enabled.accountTransferLapsed` |
+| **Transfer completed** | to the holder and the beneficiary | `account-transfer-completed` | `services.email.enabled.accountTransferCompleted` |
+
+Keep the beneficiary named and claim link mails on wherever transfers are offered: without them a transfer cannot reach its beneficiary.
 
 All are on by default, go to the account's primary address in its language (else `services.email.defaultLang`), and are skipped when the account has no address or the core sends no mail. A failed confirmation never fails the holder's change; with the confirmation switched off, the first reminder is the first notice. The template names can be changed with `services.email.accountDeletionScheduledTemplate`, `accountDeletionReminderTemplate` and `accountDeletionBlockedTemplate`.
 
@@ -152,16 +185,24 @@ The templates get these variables:
 | `TRIGGER` | `date`, `inactivity`, or `none` (nothing scheduled) |
 | `SCHEDULED`, `TRIGGER_DATE`, `TRIGGER_INACTIVITY` | `'true'` or `''`, for conditionals in the template |
 | `INACTIVITY_DAYS` | the period, with the `inactivity` trigger |
-| `ACTION` | `delete` |
+| `ACTION` | `delete` or `transfer` |
 | `ACCOUNT_APP_URL` | `service.account` |
 | `EXPORT_URL` | the account app's data page, to download the data before the deletion |
+| `ACTION_TRANSFER` | `'true'` for a transfer, else `''` |
+| `BENEFICIARY` | the beneficiary's name if the holder gave one, else their address (in the beneficiary's own mails: always the address) |
+| `BENEFICIARY_EMAIL`, `BENEFICIARY_NAME` | the two separately (`BENEFICIARY_NAME` is never sent to the beneficiary) |
+| `FALLBACK_DELETE`, `FALLBACK_KEEP`, `IDENTITY_GIVEN`, `NOTIFY_AT_SETUP` | `'true'` or `''` |
+
+The transfer mails also get `OPERATOR_NAME` (`service.name`), `TO_BENEFICIARY` (`'true'` in the beneficiary's copy), `CLAIM_LINK` and `DECLINE_LINK` (pages of the account app, `''` when not usable), `WINDOW_END` and `WINDOW_DAYS`, `CLAIMANT` (the account that claimed it), and `REASON` (`declined`, `owner-activity`, `delegate-activity`, `owner-change`) with one flag each (`REASON_DECLINED`, ...).
 
 **Existing platforms must add the templates.** The bundled templates (en, fr) are seeded only into an empty PlatformDB, on a platform's first boot. A platform seeded before this feature adds them with `bin/mail.js templates set` (or the admin API), per language and part; the bundled sources are in `components/mail/templates/` of open-pryv.io:
 
 ```sh
 node bin/mail.js templates set account-deletion-scheduled en subject --file components/mail/templates/account-deletion-scheduled/en/subject.pug
 node bin/mail.js templates set account-deletion-scheduled en html --file components/mail/templates/account-deletion-scheduled/en/html.pug
-# same for fr, and for account-deletion-reminder and account-deletion-blocked
+# same for fr, and for account-deletion-reminder and account-deletion-blocked;
+# with transfers: the six account-transfer-* templates, and again
+# account-deletion-scheduled and account-deletion-reminder (they now say "transferred to")
 ```
 
 See [Managing templates](/customer-resources/emails-setup/#managing-templates--binmailjs-cli-) for the CLI and the admin API.

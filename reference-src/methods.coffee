@@ -55,7 +55,7 @@ _autoDeletionResult =
         key: "action"
         type: "`delete`|`transfer`"
         description: """
-                     What happens at the deadline. Only `delete` is offered today; `transfer` is to come.
+                     What happens at the deadline: `delete`, or `transfer` to a beneficiary (holder's setting only; a platform preset always deletes).
                      """
       ]
     ,
@@ -63,7 +63,7 @@ _autoDeletionResult =
       type: "object"
       nullable: true
       description: """
-                   The holder's own setting, `null` when the account follows the platform's policy: `mode`, `date` or `inactivityDays` as in `effective`, `action`, `acknowledgedNoReminders` (`true` when it was set on an account that cannot receive reminders) and `updatedAt` (when it was last changed).
+                   The holder's own setting, `null` when the account follows the platform's policy: `mode`, `date` or `inactivityDays` as in `effective`, `action`, `transfer` (with `action: "transfer"`: `email`, `notifyBeneficiary`, `fallback`, and `identityGiven: true` when a name or a date of birth is stored; those are never answered), `acknowledgedNoReminders` (`true` when it was set on an account that cannot receive reminders) and `updatedAt` (when it was last changed).
                    """
     ,
       key: "lastActivity"
@@ -176,7 +176,20 @@ _autoDeletionResult =
       key: "actions"
       type: "array of strings"
       description: """
-                   The actions the holder may choose (`delete` only where the holder may delete the account themselves); empty when none.
+                   The actions the holder may choose: `delete` only where the holder may delete the account themselves, `transfer` where the platform can run a [transfer](/customer-resources/account-auto-deletion/#transfer-to-a-beneficiary) (account delegation on, mail, an account app); empty when none.
+                   """
+    ,
+      key: "transfer"
+      type: "object"
+      nullable: true
+      description: """
+                   The current or last transfer of the account, `null` when there was none: `status` (`named`: the beneficiary was told at setup; `open`: the claim window is open; `claimed`: claimed by an account, its acceptance pending; `completed`, `declined`, `cancelled`, `lapsed`: the window ended without a claim and the account was kept; `fallback-delete`), `email` (the beneficiary's address), `beneficiaryNotifiedAt`, `openedAt` and `endsAt` (the claim window), `claimedBy` (`{ username, at }`), `locked` (`{ at }`: too many failed claims, refused until the platform's next pass), `closedAt` and `closedReason` (`owner-activity`, `delegate-activity`, `owner-change`, `declined`). Never the beneficiary's name or date of birth.
+                   """
+    ,
+      key: "claimWindowDays"
+      type: "number"
+      description: """
+                   How long a beneficiary has to claim the account once a transfer starts, in days.
                    """
     ]
   ]
@@ -3611,6 +3624,7 @@ module.exports = exports =
                    - **What the platform allows** (see `bounds`, `userOverride`, `allowUserOptOut` and `actions` in the answer, and `features.autoDeletion` in [service info](#service-info)): `inactivityDays` between `minDays` and `maxDays` (by default 90 to 3650), a `date` at least `minLeadDays` days from now (by default 14), a chosen date or period only when `userOverride` is true, `never` while a platform preset covers the account only when `allowUserOptOut` is true, `inactivity` only where the platform records account use (`features.autoDeletion.triggers`). The `delete` action is offered only where the holder may delete the account themselves (platform setting `user-account.delete` with `personalToken`): nobody schedules what they could not do directly.
                    - **No reminder possible.** On an account that has no email address, or on a platform that sends no mail, a date or a period is accepted only with `acknowledgeNoReminders: true`.
                    - **Confirmation.** Every change, clearing included, is confirmed by a mail to the account's email address; that mail is the first notice of a schedule. A mail that fails does not fail the change.
+                   - **Transfer.** With `action: "transfer"` the account is not deleted at the deadline: a claim window opens, the beneficiary is mailed a claim link and becomes the account's controller ([account delegation](/guides/account-delegation/)) by claiming it with [transfer claim](##{_getDocId("account", "account.transferClaim")}). Setting or changing a transfer (beneficiary, `fallback`, `notifyBeneficiary`, name or date of birth) needs the password, and so does going from `transfer` to `delete`. With `notifyBeneficiary: "atSetup"` the beneficiary is mailed at once, with a link to [decline](##{_getDocId("account", "account.transferDecline")}). In `inactivity` mode, use of the account before a claim cancels the transfer and restarts the clock. At the end of the window without a claim, `fallback` applies: `keep` leaves the account (the setting becomes `never`, or the platform's policy where opting out is not allowed), `delete` erases it as a scheduled deletion would. See [Account auto-deletion](/customer-resources/account-auto-deletion/#transfer-to-a-beneficiary).
                    """
       params:
         properties: [
@@ -3638,7 +3652,14 @@ module.exports = exports =
           type: "`delete`|`transfer`"
           optional: true
           description: """
-                       With `date` or `inactivity`: what happens at the deadline. Default `delete`, the only action offered today (`transfer` is to come); an action the platform does not offer is refused.
+                       With `date` or `inactivity`: what happens at the deadline, `delete` (default) or `transfer`; an action the platform does not offer is refused.
+                       """
+        ,
+          key: "transfer"
+          type: "object"
+          optional: true
+          description: """
+                       With `action: "transfer"` (refused otherwise): `email` (required, the beneficiary's address, not the account's own), `notifyBeneficiary` (required: `atSetup` mails the beneficiary now with a decline link, `atTrigger` only when the transfer starts), `fallback` (required: `delete` or `keep`, what happens without a claim; `delete` only where the holder may delete the account), and optionally `name` and `dateOfBirth` (`YYYY-MM-DD`). Name and date of birth are only used by the platform operator to identify a beneficiary the email cannot reach; they are stored encrypted, never answered, and erased when the transfer ends. Sending either replaces both (`""` and `""` remove them); sending neither keeps them for the same beneficiary.
                        """
         ,
           key: "acknowledgeNoReminders"
@@ -3660,7 +3681,13 @@ module.exports = exports =
         key: "invalid-parameters-format"
         http: "400"
         description: """
-                     A parameter is malformed or unknown: `date` is not an instant with a time and an offset, or `date` / `inactivityDays` is missing for its mode or given with another one (`data.param` names it).
+                     A parameter is malformed or unknown: `date` is not an instant with a time and an offset, or `date` / `inactivityDays` is missing for its mode or given with another one, or `transfer` without `action: "transfer"` and a date or a period (`data.param` names it).
+                     """
+      ,
+        key: "auto-deletion-transfer-invalid"
+        http: "400"
+        description: """
+                     The `transfer` settings are not valid; `data.param` names the field (`email`, `notifyBeneficiary`, `fallback`, `dateOfBirth`).
                      """
       ,
         key: "auto-deletion-out-of-bounds"
@@ -3798,6 +3825,139 @@ module.exports = exports =
             userOverride: true
             allowUserOptOut: true
             actions: ["delete"]
+      ]
+
+    ,
+
+      id: "account.transferClaim"
+      type: "method"
+      title: "Claim a transferred account"
+      v2Tag: true
+      http: "POST /account/auto-deletion/transfer-claim"
+      description: """
+                   Claims an account its holder set to be transferred, with the token of the claim link mailed to the beneficiary (no access token: the link is the credential). Called on the core of the account being transferred (the username in the link), with `claimant`: the account, on any core of the platform, that takes over. Not available inside a batch call. This method requires that the `appId` and `Origin` (or `Referer`) header comply with the [trusted app verification](##{basics.getDocId("trusted-apps-verification")}).
+
+                   The first claim binds the transfer to `claimant` and sends it a delegation invite on the holder's behalf (`status: "invited"`). The claimant accepts it with [accept attach](/guides/account-delegation/) (`delegations.acceptAttach`) on its own core, signed in to its own account; the next claim then completes the transfer (`status: "completed"`): the claimant controls the account, the holder's auto-deletion setting is cleared, the beneficiary's name and date of birth are erased, and both are mailed. A repeat by the same account answers the same; an invite that expired inside the window is sent again; a claimant that already controls the account completes the transfer at once.
+
+                   Failed claims count on the client address's budget of failed secrets (as wrong passwords do), and after ten failed claims of one transfer, claims are refused until the platform's next pass.
+                   """
+      params:
+        properties: [
+          key: "appId"
+          type: "string"
+          description: """
+                       Your app's unique identifier.
+                       """
+        ,
+          key: "token"
+          type: "string"
+          description: """
+                       The token of the claim link.
+                       """
+        ,
+          key: "claimant"
+          type: "string"
+          description: """
+                       The username of the account taking over.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "transfer"
+          type: "object"
+          description: """
+                       `{ status, username }`: `status` is `invited` (accept the invite on the claimant's core, then claim again) or `completed`; `username` is the transferred account.
+                       """
+        ]
+      errors: [
+        key: "auto-deletion-transfer-invalid-link"
+        http: "403"
+        description: """
+                     The token is not valid (unknown, replaced by a newer transfer, or the transfer was cancelled or declined). One answer for all cases.
+                     """
+      ,
+        key: "auto-deletion-transfer-claimed"
+        http: "409"
+        description: """
+                     Another account already claimed this transfer.
+                     """
+      ,
+        key: "auto-deletion-transfer-expired"
+        http: "410"
+        description: """
+                     The claim window has ended.
+                     """
+      ,
+        key: "auto-deletion-transfer-locked"
+        http: "429"
+        description: """
+                     Too many failed claims of this transfer; claims are refused until the platform's next pass (`data.retryAfterSeconds`, an upper bound).
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many failed secrets from the client address. Retry after the `Retry-After` header (seconds).
+                     """
+      ]
+      examples: [
+        params:
+          appId: "my-app-id"
+          token: "Zc1tPa6iKqZp7oF2b0p3jw0K6RkzN1mWl8E2u3V4x5Y"
+          claimant: examples.users.two.username
+        result:
+          transfer:
+            status: "invited"
+            username: examples.users.one.username
+      ]
+
+    ,
+
+      id: "account.transferDecline"
+      type: "method"
+      title: "Decline a transfer"
+      v2Tag: true
+      http: "POST /account/auto-deletion/transfer-decline"
+      description: """
+                   Declines a transfer, with the token of the decline link mailed to the beneficiary (no access token: the link is the credential). Not available inside a batch call; same trusted app verification as [claim](##{_getDocId("account", "account.transferClaim")}). The holder is mailed and the holder's `fallback` applies: before the deadline the setting becomes a deletion on the same schedule (`delete`) or `never` (`keep`); during the claim window the account is kept at once, or erased at the platform's next pass. Declining again answers the same.
+                   """
+      params:
+        properties: [
+          key: "appId"
+          type: "string"
+          description: """
+                       Your app's unique identifier.
+                       """
+        ,
+          key: "token"
+          type: "string"
+          description: """
+                       The token of the decline link.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "declined"
+          type: "`true`"
+          description: """
+                       The transfer is declined.
+                       """
+        ]
+      errors: [
+        key: "auto-deletion-transfer-invalid-link"
+        http: "403"
+        description: """
+                     The token is not valid, or the transfer can no longer be declined.
+                     """
+      ]
+      examples: [
+        params:
+          appId: "my-app-id"
+          token: "q8Hn2Lr5sT0vW3yZ6bC9dF1gJ4kM7nP0rS3uX6zA2cE"
+        result:
+          declined: true
       ]
 
     ,
