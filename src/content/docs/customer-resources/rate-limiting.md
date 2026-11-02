@@ -59,7 +59,7 @@ A core serves user routes in one of two URL shapes, and the rules below match bo
 | Shared secrets | `POST /{username}/shared-secrets/retrieve` | unauthenticated (the secret's token is in the body) | client IP |
 | Lookups | `GET /reg/{username}/check_username`, `GET /reg/{email}/check_email`, `GET /reg/{email}/username`, `GET /reg/{email}/uid`, `GET /reg/{username}/server`, `GET /reg/cores`, `GET /reg/hostings`, `GET /reg/service/info` | unauthenticated | client IP (enumeration) |
 | Access requests | `POST /reg/access` (create), `GET /reg/access/{key}` (polled by the app every second while pending), `POST /reg/access/{key}` (accept or refuse) | unauthenticated | client IP, creation stricter than polling. A decision carries the request's random key (192 bits from open-pryv.io 2.0.0-rc.50, 96 before) and is posted once per request by the auth page, so the polling zone is enough for it; give decisions a zone of their own only if your logs show them abused. |
-| OAuth2 | `GET /oauth2/authorize`, `POST /oauth2/authorize/accept`, `/refuse`, `POST /oauth2/token` | unauthenticated / client credentials | client IP |
+| OAuth2 | `GET /oauth2/authorize`, `POST /oauth2/authorize/accept`, `/refuse`, `POST /oauth2/token`, `/introspect`, `/revoke` | unauthenticated / client credentials | client IP |
 | SSO | `GET /auth/sso/providers`, `/auth/sso/{provider}/start`, `/callback` | unauthenticated | client IP |
 | Data writes | `POST /{username}/events`, `PUT`/`POST`/`DELETE /{username}/events/{id}`, `POST /{username}/streams`, `POST /{username}/accesses`, batch calls `POST /{username}/` | access token | token |
 | Data reads | `GET /{username}/events`, `GET /{username}/events/{id}`, `GET /{username}/streams`, ... | access token | token |
@@ -338,7 +338,7 @@ server {
     }
 
     # ---------- OAuth2 and SSO ----------
-    location ~* ^/oauth2/token/?$ {
+    location ~* ^/oauth2/(?:token|introspect|revoke)/?$ {
         limit_req zone=pryv_oauth_token burst=10 nodelay;
         proxy_pass http://pryv_api;
     }

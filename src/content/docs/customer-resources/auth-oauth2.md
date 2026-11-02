@@ -52,7 +52,7 @@ Each deployment publishes an RFC 8414 discovery document at:
 GET https://<deployment-base>/.well-known/oauth-authorization-server
 ```
 
-It advertises `authorization_endpoint`, `token_endpoint`, `scopes_supported`, `code_challenge_methods_supported` (`["S256"]`) and the supported grant types. Point any generic OAuth2 client library at this document instead of hardcoding endpoint URLs.
+It advertises `authorization_endpoint`, `token_endpoint`, `scopes_supported`, `code_challenge_methods_supported` (`["S256"]`) and the supported grant types, and since 2.0.0-rc.69 `introspection_endpoint` (`POST /oauth2/introspect`, RFC 7662, for confidential clients the operator allowed to introspect) and `revocation_endpoint` (`POST /oauth2/revoke`, RFC 7009). Point any generic OAuth2 client library at this document instead of hardcoding endpoint URLs.
 
 ## Scopes
 
@@ -83,6 +83,7 @@ Two consequences worth designing for:
 On a multi-core platform, each user's data lives on one specific core. The `/oauth2/*` endpoints are available on every core, but **API calls must target the user's own core**.
 
 - **Clients SHOULD read the `apiEndpoint` field from the token response** and use it as the base for all subsequent API calls. It already points at the right core (and embeds the token in Pryv's standard [API endpoint format](/reference/#api-endpoint)).
+- **Pseudonymous grants** (a registry client with `pairwise` subjects, or an offer asking for a pseudonym; since 2.0.0-rc.69) get no `apiEndpoint`: the app knows the account by an alias only, given as the token's subject and in `access-info`, and the token is accepted at that alias only.
 - **Vanilla RFC 6749 clients** that ignore `apiEndpoint` and call an arbitrary core will receive **HTTP `421 Misdirected Request`** with an error body containing `coreUrl` — the base URL of the user's core. Retry the same request against `coreUrl`.
 
 ```json
@@ -106,7 +107,7 @@ POST /oauth2/token
 grant_type=refresh_token&refresh_token=...&client_id=...
 ```
 
-Each refresh rotates the refresh token; the response carries a new access token, a new refresh token and the `apiEndpoint`. See [access tokens](/concepts/#accesses) for how this relates to the general access model.
+Each refresh rotates the refresh token; the response carries a new access token, a new refresh token and the `apiEndpoint` (not for a pseudonymous grant). Since 2.0.0-rc.69 the access token a refresh replaces expires 60 seconds later (operator setting `oauth.refreshRetireGraceSeconds`), so switch to the new one at once. To sign out, revoke either token at `POST /oauth2/revoke`: it ends that refresh chain only (other devices and the user's consent stay). See [access tokens](/concepts/#accesses) for how this relates to the general access model.
 
 ## Client registration
 
