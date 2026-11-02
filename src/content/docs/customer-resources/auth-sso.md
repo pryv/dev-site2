@@ -55,7 +55,7 @@ sso:
   callbackBaseURL: ''            # optional; defaults to the core API origin.
                                  # <base>/auth/sso/<provider>/callback must be
                                  # registered at each IdP
-  stateKey: ''                   # per-core secret signing the state cookie
+  stateKey: ''                   # REQUIRED: per-core secret signing the state cookie
                                  # (random, at least 32 characters, e.g.
                                  # openssl rand -base64 32)
   providers:                     # operator allow-list, keyed by provider id
@@ -67,13 +67,16 @@ sso:
 ```
 
 Set `stateKey` on every core where `sso.enabled` is true, distinct from `oauth.stateKey` and from
-the admin key: since open-pryv.io 2.0.0-rc.69 it signs the state cookie (while it is empty the key
-is derived from `auth.adminAccessKey` and every boot logs a warning; 2.0.0-rc.70 requires it).
+the admin key (for example `openssl rand -base64 32`): it signs the state cookie, and it is required
+since open-pryv.io 2.0.0-rc.70 (a core with `sso.enabled` and no `stateKey` refuses to boot; there
+is no fallback on the admin key).
 
 Validate a config with `node bin/check-config.js` before deploying: it refuses
 `sso.enabled` with `dns.active`, a non-https `callbackBaseURL`, a providers list
 that is not a map, a bad provider id, a missing `issuer` / `clientId` /
-`clientSecret`, and `sso.enabled` without `sharedSecrets.enabled`.
+`clientSecret`, `sso.enabled` without `sharedSecrets.enabled`, and `sso.enabled`
+without a usable `stateKey` (missing, placeholder, or in production shorter than
+16 characters).
 
 :::note[Name collision]
 The `sso:` block is unrelated to the legacy `auth.ssoCookie*` keys, which
