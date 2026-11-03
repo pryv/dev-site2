@@ -60,6 +60,8 @@ There are no coarse wildcard scopes: every grant is an explicit, granular permis
 
 The `scope` parameter carries exactly **one consent-offer reference**: `scope=cmc:<offer-name>`. The offer is a cross-account consent request your app account publishes once (with the permission list and the consent texts shown to the user); the platform operator registers it on your OAuth client under `<offer-name>`. At authorization time the server resolves the offer and the consent screen displays each permission.
 
+This section describes clients backed by an app account. A platform may also register **registry clients**, whose scope vocabulary comes from an OAuth extension the operator installs; their scopes, consent screen (composed with what the user already granted, where unticking narrows the grant when the screen shows the composed offer) and token `scope` follow that extension: see the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md) and the platform's own documentation.
+
 **All-or-nothing by default.** Unless the offer sets `allowUserChoice: true`, the consent is take-it-or-leave-it: the user accepts the whole permission set or denies (no cherry-picking). Set `allowUserChoice: true` in your offer to let the user untick individual permissions — and flag any entry your app cannot run without as `mandatory: true` so it stays locked (the user's only way to withhold it is to deny the whole request). The minted access always carries **exactly the granted subset**, so always read the effective grant (see below) rather than assuming the full offer.
 
 **How each entry opens.** Once the offer allows user choice, an entry can also carry `optIn: true`, which makes the consent screen present it **unticked**, so the user has to choose it. The three states are:
@@ -111,7 +113,7 @@ Each refresh rotates the refresh token; the response carries a new access token,
 
 ## Client registration
 
-App accounts are **curated**: an operator registers your application on the platform (dynamic client registration is not offered). To get a `client_id`, redirect URIs and — for confidential clients — a `client_secret`, contact the operator of the platform you are integrating with. Redirect URIs are matched **exactly** (RFC 8252; loopback `http://127.0.0.1` / `http://[::1]` redirect URIs may vary port).
+App accounts are **curated**: an operator registers your application on the platform (dynamic client registration is not offered). To get a `client_id`, redirect URIs and (for confidential clients) a `client_secret`, contact the operator of the platform you are integrating with. Redirect URIs are matched **exactly**, with one carve-out (RFC 8252 § 7.3): on plain `http`, the loopback hosts `127.0.0.1`, `[::1]` and `localhost` (the latter since 2.0.0-rc.71) may vary the port, so a native or CLI app listening on an ephemeral port registers `http://127.0.0.1/callback`, `http://[::1]/callback` or `http://localhost/callback`. The three host forms are not interchangeable: register each loopback form your client may send.
 
 Operators: registration and rotation are done with the `bin/oauth-client.js` CLI — see the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md).
 
