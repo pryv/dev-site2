@@ -350,7 +350,6 @@ function resultContent (m: Section, r: ResultObject, ctx: Ctx): Schema | undefin
 	if (statusOf(r.http) === '204') return undefined;
 	const binary = BINARY_RESULTS[m.id];
 	if (binary) return { [binary]: { schema: { type: 'string', format: 'binary' } } };
-	// A 302 can carry a body too (mfa.login: { mfaToken, mfaMethod }).
 	const schema: Schema = r.properties && r.properties.length ? objectSchema(r.properties, ctx) : { type: 'object' };
 	const properties = (schema.properties ??= {}) as Record<string, Schema>;
 	properties.meta = ref('meta');
