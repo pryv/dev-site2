@@ -82,6 +82,15 @@ node bin/reconcile-user-cores.js             # apply
 - An empty users index facing rows of this core is refused (exit code 3, nothing written, dry run included), since it usually means a lost index or a wrong `--config`. `--force-empty-local` overrides it; use it only once you have checked that the index and the configuration are the right ones.
 - On a multi-core member, add `--config <your host config>` as for the core itself. A DNSless single core does not need this repair.
 
+The same tool checks email rows with `--emails` (from open-pryv.io 2.0.0-rc.72), on every core:
+
+```bash
+node bin/reconcile-user-cores.js --emails --dry-run   # list missing email rows and held addresses
+node bin/reconcile-user-cores.js --emails             # claim the missing email rows
+```
+
+It checks the email row of each of the core's accounts: a missing row (an account restored with `--user` by an earlier release) is claimed for the account, never over another holder, and the accounts whose email another account holds are listed: no password reset or notice is mailed to them until their email is changed.
+
 ### 2. Every core: `bin/gather-former-series.js`
 
 Accounts renamed before the upgrade kept the high-frequency points written before their change under the former username, where reads no longer find them. The tool moves them under the current username, merged:
