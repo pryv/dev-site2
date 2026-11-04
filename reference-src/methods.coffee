@@ -337,7 +337,7 @@ module.exports = exports =
                        Similar to the usual [Login](##{_getDocId("auth", "auth.login")}) parameters.
                        """
       result:
-        http: "302 Found"
+        http: "200 OK"
         properties: [
           key: "mfaToken"
           type: "string"
@@ -429,7 +429,7 @@ module.exports = exports =
                      A `totp` activation takes no other parameter. An `sms` activation accepts, besides `phone`, only the keys the platform lists in `services.mfa.methods.sms.contentKeys` (for example `language`, used in the provider's message template); each value is a string, and the enrolment content (`phone` and these keys) is limited to 256 bytes. Any other key is refused.
                      """
       result:
-        http: "302 Found"
+        http: "200 OK"
         properties: [
           key: "mfaToken"
           type: "string"
