@@ -142,7 +142,7 @@ The [`pryv` JavaScript library](https://github.com/pryv/lib-js) ships an `OAuth2
 
 ```javascript
 const client = new pryv.OAuth2Client({
-  authorizationServer: 'https://demo.datasafe.dev',
+  authorizationServer: 'https://core-euc1.pryv.me',
   clientId: 'my-app',
   redirectUri: 'https://my-app.example.com/callback',
   scope: 'cmc:study-A' // your registered consent-offer reference
