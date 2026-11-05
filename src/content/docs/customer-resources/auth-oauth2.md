@@ -54,6 +54,8 @@ GET https://<deployment-base>/.well-known/oauth-authorization-server
 
 It advertises `authorization_endpoint`, `token_endpoint`, `scopes_supported`, `code_challenge_methods_supported` (`["S256"]`) and the supported grant types, and since 2.0.0-rc.69 `introspection_endpoint` (`POST /oauth2/introspect`, RFC 7662, for confidential clients the operator allowed to introspect) and `revocation_endpoint` (`POST /oauth2/revoke`, RFC 7009). Point any generic OAuth2 client library at this document instead of hardcoding endpoint URLs.
 
+The issuer is the core's own URL unless the operator sets `oauth.issuer` (for instance a vanity host such as `https://auth-eu.<domain>`); the discovery document always names the configured issuer. Operators: see "`issuer` (optional)" in the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md).
+
 ## Scopes
 
 There are no coarse wildcard scopes: every grant is an explicit, granular permission set — the same expressiveness as a native `accesses.create` permissions array, including per-stream levels (`read`, `contribute`, `manage`, `create-only`) and feature permissions such as `{"feature": "selfRevoke", "setting": "forbidden"}`.
@@ -110,6 +112,23 @@ grant_type=refresh_token&refresh_token=...&client_id=...
 ```
 
 Each refresh rotates the refresh token; the response carries a new access token, a new refresh token and the `apiEndpoint` (not for a pseudonymous grant). Since 2.0.0-rc.69 the access token a refresh replaces expires 60 seconds later (operator setting `oauth.refreshRetireGraceSeconds`), so switch to the new one at once. To sign out, revoke either token at `POST /oauth2/revoke`: it ends that refresh chain only (other devices and the user's consent stay). See [access tokens](/concepts/#accesses) for how this relates to the general access model.
+
+## Token exchange for resource servers
+
+From open-pryv.io 2.0.0-rc.73, a **resource server** in front of a core (an API facade, an agent gateway) can trade the access token a user's client sent it for a session of its own on the user's core (OAuth 2.0 Token Exchange, RFC 8693), then call the data API with that derived token. The user's authorization named the resource server (`aud` / `resource`) when the client obtained its token.
+
+The resource server is a registry client the operator registers with `--can-exchange` (confidential, with an audience list). It posts to the token endpoint with its own client authentication:
+
+```
+POST /oauth2/token
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange
+&subject_token=<the access token the client sent>
+&subject_token_type=urn:ietf:params:oauth:token-type:access_token
+```
+
+The answer carries `access_token`, `issued_token_type`, `token_type: Bearer`, `expires_in`, `scope` and `api_base` (the account's API base URL), no refresh token. The derived session has the client's permissions, lives no longer than the client's session, ends when that session is deleted or the grant withdrawn, and a repeated exchange of the same subject token answers the same token while it lives. An unusable subject token answers `invalid_grant`; a subject session living on another core answers `421 wrong_core` with its `coreUrl`.
+
+Operators: advertise the grant by adding `urn:ietf:params:oauth:grant-type:token-exchange` to `oauth.grantTypesSupported`. With `oauth.audienceBoundSessions: true`, the data API refuses the client's own token for a resource server (it then works only through that resource server's exchange); it is `false` by default in 2.0.0-rc.73 and **a later release is planned to default it to `true`**. Full rules, errors and lifecycle: [OAuth2 operator guide, § 1e](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md#1e-token-exchange-rfc-8693-for-resource-servers).
 
 ## Client registration
 

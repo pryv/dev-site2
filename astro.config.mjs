@@ -207,6 +207,7 @@ export default defineConfig({
 						{ slug: 'customer-resources/emails-setup' },
 						{ slug: 'customer-resources/mfa' },
 						{ slug: 'customer-resources/auth-oauth2' },
+						{ slug: 'customer-resources/adapter-routes' },
 						{ slug: 'customer-resources/auth-sso', badge: { text: 'Beta', variant: 'caution' } },
 						{ slug: 'customer-resources/external-ids' },
 						{ slug: 'customer-resources/account-auto-deletion' },

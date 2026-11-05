@@ -109,6 +109,10 @@ If you are migrating a v1 register service, the historical [register migration g
 
   This document describes the OAuth2 authorization-code flow (RFC 6749 + PKCE), when to choose it over the Pryv-native access-request polling flow, and how multi-core clients follow the `apiEndpoint` token-response extension.
 
+- Adapter routes (a sidecar under `/adapter/<name>/`): [HTML](/customer-resources/adapter-routes/)
+
+  This document describes how to serve a sidecar (an API facade, an agent gateway or any resource server for a core's accounts) under the core's own public URL, without a reverse proxy in front.
+
 - Observability: [HTML](/customer-resources/observability/)
 
   This document describes the optional telemetry layer — what it emits and what it cannot emit, how to point it at any OTLP backend (including a collector you host yourself), and how to enable, tune the reporting interval, rotate credentials and disable it.
