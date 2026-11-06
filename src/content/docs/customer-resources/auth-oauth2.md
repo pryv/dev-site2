@@ -89,6 +89,7 @@ On a multi-core platform, each user's data lives on one specific core. The `/oau
 - **Clients SHOULD read the `apiEndpoint` field from the token response** and use it as the base for all subsequent API calls. It already points at the right core (and embeds the token in Pryv's standard [API endpoint format](/reference/#api-endpoint)).
 - **Pseudonymous grants** (a registry client with `pairwise` subjects, or an offer asking for a pseudonym; since 2.0.0-rc.69) get no `apiEndpoint`: the app knows the account by an alias only, given as the token's subject and in `access-info`, and the token is accepted at that alias only.
 - **Vanilla RFC 6749 clients** that ignore `apiEndpoint` and call an arbitrary core will receive **HTTP `421 Misdirected Request`** with an error body containing `coreUrl` — the base URL of the user's core. Retry the same request against `coreUrl`.
+- **Consent UIs**: when the signed-in account is served by another core than the one that issued the authorization (the app used another region's address), the signed-in `/oauth2/authorize/offer` and `/oauth2/authorize/accept` answer `421 { "error": "wrong_core", "error_description", "coreUrl" }` (from open-pryv.io 2.0.0-rc.74). The flow cannot move to that core: end it with a message (the host of `coreUrl` may be shown) and a way back to the app (`/oauth2/authorize/refuse`); do not send the user back to the sign-in.
 
 ```json
 {
@@ -130,9 +131,32 @@ The answer carries `access_token`, `issued_token_type`, `token_type: Bearer`, `e
 
 Operators: advertise the grant by adding `urn:ietf:params:oauth:grant-type:token-exchange` to `oauth.grantTypesSupported`. With `oauth.audienceBoundSessions: true`, the data API refuses the client's own token for a resource server (it then works only through that resource server's exchange); it is `false` by default in 2.0.0-rc.73 and **a later release is planned to default it to `true`**. Full rules, errors and lifecycle: [OAuth2 operator guide, § 1e](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md#1e-token-exchange-rfc-8693-for-resource-servers).
 
+## Client metadata documents
+
+From open-pryv.io 2.0.0-rc.74, a client can name itself, as its `client_id`, by the https URL of a JSON document it publishes (a **client metadata document**, RFC 7591 member names), instead of being registered by the operator. The platform must turn the feature on (`oauth.clientMetadataDocuments.mode: allowList` or `any`); the discovery documents then advertise `client_id_metadata_document_supported: true`.
+
+```json
+{
+  "client_id": "https://app.example.com/oauth/client.json",
+  "client_name": "Example app",
+  "redirect_uris": ["https://app.example.com/callback"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+- **The URL** is an absolute `https:` URL with a path other than `/`, a host name (no IP address, not a host of the platform itself), written exactly as the URL standard serialises it (lower-case host, no `:443`): it is compared as a string, so two spellings are two clients. `client_id` in the document must be exactly that URL.
+- **Redirect URIs** are `https`, or plain `http` on a loopback host only.
+- **Public or confidential.** `token_endpoint_auth_method: none` (the default) makes a public client: PKCE (S256) on the code flow, no credential. `private_key_jwt` with a `jwks_uri` on the document's own host (or an inline `jwks`) makes a confidential client: it authenticates at `/oauth2/token` and `/oauth2/revoke` with a client assertion whose `iss` and `sub` are the document URL, signed with `ES256`, `ES384`, `RS256` or `RS384`.
+- **What the client may be granted** comes from the platform's template, never from the document (a `scope` member is ignored). Such a client gets no introspection and no token exchange.
+- **The fetch:** https only, no redirect followed, private addresses refused, `application/json` (or an `application/*+json` type), 16 KiB at most, 5 s. The document is cached (one hour by default); a changed document is taken at the next authorization after that.
+- **Consent screen:** the offer carries `client.origin: "metadata-document"`, `client.metadataUrl` and `client.metadataHost`. A consent UI must show the host next to the client's name, never the name alone. The grant and its sessions carry `clientData.oauth.client` (`{ name?, host, url }`), which an account app uses to name the connected app.
+- **Errors** at `/oauth2/authorize` are HTML 400 pages ("client metadata document invalid", "client metadata document unavailable, retry later"). Operators read the reason with `bin/oauth-client.js check-metadata <url>`, which fetches and checks a document without writing anything.
+
+Operators: the configuration (`allowList` with `allowedHosts` is the cautious setting; `deniedHosts`; the fetch and row budgets; the `client` template, which `bin/oauth-client.js template-from <clientId>` prints from an existing registry client) is in the [OAuth2 operator guide, § 1f and § 2](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md#1f-client-metadata-documents-an-https-url-as-client_id). A `revoke` of such a client voids every code, refresh token, session and consent issued before it; the next authorization naming the URL creates the client again, with a new consent, unless its host is denied.
+
 ## Client registration
 
-App accounts are **curated**: an operator registers your application on the platform (dynamic client registration is not offered). To get a `client_id`, redirect URIs and (for confidential clients) a `client_secret`, contact the operator of the platform you are integrating with. Redirect URIs are matched **exactly**, with one carve-out (RFC 8252 § 7.3): on plain `http`, the loopback hosts `127.0.0.1`, `[::1]` and `localhost` (the latter since 2.0.0-rc.71) may vary the port, so a native or CLI app listening on an ephemeral port registers `http://127.0.0.1/callback`, `http://[::1]/callback` or `http://localhost/callback`. The three host forms are not interchangeable: register each loopback form your client may send.
+App accounts are **curated**: an operator registers your application on the platform (dynamic client registration is not offered; on a platform that accepts them, a [client metadata document](#client-metadata-documents) can stand in for a registration). To get a `client_id`, redirect URIs and (for confidential clients) a `client_secret`, contact the operator of the platform you are integrating with. Redirect URIs are matched **exactly**, with one carve-out (RFC 8252 § 7.3): on plain `http`, the loopback hosts `127.0.0.1`, `[::1]` and `localhost` (the latter since 2.0.0-rc.71) may vary the port, so a native or CLI app listening on an ephemeral port registers `http://127.0.0.1/callback`, `http://[::1]/callback` or `http://localhost/callback`. The three host forms are not interchangeable: register each loopback form your client may send.
 
 Operators: registration and rotation are done with the `bin/oauth-client.js` CLI — see the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md).
 
