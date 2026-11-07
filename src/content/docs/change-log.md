@@ -4,6 +4,19 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.75
+
+Per-user resource addresses for OAuth clients and adapters: a resource server or an adapter is addressed at each account's own host, `https://<username>.<domain>/...`, and the core names the addressed account to the adapter. No breaking change, no new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **Per-user audiences.** An OAuth client's `allowedAudiences` (a registry client's `--audience`, or the metadata-document template's `client.allowedAudiences`) may hold `https://{username}.<host>/...` entries. Such an entry matches the address of any account and is bound at consent to the signed-in account: another account's address, or a name the platform answers itself, is refused (`403 access_denied`, `reason: "audience-account-mismatch"`). Add such an entry only once every core of the platform runs this release. See [per-user resource addresses](/customer-resources/auth-oauth2/#per-user-resource-addresses).
+- **Token exchange: `subject_token_resource`.** A resource server may send the resource URL at which it received the subject token; it must be the token's audience (`400 invalid_target` otherwise), so a token issued for one account's address is not exchanged when presented at another's.
+- **Adapter routes on per-user hosts.** On `https://<username>.<dns.domain>/adapter/<name>/...` the core sets `X-Adapter-Name` and `X-Adapter-Base` on the forwarded request and drops client-sent copies; an account served by another core answers `421 wrong-core` with `Retry-After` (retry the same address). **Upgrade each core before the sidecar next to it reads the two headers.** An nginx that routes adapter paths around the core serves platform addresses only. See [per-user addresses](/customer-resources/adapter-routes/#per-user-addresses-and-the-addressed-account).
+- **OAuth on the host of an account another core serves:** `/oauth2/token` answers `421 wrong_core` with `Retry-After` before any code or refresh token is read; `/oauth2/authorize` answers `421` with a static "this address has just moved" page.
+- **`/service/info.adapters`** lists adapter bases as the operator sets them: use the `{username}` template form.
+- **Usernames:** a name another core of the platform answers itself (its static DNS entries, its OAuth issuer label) is refused as a username on every core.
+- **`accesses.checkApp`** reads `:local:<id>` as `<id>`, as `accesses.create` stores it: an app requesting it is no longer asked for consent again at every sign-in.
+
+
 ## 2.0.0-rc.74
 
 OAuth client metadata documents (an https URL as `client_id`), `RS256` client assertions, a clear answer at the consent for an account served by another core, the OAuth surface's own CORS, and server-created streams that match the stream schema. No breaking change. One new configuration block, off by default: `oauth.clientMetadataDocuments`. No schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**: set it explicitly where it is not set yet.

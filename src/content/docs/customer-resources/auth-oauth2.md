@@ -131,6 +131,20 @@ The answer carries `access_token`, `issued_token_type`, `token_type: Bearer`, `e
 
 Operators: advertise the grant by adding `urn:ietf:params:oauth:grant-type:token-exchange` to `oauth.grantTypesSupported`. With `oauth.audienceBoundSessions: true`, the data API refuses the client's own token for a resource server (it then works only through that resource server's exchange); it is `false` by default in 2.0.0-rc.73 and **a later release is planned to default it to `true`**. Full rules, errors and lifecycle: [OAuth2 operator guide, § 1e](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md#1e-token-exchange-rfc-8693-for-resource-servers).
 
+From 2.0.0-rc.75 the resource server may also send `subject_token_resource`, the resource URL at which it received the subject token: it must be the token's audience (`400 invalid_target`, "the subject token was not issued for the resource it was presented at"), so a token issued for one account's address is not exchanged when presented at another's. `resource` / `audience` keep naming the resource server itself.
+
+## Per-user resource addresses
+
+From open-pryv.io 2.0.0-rc.75, a resource server (an API facade, an agent gateway, an adapter) can be addressed at each account's own host. An `allowedAudiences` entry of a client (a registry client's `--audience`, or the metadata-document template's `client.allowedAudiences`) may be written `https://{username}.<host>[:port][/path][?query]`: exactly one `{username}`, as the first host label.
+
+- **Matching.** A requested `aud` / `resource` matches such an entry when its first host label has the shape of an account name; the address is stored with that label as any audience. Exact entries keep working beside it and are matched first.
+- **Bound at consent.** The signed-in `/oauth2/authorize/offer` and `/oauth2/authorize/accept` accept the address only when its label is the signed-in account's current username and not a name the platform answers itself (a service host, a core id, a static DNS entry, an OAuth issuer label, a hosted site): otherwise `403 { "error": "access_denied", "reason": "audience-account-mismatch" }`, before anything is written. A former username is refused for a new authorization; existing authorizations keep their address after a username change.
+- **Client list changed.** An authorization whose audience the client's list no longer holds (or whose client is gone) answers `400 invalid_target`, `reason: "audience-not-listed"`: restart the flow.
+- **Token exchange.** A subject token issued for such an address is exchanged when the resource server lists the matching entry; on the home core the address must name the subject account.
+- **The account moved, or the request reached the wrong core:** on the host of an account another core serves, `/oauth2/token` answers `421 { "error": "wrong_core", "error_description", "coreUrl" }` with `Retry-After` before any code or refresh token is read, and `/oauth2/authorize` answers `421` with a static "this address has just moved" page. Retry the same address after the delay.
+
+Operators: add a per-user entry only once every core of the platform runs 2.0.0-rc.75 (an older core matches it to nothing); the entry is the same on every core. Full rules: [OAuth2 operator guide, § 1c, resource indicators](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md#resource-indicators-aud--resource).
+
 ## Client metadata documents
 
 From open-pryv.io 2.0.0-rc.74, a client can name itself, as its `client_id`, by the https URL of a JSON document it publishes (a **client metadata document**, RFC 7591 member names), instead of being registered by the operator. The platform must turn the feature on (`oauth.clientMetadataDocuments.mode: allowList` or `any`); the discovery documents then advertise `client_id_metadata_document_supported: true`.
