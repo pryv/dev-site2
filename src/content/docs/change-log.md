@@ -4,6 +4,15 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.77
+
+An opt-in per-user OAuth issuer. No breaking change, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **Per-user issuer (`oauth.perUserIssuer`, off by default).** On, an account's own host (`https://<username>.<domain>`, or an address alias's) is its OAuth issuer: discovery there names that issuer and its endpoints, `iss` is that host on every redirect and in the id_token, a code or refresh token is redeemed at its issuer only, and only the account the host names consents there. Off, nothing changes. See [per-user issuer](/customer-resources/auth-oauth2/#per-user-issuer).
+- **OAuth `421 wrong_core` behind a proxy:** on an account's own host, `/oauth2/token` and `/oauth2/authorize` read the client-facing host (`X-Forwarded-Host` from a trusted proxy, else `Host`), so a proxy that rewrites `Host` no longer hides a wrong-core answer.
+- **Audit:** a streamed call (`events.get` and other calls answered as a stream) that the client cuts short is audited as an error (`client-closed-request`), no longer as a success.
+- **HF series:** points written through a former username right after a username change are gathered under the new one.
+
 ## 2.0.0-rc.76
 
 Address aliases: an account owner can mint addresses of the account other than its username, to give an app instead of the username. **Breaking (registration): a new username of the exact shape `a-` + 8 letters or digits is refused.** No new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
