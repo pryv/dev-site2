@@ -4,6 +4,15 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.76
+
+Address aliases: an account owner can mint addresses of the account other than its username, to give an app instead of the username. **Breaking (registration): a new username of the exact shape `a-` + 8 letters or digits is refused.** No new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **Address aliases.** New owner-only methods [create](/reference/#methods-account-account-addressaliases-create), [list](/reference/#methods-account-account-addressaliases-list) and [delete](/reference/#methods-account-account-addressaliases-delete) an address alias (personal token only). The server mints the name (`a-` + 8 lower-case letters or digits), at most 10 per account. An address alias is an address of the account like its username: `https://<alias>.<domain>/` reaches the account's core.
+- **OAuth consent at an address alias.** Under a `{username}` audience entry, a consent at `https://<alias>.<host>/...` adopts the alias for that client's grant: introspection `sub`, `api_base`, the token's address and its audience are the alias, never the username, and the tokens are used at that address only. One grant per alias: an alias another grant holds, another account's alias or a former username is refused (`403`, `reason: "audience-account-mismatch"`). A consent at the username over a grant that adopted an alias is a change of subject (`subjectChange`, to acknowledge). Deleting the alias, or withdrawing the grant, ends the app's sessions and refresh tokens. See [per-user resource addresses](/customer-resources/auth-oauth2/#per-user-resource-addresses).
+- **Usernames.** A new username of the shape `a-` + 8 letters or digits is refused at registration and at a username change (`/reg/{name}/check_username` reads it as reserved). Existing accounts keep their name. Operators: right after the upgrade, run `node bin/reconcile-user-cores.js --address-alias-shape` on each core (read only; 0 and 0 expected).
+- **Adapter routes:** an adapter that answers before reading a large upload (a `401` ahead of the body, for example) is relayed to the client instead of `502`.
+
 ## 2.0.0-rc.75
 
 Per-user resource addresses for OAuth clients and adapters: a resource server or an adapter is addressed at each account's own host, `https://<username>.<domain>/...`, and the core names the addressed account to the adapter. No breaking change, no new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.

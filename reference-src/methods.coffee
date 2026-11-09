@@ -3545,6 +3545,166 @@ module.exports = exports =
       ]
 
     ,
+      id: "account.addressAliases.create"
+      type: "method"
+      title: "Create an address alias"
+      v2Tag: true
+      http: "POST /account/address-aliases"
+      description: """
+                   Mints an address alias of the account: a name other than its username, `a-` followed by 8 lower-case letters or digits, chosen by the server (nothing is taken from the request). Requires a personal access token.
+
+                   An address alias is an address of the account like its username: the platform routes `https://<alias>.<domain>/` to the account's core. The owner gives it to an app instead of the username, for instance as the base of a [per-user resource](/customer-resources/auth-oauth2/#per-user-resource-addresses); an OAuth consent at that address makes the app's grant adopt it, so the app knows the account by that name only and its tokens are used at that address only. One grant per address alias. An account holds at most 10.
+                   """
+      params:
+        properties: []
+      result:
+        http: "201 Created"
+        properties: [
+          key: "addressAlias"
+          type: "object"
+          description: """
+                       The new alias: `alias`, `apiEndpoint` (the account's API at that name, without a token) and `heldBy` (`null`: no access holds it yet).
+                       """
+        ]
+      errors: [
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The account holds 10 address aliases already (`data.addressAliasesLimit`), or as many aliases of any kind as the platform allows (`data.maxAliasesPerAccount`).
+                     """
+      ,
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     The request carries a parameter (an alias value, for instance).
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ]
+      examples: [
+        params: {}
+        result:
+          addressAlias:
+            alias: "a-7k2m9q4x"
+            apiEndpoint: "https://a-7k2m9q4x.pryv.me/"
+            heldBy: null
+      ]
+
+    ,
+      id: "account.addressAliases.list"
+      type: "method"
+      title: "List the address aliases"
+      v2Tag: true
+      http: "GET /account/address-aliases"
+      description: """
+                   Lists the account's address aliases, with the access that holds each one. Requires a personal access token.
+                   """
+      params:
+        properties: []
+      result:
+        http: "200 OK"
+        properties: [
+          key: "addressAliases"
+          type: "array of objects"
+          description: """
+                       One per address alias: `alias`, `apiEndpoint` (the account's API at that name, without a token) and `heldBy`: `null` while no access holds it, else `{ accessId, clientId }`, the access that holds it (in practice the OAuth grant that adopted it) and, for a grant, its client.
+                       """
+        ,
+          key: "addressAliasesLimit"
+          type: "number"
+          description: """
+                       The most address aliases an account may hold: 10.
+                       """
+        ]
+      errors: [
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ]
+      examples: [
+        params: {}
+        result:
+          addressAliases: [
+            alias: "a-7k2m9q4x"
+            apiEndpoint: "https://a-7k2m9q4x.pryv.me/"
+            heldBy:
+              accessId: "ckuvfszyz0004p1ld8ho9vk1b"
+              clientId: "health-app"
+          ,
+            alias: "a-p3n8w1rz"
+            apiEndpoint: "https://a-p3n8w1rz.pryv.me/"
+            heldBy: null
+          ]
+          addressAliasesLimit: 10
+      ]
+
+    ,
+      id: "account.addressAliases.delete"
+      type: "method"
+      title: "Delete an address alias"
+      v2Tag: true
+      http: "DELETE /account/address-aliases/{alias}"
+      description: """
+                   Releases the name (it reaches the account no more; a consent adopting it at that moment is refused), then withdraws the grant that holds it, if any: its sessions end, its refresh tokens stop working, the app must ask again. Requires a personal access token.
+
+                   Withdrawing the grant otherwise (deleting its access) releases its address alias too. A grant that expired, or that predates its client's revoke, is replaced at the app's next consent without releasing the alias.
+                   """
+      params:
+        properties: [
+          key: "alias"
+          type: "string"
+          http:
+            text: "set in request path"
+          description: """
+                       The address alias to delete.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "addressAliasDeletion"
+          type: "object"
+          description: """
+                       `{ alias }`: the deleted alias.
+                       """
+        ,
+          key: "relatedDeletions"
+          type: "array of objects"
+          description: """
+                       `{ id }` of each access deleted with it (the grant that held it and its sessions).
+                       """
+        ]
+      errors: [
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The request was not made with a personal access token.
+                     """
+      ,
+        key: "unknown-resource"
+        http: "404"
+        description: """
+                     `alias` is not an address alias of this account.
+                     """
+      ]
+      examples: [
+        params:
+          alias: "a-7k2m9q4x"
+        result:
+          addressAliasDeletion:
+            alias: "a-7k2m9q4x"
+          relatedDeletions: [
+            id: "ckuvfszyz0004p1ld8ho9vk1b"
+          ]
+      ]
+
+    ,
       id: "account.getAutoDeletion"
       type: "method"
       title: "Get auto-deletion"

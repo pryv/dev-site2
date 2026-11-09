@@ -54,7 +54,7 @@ Matching is on the path only, on every host the core serves, before hosted sites
 
 ## Per-user addresses and the addressed account
 
-From open-pryv.io 2.0.0-rc.75, on a platform with per-user hosts, an adapter is addressed by **username**, never by core: `https://<username>.<dns.domain>/adapter/<name>/...`. The DNS sends that host to the account's core. A host names an account only when it is exactly one label under `dns.domain`, that label has the shape of a username, is not `adapter` and is not a name the platform answers itself (a service host, a core id, a hosted site, a static or runtime DNS entry). Every other host is a **platform address**: a service or core host, a host under any other domain, every host of a dnsLess core or of a core without `dns.domain`.
+From open-pryv.io 2.0.0-rc.75, on a platform with per-user hosts, an adapter is addressed by **username**, never by core: `https://<username>.<dns.domain>/adapter/<name>/...`. The DNS sends that host to the account's core. A host names an account only when it is exactly one label under `dns.domain`, that label has the shape of a username, is not `adapter` and is not a name the platform answers itself (a service host, a core id, a hosted site, a static or runtime DNS entry). Every other host is a **platform address**: a service or core host, a host under any other domain, every host of a dnsLess core or of a core without `dns.domain`. From 2.0.0-rc.76 the label may also be an address alias of the account (`a-` + 8 letters or digits, minted by its owner): `X-Adapter-Name` is then the alias, which is why the sidecar treats it as a name and never as an identity.
 
 On a per-user host the core:
 
