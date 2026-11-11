@@ -4,6 +4,12 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.81
+
+Only personal use keeps an account active for auto-deletion. No schema migration; one new configuration key.
+
+- **Account auto-deletion:** an account's last activity (`lastActivity` in [`account.getAutoDeletion`](/reference/#methods-account-account-getAutoDeletion), the clock of an `inactivity` schedule) is now the latest use of its personal accesses: the holder's sign-ins and personal tokens, and a delegate's own token. App accesses (the holder's apps, OAuth sessions, apps a delegate granted) count only with the new per-core setting `account.autoDeletion.inactivity.countAppUse` (default `false`); shared accesses still never count. In the breakdown, `delegate` is a delegate's own token, `app` every app access, reported even when it does not count. The recorded maximum never moves backwards, so an account kept active by app use until now keeps that date. Operators who rely on app use: set `countAppUse: true`. See [What counts as use](/customer-resources/account-auto-deletion/#what-counts-as-use).
+
 ## 2.0.0-rc.80
 
 Operator-registered OAuth clients are named on their grant and sessions. No breaking change, no new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
