@@ -4,6 +4,12 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.80
+
+Operator-registered OAuth clients are named on their grant and sessions. No breaking change, no new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **OAuth:** the consent grant and every session of a registry client the operator registered carry, server-owned, `clientData.oauth.client = { name?, origin: "operator" }`: the name the operator registered, never one taken from a request. A metadata-document client's stamp also gains `origin: "metadata-document"` (a stamp written before has none; its `host` tells it apart). An account app names a connected app by this stamp. A grant made before carries it from its next consent, its sessions from their next refresh; a derived session (token exchange) carries none. See [client metadata documents](/customer-resources/auth-oauth2/#client-metadata-documents).
+
 ## 2.0.0-rc.79
 
 Member access budgets for bulk reads by group accounts, a member access that can be asked again after it expired, and `Retry-After` readable by browser clients. No breaking change, no schema migration. Three new configuration keys. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
