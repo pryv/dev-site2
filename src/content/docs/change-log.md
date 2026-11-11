@@ -4,6 +4,24 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.79
+
+Member access budgets for bulk reads by group accounts, a member access that can be asked again after it expired, and `Retry-After` readable by browser clients. No breaking change, no schema migration. Three new configuration keys. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **CMC member access budgets.** Asking again for a member access that is still live no longer counts as a new one. Each membership has two budgets, counted for the whole core: new member accesses (`cmc:memberAccess:mintBurst`, default 5000 at once, then `cmc:memberAccess:ratePerMinute`, default 1000 a minute, was 30 per worker process) and requests of any kind (`cmc:memberAccess:askBurst`, 10000, then `cmc:memberAccess:askRatePerMinute`, 3000 a minute). Past either, the ask answers `429` `too-many-attempts` with `Retry-After` and `error.data.retryAfterSeconds`, instead of `400`; `error.data.id` stays `cmc-member-access-rate-limited`. Operators who had tuned `ratePerMinute` to be strict: set `mintBurst` too. See [group accounts](/guides/group-accounts/).
+- **CMC member access after expiry.** Asking again for a patient once the previous member access expired no longer fails `cmc-member-access-peer-rejected` (`409` `item-already-exists`): the expired access is deleted through the grant and a new one is minted.
+- **CMC:** an ask whose event could not be stored no longer leaves that patient answering `cmc-member-access-in-flight` for a minute.
+- **CORS:** `Access-Control-Expose-Headers` now lists `Retry-After`, so a browser client can read the wait of a `429`.
+- **OAuth:** the account owner consenting at one of their own address aliases that another app's grant holds is refused `403 access_denied` with `reason: "address-alias-held"`, instead of `audience-account-mismatch`. See [per-user resource addresses](/customer-resources/auth-oauth2/#per-user-resource-addresses).
+
+## 2.0.0-rc.78
+
+Public email lookups within a per-address budget, and a single-use CMC link that accepts one accepter only. No new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
+
+- **Public email lookups.** `GET /reg/{email}/check_email`, `/reg/{email}/username`, `/reg/{email}/uid`, `/reg/cores?email=` and, with the registration email gate on, `POST /reg/email-challenge` share one budget of 30 requests a minute per client address (IPv4, or the /64 of IPv6); past it they answer `429` `too-many-attempts` with `Retry-After`. A client that tests many addresses in a burst should throttle or handle the `429`.
+- **`auth.emailCheck` and `auth.cores`** are no longer accepted inside a batch call or over socket.io.
+- **CMC:** a single-use link accepts one accepter only, also when two accepts arrive at the same moment.
+
 ## 2.0.0-rc.77
 
 An opt-in per-user OAuth issuer. No breaking change, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
