@@ -36,7 +36,7 @@ If one person consents to one other person (a patient and their own doctor), a p
 
 **Use member accesses** when there is no server to run, when members work from their own devices, or when the patient should see who read their data on a record that the caller cannot write.
 
-**Use one access and a caller label** when the group already runs a server that authenticates its staff and mediates every call (a hospital system, a research platform), when patients' cores cannot be upgraded, or when the patient's consent should not mention delegation. A static app that uses member accesses needs no `callerId`: each member already holds their own access.
+**Use one access and a caller label** when the group already runs a server that authenticates its staff and mediates every call (a hospital system, a research platform), when patients' cores cannot be upgraded, or when the patient's consent should not mention delegation. A static app that uses member accesses needs no `callerId`: each member already holds their own access. Bulk reads run from a server (analytics over every patient, unattended) fit the caller-label pattern: no access is created per read; members can also read many patients through member accesses, see [Reading many patients](#opening-a-patients-data).
 
 The rest of this guide describes member accesses, then [the caller-label alternative](#the-alternative-one-access-and-a-caller-label).
 
@@ -181,7 +181,9 @@ When the request fails after it was written (the patient's core refused or could
 
 The member's username and host come from the group's core, which reads them from the membership; the group's identity and the grant (`viaAccessId`) come from the patient's core, which reads them from the grant that called it. The group's core sends only `{ role: 'member-child', member: { username, host } }`, two strings of 1 to 200 characters without whitespace, control, bidirectional or zero-width characters; the patient's core refuses anything else from a grant with `cmc-member-stamp-invalid`. No one can write, change or remove `clientData.cmc` on an access through the API.
 
-**Asking again** for the same patient with exactly the same permissions returns the same access while it has more than five minutes left; other permissions (more or fewer), or an access about to expire, are replaced, and one the patient deleted is created again while the grant lasts. An access is never created over one the patient's core did not confirm gone: if that core cannot be reached while the previous access is being replaced, the request fails with `cmc-member-access-peer-unreachable` and the previous access stays recorded for the sweep. A member has one request in flight at a time per patient (`cmc-member-access-in-flight`) and at most 30 per minute per server process (`cmc-member-access-rate-limited`, ask again after the minute). In-flight and an unreachable patient core (`cmc-member-access-peer-unreachable`) are worth retrying shortly; `isMemberAccessRetryable` in `@pryv/cmc` says which.
+**Asking again** for the same patient with exactly the same permissions returns the same access while it has more than five minutes left; other permissions (more or fewer), or an access about to expire, are replaced, and one the patient deleted is created again while the grant lasts. An access is never created over one the patient's core did not confirm gone: if that core cannot be reached while the previous access is being replaced, the request fails with `cmc-member-access-peer-unreachable` and the previous access stays recorded for the sweep. A member has one request in flight at a time per patient (`cmc-member-access-in-flight`). Each membership has two budgets, shared by every server process of the group's core: **new accesses** (5,000 at once, then 1,000 per minute with the default settings) and **requests of any kind** (10,000 at once, then 3,000 per minute). Asking again for an access that is still live counts against the request budget only. Past either budget the request is refused with HTTP 429, `cmc-member-access-rate-limited` in `error.data.id`, and a `Retry-After` header (also `error.data.retryAfterSeconds`): ask again after that many seconds. One case is answered on the event instead: a request for a patient whose access was still recorded as live is accepted without spending the new-access budget, and if that access turns out to need replacing while the budget is spent, the event is stored with `content.failure.reason` `cmc-member-access-rate-limited` and `retryAfterMs` (milliseconds, as for `cmc-member-access-peer-unreachable`) in `content.failure.detail`. In-flight and an unreachable patient core (`cmc-member-access-peer-unreachable`) are worth retrying shortly; `isMemberAccessRetryable` in `@pryv/cmc` says which.
+
+**Reading many patients** (a full pass for analytics): ask an `expireAfter` that covers the whole analysis, so that a second pass reuses the accesses instead of replacing them (an access with five minutes or less left is replaced); keep a few requests in parallel rather than hundreds; honour `Retry-After`. The budgets pace a membership, they do not protect the patients' data: a membership that may read a patient may read all of them. What ends the exposure of a stolen or misused membership is its expiry and its revocation, and the patient's audit log names the member on every read.
 
 ## What the patient sees in the audit log
 
@@ -282,11 +284,16 @@ Members, the group and patients may each be on a different core, and on differen
 | `cmc:memberAccess:defaultTtl` | `86400` | Expiry, in seconds, of a member access asked without `expireAfter`. |
 | `cmc:memberAccess:minTtl` | `60` | Shortest `expireAfter` accepted. |
 | `cmc:memberAccess:maxTtl` | `604800` | Longest `expireAfter` accepted; also the longest a residual can last. |
-| `cmc:memberAccess:ratePerMinute` | `30` | Requests per membership per minute, per server process. |
+| `cmc:memberAccess:ratePerMinute` | `1000` | New accesses per membership per minute, sustained, for the whole core. Asking again for a live access does not count here. |
+| `cmc:memberAccess:mintBurst` | `5000` | New accesses a membership may make at once, before `ratePerMinute` applies. |
+| `cmc:memberAccess:askRatePerMinute` | `3000` | Requests of any kind per membership per minute, sustained, for the whole core (at least `ratePerMinute`). Once the new-access budget is spent, a refused request still costs the group's core a lookup, so this budget is what bounds a runaway client. |
+| `cmc:memberAccess:askBurst` | `10000` | Requests of any kind a membership may make at once (at least `mintBurst`). |
 | `cmc:memberAccess:maxInFlightPerMembership` | `1` | Requests in flight per membership and patient, per server process. |
 | `cmc:memberAccess:allowNameOnly` | `true` | Fall back to name-only attribution against an older patient core. |
 | `cmc:memberAccess:sweepIntervalMs` | `60000` | Interval of the periodic ledger pass (expired and vanished memberships, residuals re-swept), which runs with the retry loop. |
 | `cmc:retryLoop:enabled` | `true` | The CMC retry loop. |
+
+**If you had tuned `ratePerMinute`** before these budgets (it counted every request, per server process, 30 by default), set `mintBurst` too: the former "at most N from idle" is `mintBurst: N`.
 
 **The retry loop is on by default from open-pryv.io 2.0.0-rc.53**, on every core. It carries the sweep retries, the periodic ledger pass and the re-sending of revoke notices. An account with nothing pending or open in either pass is checked again only after 10 minutes instead of every interval, so new work on a dormant account can wait up to 10 minutes. Set to `false`, nothing is queued, a warning is logged at boot, a residual lasts until the access expires, and a revoke notice the other core could not take is not sent again.
 
@@ -410,7 +417,7 @@ Refused when the request is written (`error.data.id`, thrown by `@pryv/cmc` as a
 | `cmc-member-access-scope-outside-membership` | The patient's relationship is not under the stream the event was written on, or the event is not on a team stream. |
 | `cmc-member-access-permissions-not-subset` | Not stream permissions, or beyond what the group's invite offered the patient. |
 | `cmc-member-access-expiry-out-of-range` | `expireAfter` outside the core's bounds, or less than the minimum left on the membership. |
-| `cmc-member-access-rate-limited` | Too many requests for this membership: ask again after the minute. |
+| `cmc-member-access-rate-limited` | HTTP 429: this membership used its budget of new accesses or of requests. Ask again after the `Retry-After` header (also `error.data.retryAfterSeconds`). |
 | `cmc-member-access-in-flight` | A request for this membership and this patient is already running: ask again shortly. |
 | `cmc-membership-permissions-invalid` | A membership request breaks the membership rules (also recorded on the accept when the group's core refuses it, or when a delegate administrator approves their own membership). |
 | `cmc-member-stamp-invalid` | The patient's core refused a malformed member stamp. |
@@ -423,6 +430,7 @@ Recorded on the event (`content.failure.reason`):
 | `cmc-member-access-permissions-not-subset` | The patient's core refused the access as beyond the grant. |
 | `cmc-member-access-peer-rejected` | The patient's core refused the access otherwise (its error id and HTTP status in `content.failure.detail`). |
 | `cmc-member-access-peer-unreachable` | The patient's core could not be reached: ask again shortly. |
+| `cmc-member-access-rate-limited` | The patient's recorded access had to be replaced while the membership's new-access budget was spent: ask again after `content.failure.detail.retryAfterMs` milliseconds. |
 | `cmc-member-access-membership-gone` | The membership ended while the access was being created; the access was deleted. |
 | `cmc-member-access-not-retryable` | A request for a member access is never replayed from the retry queue. |
 | `cmc-member-revoke-residual` | A sweep left accesses in place (see `residuals`). |
