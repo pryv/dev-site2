@@ -20,11 +20,12 @@ A schedule has exactly one trigger:
 
 ### What counts as use
 
-Use is the latest use of the account's **personal** and **app** accesses:
+Use is the latest use of the account's **personal** accesses:
 
-- a sign-in, and every call made with the token it issues;
-- every call made by an app the holder connected, including one that syncs on a schedule: the holder consented to it and the data is used on their behalf;
-- every call made by a [delegate](/guides/account-delegation/) of the account (a caregiver managing it counts as use).
+- a sign-in, and every call made with the token it issues, or with a personal token of the holder;
+- every call made by a [delegate](/guides/account-delegation/) of the account with their own token (a caregiver managing it counts as use).
+
+**App accesses do not count by default**: an app the holder connected, an OAuth session or an app a delegate granted can sync in the background for years without anyone using the account. Set `account.autoDeletion.inactivity.countAppUse: true` to count their calls as use too. `account.getAutoDeletion` reports their latest use (`lastActivity.app`) either way.
 
 **Shared accesses never count**: a doctor reading shared data, or an integration writing into a shared stream, does not keep an account alive. Neither do failed sign-ins, public methods, webhook deliveries, nor attachment downloads (which are not tracked).
 
@@ -87,6 +88,7 @@ account:
       defaultDays: null
       minDays: 90
       maxDays: 3650
+      countAppUse: false
     userOverride: true
     allowUserOptOut: true
     date:
@@ -104,6 +106,7 @@ account:
 | `dryRun` | `false` | `true`: the sweep logs what it would send and delete, and does neither. |
 | `inactivity.defaultDays` | `null` | The operator preset, in days. `null`: no preset, accounts are never deleted unless their holder asks. |
 | `inactivity.minDays` / `maxDays` | `90` / `3650` | The periods a holder may choose. |
+| `inactivity.countAppUse` | `false` | `true`: calls made with app accesses count as use of the account too (see [What counts as use](#what-counts-as-use)). |
 | `userOverride` | `true` | A holder may choose a date or a period (and so change the preset). `false`: holders can only follow the platform's policy or, if allowed, opt out. With no preset either, the feature does nothing. |
 | `allowUserOptOut` | `true` | A holder may set `never` while the preset covers the account. `false` enforces the preset as a retention rule. |
 | `date.minLeadDays` | `14` | How far from now, in days, a chosen date must at least be. |

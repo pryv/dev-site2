@@ -69,7 +69,7 @@ _autoDeletionResult =
       key: "lastActivity"
       type: "object"
       description: """
-                   The latest use of the account, the clock of the `inactivity` mode. A sign-in counts, and so does every call made with a personal or an app access (an app the holder connected keeps the account in use). Calls made with shared accesses never count.
+                   The latest use of the account, the clock of the `inactivity` mode. A sign-in counts, and so does every call made with a personal access: the holder's own, or a delegate's. Calls made with app accesses count only where the platform says so (`account.autoDeletion.inactivity.countAppUse`, off by default): an app syncing in the background is not the holder using the account. Calls made with shared accesses never count.
                    """
       properties: [
         key: "personal"
@@ -83,28 +83,28 @@ _autoDeletionResult =
         type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
         nullable: true
         description: """
-                     Latest use of the account's app accesses.
+                     Latest use of the account's app accesses (an app a delegate granted included), reported even where it does not count as use.
                      """
       ,
         key: "delegate"
         type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
         nullable: true
         description: """
-                     Latest use by a [delegate](##{_getDocId("delegations")}) of the account: it counts as use of the account.
+                     Latest use of the own token of a [delegate](##{_getDocId("delegations")}) of the account: it counts as use of the account.
                      """
       ,
         key: "max"
         type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
         nullable: true
         description: """
-                     The latest of all. It never moves backwards: deleting an access does not make the account look unused for longer.
+                     The latest use that counts. It never moves backwards: deleting an access does not make the account look unused for longer.
                      """
       ,
         key: "by"
         type: "`owner`|`delegate`"
         nullable: true
         description: """
-                     Who used the account last: the holder (personal or app access) or a delegate.
+                     Who used the account last, among the uses that count: the holder or a delegate.
                      """
       ]
     ,
@@ -3752,12 +3752,12 @@ module.exports = exports =
               personal: timestamp.now("-2d")
               app: timestamp.now("-1h")
               delegate: null
-              max: timestamp.now("-1h")
+              max: timestamp.now("-2d")
               by: "owner"
-            deadline: timestamp.now("+365d") - 3600
-            deleteAt: timestamp.now("+365d") - 3600
+            deadline: timestamp.now("+363d")
+            deleteAt: timestamp.now("+363d")
             deadlineReason: "inactivity"
-            nextReminderAt: timestamp.now("+305d") - 3600
+            nextReminderAt: timestamp.now("+303d")
             remindersSent: []
             blocked: null
             mail: "available"
