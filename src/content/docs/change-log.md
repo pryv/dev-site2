@@ -4,6 +4,13 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.83
+
+Two additions, no breaking change; no new configuration key, no schema migration.
+
+- **Service info:** `features.passwordResetByEmail` (boolean) says whether a [password-reset request](/reference/#methods-account-account-requestPasswordReset) mails a reset link on this platform (reset mail switched on and mail configured). The request answers the same either way, so a client can now show "contact the platform operator" instead of "check your mailbox" where no mail is sent. Absent on older cores: treat as unknown.
+- **Operators:** new admin route [`GET /system/migrations-status`](/reference-admin/#migrations-status) (admin key) reports, per storage engine, the schema version recorded, the version the code expects and the migrations not applied yet, with `upToDate`. With `migrations.autoRunOnStart: false`, a deploy script runs `node bin/migrate.js up` and polls it before switching traffic.
+
 ## 2.0.0-rc.82
 
 Tokens issued for a resource server are refused at the data API by default. **Breaking for cores where a resource server does not exchange tokens yet**; no new configuration key, no schema migration.
