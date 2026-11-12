@@ -212,6 +212,16 @@ The key is the \`auth.adminAccessKey\` config value, which is required at boot a
 				description: `Runs the platform and user-index integrity checks. ${authNote}`,
 				result: { http: '200 OK', properties: [{ key: 'checks', type: 'array', description: 'The platform and users-index check results.' }] },
 			},
+			{
+				id: 'migrations-status', type: 'method', title: 'Storage migrations status', http: 'GET /system/migrations-status',
+				description: `Whether the storage schema is behind the code, for deploy checks. With \`migrations.autoRunOnStart: false\` a core boots and serves with migrations pending, and the methods that need the new schema fail until \`node bin/migrate.js up\` has run: poll this route until \`upToDate\` is \`true\` before switching traffic. The state is read on every call. Answers 200 whenever the state could be read, pending or not; a 404 means no or a wrong admin key, or a core older than this route. ${authNote}`,
+				result: { http: '200 OK', properties: [{ key: 'migrations', type: 'object', description: '`autoRunOnStart` (boolean), `upToDate` (boolean), `pending` (number of migrations not applied, all engines), `engines`: per migration-capable engine `{ id, currentVersion, targetVersion, pending }` (`pending`: the migration filenames not applied yet). With `autoRunOnStart: true`, `upToDate: false` means the boot-time run failed or was interrupted.' }] },
+			},
+			{
+				id: 'event-types-status', type: 'method', title: 'Event-types dictionary status', http: 'GET /system/event-types-status',
+				description: `Whether the published event-types dictionary has loaded. While it has never loaded the core runs \`degraded\` on its embedded dictionary and refuses unknown event types: alert on \`degraded: true\`. ${authNote}`,
+				result: { http: '200 OK', properties: [{ key: 'eventTypes', type: 'object', description: '`degraded`, `everSucceeded`, `source`, `version`, `embeddedVersion`, `lastSuccessAt`, `lastAttemptAt`, `lastError`.' }] },
+			},
 		],
 	},
 	{
