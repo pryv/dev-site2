@@ -4,6 +4,12 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.82
+
+Tokens issued for a resource server are refused at the data API by default. **Breaking for cores where a resource server does not exchange tokens yet**; no new configuration key, no schema migration.
+
+- **OAuth (breaking):** `oauth.audienceBoundSessions` now defaults to `true`. A session minted by an authorization naming a resource server (`aud` / `resource`) is refused at the data API (`403 invalid-access-token`): it is meant for that resource server, which exchanges it (token exchange) for a session of its own. Sessions minted before the upgrade keep working until they expire or their chain refreshes; sessions issued for no resource server, app-account clients' sessions and derived sessions are never refused. Operators: on a core where a resource server does not exchange yet, set `oauth.audienceBoundSessions: false` explicitly. The core warns at boot when a client may obtain such tokens and no client is registered for token exchange. See [token exchange](/customer-resources/auth-oauth2/#token-exchange-for-resource-servers).
+
 ## 2.0.0-rc.81
 
 Only personal use keeps an account active for auto-deletion. No schema migration; one new configuration key.
