@@ -89,7 +89,8 @@ export default defineConfig({
 		starlight({
 			// The reference / event-types / functional-specs pages are custom (non-collection)
 			// routes, so their in-page anchors cannot be introspected here; they are covered
-			// by a dedicated anchor-parity check instead. Exclude them from link validation.
+			// by the post-build anchor gate instead (scripts/gate-anchors.mjs, `just gate`).
+			// Exclude them from link validation; keep that gate's page list in step.
 			// Skipped on staging builds: absolute links are base-prefixed post-build, which
 			// the in-build validator cannot see (root builds keep full validation).
 			plugins: SITE_BASE ? [] : [starlightLinksValidator({

@@ -680,6 +680,13 @@ module.exports = exports =
             optional: true
             description: "A referer id potentially used for analytics."
           ,
+            key: "emailProof"
+            type: "string"
+            optional: true
+            description: """
+                          The proof that the holder controls `email`, from [verify an email challenge](#verify-an-email-challenge). Required on platforms that require email verification at registration; ignored otherwise.
+                          """
+          ,
             key: "externalId"
             type: "object"
             optional: true
@@ -713,7 +720,13 @@ module.exports = exports =
           key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The password does not match password complexity rules (if enabled), or the `externalId` is malformed or names an unknown namespace (`data.param` names the field, never the value).
+                      A parameter is missing or malformed, the password does not match password complexity rules (if enabled), or the `externalId` is malformed or names an unknown namespace (`data.param` names the field, never the value). For the registration fields, each entry of the `data` array carries a `code` naming the field and the fault: `appid-invalid`, `username-required`, `username-invalid`, `password-required`, `password-invalid`, `email-required`, `email-invalid`, `invitationToken-invalid`, `referer-invalid` or `language-invalid` (with `message` and `param`).
+                      """
+        ,
+          key: "forbidden"
+          http: "403"
+          description: """
+                      The platform requires email verification at registration and `emailProof` is missing, expired or not for this `email` (`data.emailVerificationRequired: true`).
                       """
         ,
           key: "external-id-already-claimed"
@@ -750,9 +763,7 @@ module.exports = exports =
         httpOnly: true
         server: "register"
         description: """
-                    For the single node mode please use [this](/reference/#check-username) API endpoint.
-
-                    Check the availability and validity of a given username.
+                    Check the availability and validity of a given username. On a DNS-less setup the route is `https://{hostname}/reg/{username}/check_username`.
                     """
         params:
           properties: [
@@ -770,23 +781,14 @@ module.exports = exports =
             key: "reserved"
             type: "boolean"
             description: """
-                        Set to `true` if the given username is already taken, `false` otherwise.
-                        """
-          ,
-            key: "reason"
-            type: "string"
-            optional: true
-            description: """
-                        Optional indication of the reason why the username is reserved.
-                        If it mentions `RESERVED_USER_NAME`, this means that the given username is part of
-                        the reserved usernames list configured within the register service.
+                        `true` if registration would refuse the username: an account holds it (as its username or a former one), or the platform answers that name itself (reserved names, DNS records). `false` otherwise.
                         """
           ]
         errors: [
-          key: "INVALID_USERNAME"
+          key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The given username is invalid because of an unrecognized format.
+                      The username is malformed: the `data` array entry carries `code: 'username-invalid'`.
                       """
         ]
         examples: [
@@ -803,7 +805,6 @@ module.exports = exports =
           }
           result:
             reserved: true
-            reason: "RESERVED_USER_NAME"
         ]
       ,
         id: "emails.check"
@@ -813,7 +814,7 @@ module.exports = exports =
         httpOnly: true
         server: "register"
         description: """
-                    Check the existence of an account's email.
+                    Check whether an account holds an email address. Every call counts in a lookup budget per client address, shared with the other public email lookups. On a DNS-less setup the route is `https://{hostname}/reg/{email}/check_email`.
                     """
         params:
           properties: [
@@ -828,17 +829,29 @@ module.exports = exports =
         result:
           http: "200 OK"
           properties: [
-            key: "exists"
+            key: "reserved"
             type: "boolean"
             description: """
-                        Set to `true` if the email address is already registered, `false` otherwise.
+                        `false`: no account holds the address (an address an account holds answers `409 item-already-exists`).
                         """
           ]
         errors: [
-          key: "INVALID_EMAIL"
+          key: "invalid-parameters-format"
           http: "400"
           description: """
-                      The email address is invalid because of an unrecognized format.
+                      The address is malformed: the `data` array entry carries `code: 'email-invalid'`.
+                      """
+        ,
+          key: "item-already-exists"
+          http: "409"
+          description: """
+                      An account holds the address (`data.email`).
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      The email-lookup budget of this client address is spent. Retry after the `Retry-After` header (seconds).
                       """
         ]
         examples: [
@@ -847,7 +860,136 @@ module.exports = exports =
             email: examples.users.two.email
           }
           result:
-            exists: false
+            reserved: false
+        ]
+      ,
+        id: "emailChallenge.request"
+        type: "method"
+        title: "Request an email challenge"
+        http: "POST /email-challenge"
+        httpOnly: true
+        server: "register"
+        description: """
+                    First step of the email verification at registration, on platforms where the operator requires a proved address before an account is created (`account.emailVerification.requireAtRegistration`, off by default). Mails a one-time code to the address; exchange it with [verify an email challenge](#verify-an-email-challenge) for the `emailProof` that [create user](#create-user) then requires. See the [email verification guide](/guides/email-verification/).
+
+                    The code has 8 characters, shown as `XXXX-XXXX`; it is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address. No authentication; the limits are kept per address. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge`.
+                    """
+        params:
+          properties: [
+            key: "email"
+            type: "string"
+            description: """
+                        The address to prove.
+                        """
+          ,
+            key: "language"
+            type: "string"
+            optional: true
+            description: """
+                        The language of the mail, as a 2-letter ISO language code (the platform's default language otherwise).
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "sent"
+            type: "boolean"
+            description: """
+                        `true`: the code was mailed.
+                        """
+          ]
+        errors: [
+          key: "invalid-parameters-format"
+          http: "400"
+          description: """
+                      The address is malformed, or the mail server refused it for good (`data: { email, reason: 'recipient-rejected' }`; the challenge is released).
+                      """
+        ,
+          key: "forbidden"
+          http: "403"
+          description: """
+                      The platform does not require email verification at registration (`data.emailVerificationRequired: false`).
+                      """
+        ,
+          key: "item-already-exists"
+          http: "409"
+          description: """
+                      An account already holds the address (`data.email`).
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      A limit was reached: `data.reason` is `cooldown` (wait `data.retryAfterSeconds`, also in the `Retry-After` header), `daily-limit` or `failure-budget` (come back later). The lookups of the address also count in the per-client-address email-lookup budget.
+                      """
+        ]
+        examples: [
+          title: "Requesting a code."
+          params:
+            email: examples.users.two.email
+            language: "en"
+          result:
+            sent: true
+        ]
+      ,
+        id: "emailChallenge.verify"
+        type: "method"
+        title: "Verify an email challenge"
+        http: "POST /email-challenge/verify"
+        httpOnly: true
+        server: "register"
+        description: """
+                    Second step of the email verification at registration: exchanges the code mailed by [request an email challenge](#request-an-email-challenge) for an `emailProof`, to pass to [create user](#create-user). The proof is bound to the address and expires (30 minutes by default). The separator and the case of the code do not matter. In a cluster the code verifies on any core. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge/verify`.
+                    """
+        params:
+          properties: [
+            key: "email"
+            type: "string"
+            description: """
+                        The address the code was sent to.
+                        """
+          ,
+            key: "code"
+            type: "string"
+            description: """
+                        The code, as the holder typed it.
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "emailProof"
+            type: "string"
+            description: """
+                        The proof to pass as `emailProof` to [create user](#create-user).
+                        """
+          ]
+        errors: [
+          key: "invalid-access-token"
+          http: "401"
+          description: """
+                      The code is wrong, unknown or expired (one answer for all). `data.attemptsRemaining` says how many tries the pending code has left.
+                      """
+        ,
+          key: "forbidden"
+          http: "403"
+          description: """
+                      The platform does not require email verification at registration (`data.emailVerificationRequired: false`).
+                      """
+        ,
+          key: "too-many-attempts"
+          http: "429"
+          description: """
+                      The attempts on the code are spent (`data.reason: 'exhausted'`): the code is discarded, request a new one.
+                      """
+        ]
+        examples: [
+          title: "Exchanging a code for a proof."
+          params:
+            email: examples.users.two.email
+            code: "K7M4-P9RX"
+          result:
+            emailProof: "chtplghfp0000hqjx814u6393"
         ]
       ,
         id: "email.username.get"
@@ -881,7 +1023,7 @@ module.exports = exports =
                         """
           ]
         errors: [
-          key: "UNKNOWN_EMAIL"
+          key: "unknown-email"
           http: "404"
           description: """
                       The given email address is unknown (unregistered).
@@ -1022,7 +1164,7 @@ module.exports = exports =
         description: """
                     Deletes a user account. This method must be enabled in the platform configuration. You should fetch the URL of the core where the user data is stored using the [Get core](#get-core) method.
                     - When performed by the account owner, this method requires a personal token.
-                    - For platform administrators, please refer to [its Delete user method](/reference-admin/#delete-user).
+                    - For platform administrators, please refer to [its Delete user method](/reference-admin/#delete-a-user-full).
                     - For Open Pryv.io users, this method requires to provide the [auth:adminAccessKey](https://github.com/pryv/open-pryv.io#config) as `Authorization` header.
                     """
         params:
@@ -1485,6 +1627,50 @@ module.exports = exports =
                         `ok` on success.
                         """
           ]
+      ,
+
+        id: "dns.records.delete"
+        type: "method"
+        title: "Delete DNS records"
+        http: "DELETE /reg/records/{subdomain}"
+        httpOnly: true
+        adminOnly: true
+        server: "register"
+        description: """
+                    Admin endpoint removing the runtime DNS entries of a subdomain set with [update DNS records](#update-dns-records). The removal is persisted to PlatformDB and propagated to all cores in a multi-core deployment. Requires admin authorization (a missing or wrong key answers `404`, like the other admin routes).
+                    """
+        params:
+          properties: [
+            key: "subdomain"
+            type: "string"
+            http:
+              text: "set in request path"
+            description: """
+                        The subdomain whose records are removed.
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "subdomain"
+            type: "string"
+            description: """
+                        The subdomain.
+                        """
+          ,
+            key: "status"
+            type: "string"
+            description: """
+                        `deleted` on success.
+                        """
+          ]
+        errors: [
+          key: "unknown-resource"
+          http: "404"
+          description: """
+                      No DNS record for this subdomain (or the admin key is missing or wrong).
+                      """
+        ]
       ]
     ,
 

@@ -7,7 +7,7 @@ description: Operator guide to access aliases (randomAlias) and username changes
 This guide is for operators. It covers two account features that give an account more than one routable name:
 
 - **Access aliases.** An access created with `randomAlias: true` gets a platform-unique name (`r-` followed by 8 characters) that replaces the username in its `apiEndpoint` and in its access-info. See [create access](/reference/#methods-accesses-accesses-create).
-- **Username changes.** The holder of an account can change its username with a personal token. Every former username stays held by the account as an alias. See [change username](/reference/#methods-account-account-changeusername).
+- **Username changes.** The holder of an account can change its username with a personal token. Every former username stays held by the account as an alias. See [change username](/reference/#methods-account-account-changeUsername).
 
 Both kinds of names (access aliases and former usernames) are held platform-wide by the account: nobody else can register them or take them with a change.
 

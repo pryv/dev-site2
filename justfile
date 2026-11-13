@@ -29,12 +29,18 @@ serve:
 clean:
     rm -rf dist .astro
 
-# Fidelity gates: reference.json matches reference-src/, the site type-checks, and the
-# generated OpenAPI definitions are valid and complete (publish runs them all)
+# Fidelity gates: reference.json matches reference-src/, the site type-checks, the
+# generated OpenAPI definitions are valid and complete, and, on a fresh root build, the
+# built OpenAPI files match and every link into the reference pages hits an anchor
+# (publish runs them all)
 gate:
     npm run gate:reference
     npm run typecheck
     npm run gate:openapi
+    rm -rf dist .astro
+    env -u SITE_BASE astro build
+    npm run gate:openapi:dist
+    npm run gate:anchors
 
 # Import the event-types catalogue from a data-types checkout (its committed dist/,
 # assumed rebuilt from its src/):
@@ -86,6 +92,7 @@ publish:
     rm -rf dist .astro
     env -u SITE_BASE astro build
     npm run gate:openapi:dist
+    npm run gate:anchors
     # 2. ensure a clean checkout of the pages repo at origin/master
     if [ ! -d "$work/.git" ]; then rm -rf "$work"; git clone "$pages_repo" "$work"; fi
     git -C "$work" fetch origin

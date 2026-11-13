@@ -1149,7 +1149,13 @@ module.exports = exports =
         key: "invalid-operation"
         http: "400"
         description: """
-                     The referenced stream is in the trash, and we prevent the recording of new events into trashed streams.
+                     The referenced stream is in the trash, and we prevent the recording of new events into trashed streams. Also answered for an event in an [account stream](/customer-resources/system-streams/) that breaks its rules: the event names more than one account stream, or another stream next to it; the account field is not editable; the account field is the email (change it with [update account information](##{_getDocId("account", "account.update")})).
+                     """
+      ,
+        key: "invalid-event-type"
+        http: "400"
+        description: """
+                     The type starts with `series:` but is not a known High-Frequency series type (`data.type`): free types cannot use that prefix.
                      """
       ]
       examples: [
@@ -1204,7 +1210,19 @@ module.exports = exports =
                        The updated event.
                        """
         ]
-      errors: []
+      errors: [
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The update turns a normal event into a High-Frequency series event or the reverse, or breaks the rules of an [account stream](/customer-resources/system-streams/): the event would be in more than one account stream, or in another stream next to it; it would move from one account stream to another; the account field is not editable; the account field is the email (change it with [update account information](##{_getDocId("account", "account.update")})).
+                     """
+      ,
+        key: "invalid-event-type"
+        http: "400"
+        description: """
+                     The new type starts with `series:` but is not a known High-Frequency series type (`data.type`): free types cannot use that prefix.
+                     """
+      ]
       examples: [
         title: "Changing streams"
         params:
@@ -2077,6 +2095,8 @@ module.exports = exports =
         http: "400"
         description: """
                      With `randomAlias`: the account already holds `accesses.maxAliasesPerAccount` aliases (`data: { maxAliasesPerAccount }`). Delete the accesses the account no longer uses (an expired access keeps its alias until it is deleted), or create the access without `randomAlias`. No alias is reserved by a refused request.
+
+                     Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold (`data.param` names the stream id): an unknown account stream, a hidden account stream, a level other than `read` or `none` on an account field or on the account root stream.
                      """
       ]
       examples: [
@@ -2154,7 +2174,7 @@ module.exports = exports =
         key: "invalid-operation"
         http: "400"
         description: """
-                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections.
+                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections. Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold, as for [create access](##{_getDocId("accesses", "accesses.create")}).
                      """
       ,
         key: "forbidden"
@@ -3063,9 +3083,7 @@ module.exports = exports =
       title: "Get account information"
       http: "GET /account"
       description: """
-                   **(DEPRECATED)** Please use events methods instead.
-
-                   Retrieves the user's account information.
+                   Retrieves the user's account information. Most account fields can also be read as events of the account streams.
                    """
       result:
         http: "200 OK"
@@ -3089,9 +3107,7 @@ module.exports = exports =
       title: "Update account information"
       http: "PUT /account"
       description: """
-                   **(DEPRECATED)** Please use events methods instead.
-
-                   Modifies the user's account information.
+                   Modifies the user's account information, including the `emails` operations (see the errors below). Editable account fields can also be changed as events of the account streams.
                    """
       params:
         properties: [
@@ -3112,6 +3128,13 @@ module.exports = exports =
                        The updated account information.
                        """
         ]
+      errors: [
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The update names an account field that is not editable (`data.field`), or an `emails` operation is refused (`data.email`; see the [email verification guide](/guides/email-verification/)).
+                     """
+      ]
       examples: [
         params:
           email: examples.users.two.email
@@ -4202,6 +4225,57 @@ module.exports = exports =
           newPassword: "Dr0ws$4p"
           appId: "my-app-id"
         result: {}
+      ]
+
+    ,
+
+      id: "account.verifyEmail"
+      type: "method"
+      title: "Verify email address"
+      v2Tag: true
+      http: "POST /account/verify-email"
+      httpOnly: true
+      description: """
+                   Marks an email address of the account as verified, with the token mailed to that address when it was added or resent through the `emails` operations of [update account information](##{_getDocId("account", "account.update")}). The mailed link opens the page set by the platform (`auth.emailVerificationPageURL`) with the `verifyToken` and `username` query parameters; that page calls this method. See the [email verification guide](/guides/email-verification/).
+
+                   No access token: the mailed token is the credential. This method requires that the `appId` and `Origin` (or `Referer`) header comply with the [trusted app verification](##{basics.getDocId("trusted-apps-verification")}).
+                   """
+      params:
+        properties: [
+          key: "token"
+          type: "string"
+          description: """
+                       The verification token mailed to the address (the `verifyToken` query parameter of the link).
+                       """
+        ,
+          key: "appId"
+          type: "string"
+          description: """
+                       Your app's unique identifier.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "email"
+          type: "string"
+          description: """
+                       The address now verified.
+                       """
+        ]
+      errors: [
+        key: "invalid-access-token"
+        http: "401"
+        description: """
+                     The token is unknown, expired, already used or belongs to another account: one answer for all of them. Offer to send a new link.
+                     """
+      ]
+      examples: [
+        params:
+          token: "q8Hn2Lr5sT0vW3yZ6bC9dF1gJ4kM7nP0rS3uX6zA2cE"
+          appId: "my-app-id"
+        result:
+          email: "alice.work@example.com"
       ]
     ]
   ,

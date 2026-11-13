@@ -262,5 +262,14 @@ export function renderReference (rootSections: Section[], flavor: ReferenceFlavo
 	}
 	// Assign heading ids over the whole page (structural + description headings), matching
 	// the legacy post-render pass.
-	return assignHeadingIds(html);
+	const page = assignHeadingIds(html);
+	// The light user reference hides the trusted-apps-only methods, which visible sections
+	// still link to in-page: send those links to the full reference instead.
+	return flavor.source === 'default' && !flavor.showTrustedOnlyContent ? pointMissingAnchorsTo(page, '/reference/') : page;
+}
+
+/** Rewrite every in-page `href="#id"` whose id is not on the page to `{target}#id`. */
+function pointMissingAnchorsTo (html: string, target: string): string {
+	const ids = new Set(Array.from(html.matchAll(/\sid="([^"]*)"/g), (m) => m[1]));
+	return html.replace(/\shref="#([^"]+)"/g, (m, id: string) => (ids.has(id) ? m : ` href="${target}#${id}"`));
 }
