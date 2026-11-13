@@ -142,7 +142,7 @@ Since 2.0.0-rc.51, a config that declares any entry under `custom.systemStreams.
 
 Unicity and indexation only affect accounts **created after** the change — values recorded on pre-existing accounts are not retroactively synchronized into the platform DB. Flip these fields with care:
 
-- `isUnique` / `isIndexed`: apply to new accounts, and to existing accounts only when the field gets updated through [`events.update`](/reference/#update-events).
+- `isUnique` / `isIndexed`: apply to new accounts, and to existing accounts only when the field gets updated through [`events.update`](/reference/#methods-events-events-update).
 - Removing a stream that already has events: the events become unreachable through the Pryv.io API. Prefer hiding (`isShown: false`) to deleting.
 
 All core restarts re-load the unified config, so changes to `custom.systemStreams.*` take effect on the next `node bin/master.js` boot — in multi-core, restart each core in turn.

@@ -4203,6 +4203,57 @@ module.exports = exports =
           appId: "my-app-id"
         result: {}
       ]
+
+    ,
+
+      id: "account.verifyEmail"
+      type: "method"
+      title: "Verify email address"
+      v2Tag: true
+      http: "POST /account/verify-email"
+      httpOnly: true
+      description: """
+                   Marks an email address of the account as verified, with the token mailed to that address when it was added or resent through the `emails` operations of [update account information](##{_getDocId("account", "account.update")}). The mailed link opens the page set by the platform (`auth.emailVerificationPageURL`) with the `verifyToken` and `username` query parameters; that page calls this method. See the [email verification guide](/guides/email-verification/).
+
+                   No access token: the mailed token is the credential. This method requires that the `appId` and `Origin` (or `Referer`) header comply with the [trusted app verification](##{basics.getDocId("trusted-apps-verification")}).
+                   """
+      params:
+        properties: [
+          key: "token"
+          type: "string"
+          description: """
+                       The verification token mailed to the address (the `verifyToken` query parameter of the link).
+                       """
+        ,
+          key: "appId"
+          type: "string"
+          description: """
+                       Your app's unique identifier.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "email"
+          type: "string"
+          description: """
+                       The address now verified.
+                       """
+        ]
+      errors: [
+        key: "invalid-access-token"
+        http: "401"
+        description: """
+                     The token is unknown, expired, already used or belongs to another account: one answer for all of them. Offer to send a new link.
+                     """
+      ]
+      examples: [
+        params:
+          token: "q8Hn2Lr5sT0vW3yZ6bC9dF1gJ4kM7nP0rS3uX6zA2cE"
+          appId: "my-app-id"
+        result:
+          email: "alice.work@example.com"
+      ]
     ]
   ,
 

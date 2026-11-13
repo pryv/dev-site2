@@ -7,8 +7,15 @@ module.exports = {
 
   /**
    * Generic function to determine the in-doc id of a given section.
+   * Every part must be a non-empty string: a missing part (e.g. a method id left out)
+   * would otherwise yield an id such as `methods-account-` that no section carries.
    */
   getDocId: (...args) => {
+    args.forEach((part, i) => {
+      if (typeof part !== 'string' || part === '') {
+        throw new Error(`getDocId: part ${i} is ${JSON.stringify(part)} in (${args.map(String).join(', ')})`);
+      }
+    });
     return args.join('-').replace('.', '-');
   },
 

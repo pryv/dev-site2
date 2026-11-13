@@ -11,14 +11,14 @@ Per-access usage for the account owner, access integrity that verifies after an 
 - **Accesses:** [`accesses.get`](/reference/#methods-accesses-accesses-get) and [`accesses.getOne`](/reference/#methods-accesses-accesses-getOne) return `usage: { total, reads, writes, session, other, byMethod }` on each access to a personal access (the account owner's, or a delegate's personal access): approximate lifetime call counts per method and summed by class (session, read, write, other; the rules are in the [access](/reference/#data-structure-access) structure). Deletion records are included; history snapshots carry none. Counts are written asynchronously after each reply, and a batch counts its inner calls, not itself. Absent when `accessTracking.isActive` is off, and never returned to app or shared callers (an app still reads its own counters with [access info](/reference/#methods-getAccessInfo)). `usage` is read-only and not part of the access `integrity`: a client verifying it removes `usage` before hashing. History snapshots no longer expose the internal `calls` counters.
 - **Access integrity:** the [`integrity`](/reference/#data-structure-integrity) of an access that has been updated now verifies on the object the API returns (composite `id` and `modifiedBy`) with `@pryv/stable-object-representation`, in `accesses.update`, `accesses.get`, `accesses.getOne` (current version, older versions, `includeHistory`) and `accessDeletions`. Hashes of accesses never updated are unchanged. A copy returned without credentials (as in `accessDeletions`, or an app's listing of accesses it does not hold the token of) cannot be re-hashed by its receiver: a holder of the credentials verifies it after restoring them. With an `integrity.algorithm` other than `sha256`, event hashes computed by the storage layer and every check of `bin/integrity-check.js` now use the configured algorithm (they used sha256).
 - **Account storage:** [`storageUsed`](/reference/#data-structure-account) in `account.get` is now computed by the core itself, about 15 minutes after boot and then every `account.storageUsed.intervalHours` (new key, default `24`, `0` turns it off). Until now it read `0` for every account unless the operator scheduled `bin/nightly`. `attachedFiles` is in bytes, as before.
-- **Operators:** the stored hashes of updated accesses are recomputed once at upgrade. On PostgreSQL this is a migration run at boot by default; with `migrations.autoRunOnStart: false`, run `node bin/migrate.js up` (and check [`GET /system/migrations-status`](/reference-admin/#migrations-status)) before trusting `bin/integrity-check.js`, which until then reports the updated accesses as mismatches. On SQLite the recompute runs at the first start of this version. An operator who already schedules `bin/nightly` can keep it and set `account.storageUsed.intervalHours: 0`. The system call `system.getUserInfo` now reports in `callsDetail` the count of a method no longer registered (it reported `null`).
+- **Operators:** the stored hashes of updated accesses are recomputed once at upgrade. On PostgreSQL this is a migration run at boot by default; with `migrations.autoRunOnStart: false`, run `node bin/migrate.js up` (and check [`GET /system/migrations-status`](/reference-admin/#storage-migrations-status)) before trusting `bin/integrity-check.js`, which until then reports the updated accesses as mismatches. On SQLite the recompute runs at the first start of this version. An operator who already schedules `bin/nightly` can keep it and set `account.storageUsed.intervalHours: 0`. The system call `system.getUserInfo` now reports in `callsDetail` the count of a method no longer registered (it reported `null`).
 
 ## 2.0.0-rc.83
 
 Two additions, no breaking change; no new configuration key, no schema migration.
 
 - **Service info:** `features.passwordResetByEmail` (boolean) says whether a [password-reset request](/reference/#methods-account-account-requestPasswordReset) mails a reset link on this platform (reset mail switched on and mail configured). The request answers the same either way, so a client can now show "contact the platform operator" instead of "check your mailbox" where no mail is sent. Absent on older cores: treat as unknown.
-- **Operators:** new admin route [`GET /system/migrations-status`](/reference-admin/#migrations-status) (admin key) reports, per storage engine, the schema version recorded, the version the code expects and the migrations not applied yet, with `upToDate`. With `migrations.autoRunOnStart: false`, a deploy script runs `node bin/migrate.js up` and polls it before switching traffic.
+- **Operators:** new admin route [`GET /system/migrations-status`](/reference-admin/#storage-migrations-status) (admin key) reports, per storage engine, the schema version recorded, the version the code expects and the migrations not applied yet, with `upToDate`. With `migrations.autoRunOnStart: false`, a deploy script runs `node bin/migrate.js up` and polls it before switching traffic.
 
 ## 2.0.0-rc.82
 
@@ -69,7 +69,7 @@ An opt-in per-user OAuth issuer. No breaking change, no schema migration. As ann
 
 Address aliases: an account owner can mint addresses of the account other than its username, to give an app instead of the username. **Breaking (registration): a new username of the exact shape `a-` + 8 letters or digits is refused.** No new configuration key, no schema migration. As announced with 2.0.0-rc.73, **a later release is planned to default `oauth.audienceBoundSessions` to `true`**.
 
-- **Address aliases.** New owner-only methods [create](/reference/#methods-account-account-addressaliases-create), [list](/reference/#methods-account-account-addressaliases-list) and [delete](/reference/#methods-account-account-addressaliases-delete) an address alias (personal token only). The server mints the name (`a-` + 8 lower-case letters or digits), at most 10 per account. An address alias is an address of the account like its username: `https://<alias>.<domain>/` reaches the account's core.
+- **Address aliases.** New owner-only methods [create](/reference/#methods-account-account-addressAliases.create), [list](/reference/#methods-account-account-addressAliases.list) and [delete](/reference/#methods-account-account-addressAliases.delete) an address alias (personal token only). The server mints the name (`a-` + 8 lower-case letters or digits), at most 10 per account. An address alias is an address of the account like its username: `https://<alias>.<domain>/` reaches the account's core.
 - **OAuth consent at an address alias.** Under a `{username}` audience entry, a consent at `https://<alias>.<host>/...` adopts the alias for that client's grant: introspection `sub`, `api_base`, the token's address and its audience are the alias, never the username, and the tokens are used at that address only. One grant per alias: an alias another grant holds, another account's alias or a former username is refused (`403`, `reason: "audience-account-mismatch"`). A consent at the username over a grant that adopted an alias is a change of subject (`subjectChange`, to acknowledge). Deleting the alias, or withdrawing the grant, ends the app's sessions and refresh tokens. See [per-user resource addresses](/customer-resources/auth-oauth2/#per-user-resource-addresses).
 - **Usernames.** A new username of the shape `a-` + 8 letters or digits is refused at registration and at a username change (`/reg/{name}/check_username` reads it as reserved). Existing accounts keep their name. Operators: right after the upgrade, run `node bin/reconcile-user-cores.js --address-alias-shape` on each core (read only; 0 and 0 expected).
 - **Adapter routes:** an adapter that answers before reading a large upload (a `401` ahead of the body, for example) is relayed to the client instead of `502`.
@@ -732,8 +732,8 @@ First v2 preview — major consolidation and new features.
 - Toolkit at [`dev-migrate-v1-v2`](https://github.com/pryv/dev-migrate-v1-v2): exports v1 user data (MongoDB) and produces a v2-compatible backup directory that `bin/backup.js --restore` can import.
 
 **Access versioning**
-- `accesses.update` is **back** (was removed in early v2). `PUT /accesses/{id}` mutates the head, snapshots the prior state into history, and bumps the access's `serial`. Mutable fields: `name`, `deviceName`, `permissions`, `expireAfter` / `expires`, `clientData`. See [Update access](/reference/#accesses.update).
-- New `GET /accesses/{id}` ([Get one access](/reference/#accesses.getOne)) accepting either bare `<base>` or composite `<base>:<serial>` ids. Composite with an older serial returns the historical snapshot + a `current` hint. Pass `?includeHistory=true` for the full version history.
+- `accesses.update` is **back** (was removed in early v2). `PUT /accesses/{id}` mutates the head, snapshots the prior state into history, and bumps the access's `serial`. Mutable fields: `name`, `deviceName`, `permissions`, `expireAfter` / `expires`, `clientData`. See [Update access](/reference/#methods-accesses-accesses-update).
+- New `GET /accesses/{id}` ([Get one access](/reference/#methods-accesses-accesses-getOne)) accepting either bare `<base>` or composite `<base>:<serial>` ids. Composite with an older serial returns the historical snapshot + a `current` hint. Pass `?includeHistory=true` for the full version history.
 - Composite-id wire format: `access.id` / `access.createdBy` / `access.modifiedBy` now serialise as `<base>:<serial>` once an access has been updated at least once. Never-updated accesses still serialise as bare cuid — fully backwards-compatible. Use [`pryv.utils.parseAccessRef`](https://github.com/pryv/lib-js/blob/master/components/pryv/src/utils.js) (lib-js ≥ 3.1.0) to extract `{ base, serial }`.
 - Composite-id conflict: `accesses.update` and `accesses.delete` require the caller's `{id}` to match the current head's serial. A stale composite returns **`409 stale-resource`** with `data: { provided, currentSerial }`; refetch and retry.
 - New socket.io event `accessUpdated` fired after every successful `accesses.update`, alongside the existing coarse-grained `accessesChanged`. Payload: `{ type: 'access-updated', accessId: '<base>:<serial>', serial }`.
@@ -812,14 +812,14 @@ Changes:
 - Tags have been removed from Events. In Pryv.io platforms that contained them, they are migrated to streams, See `BACKWARD_COMPATIBILITY_TAGS` platform parameter in your platform configuration. The tags functionality is ensured by [Streams queries](/reference/#streams-query) for the [events.get](/reference/#get-events) API method.
 - Permission levels are computed differently: If a child stream has a different permission than a parent, its level is indeed applied on the child (instead of the higher permission taking precendence as was done before).
 - [Integrity hash](/reference/#data-structure-integrity) is computed for [Events, Attachments](/reference/#event) and [Accesses](/reference/#access). This functionality can be disabled.
-- Automated platform migration using the [migrations.get](/reference-admin/#retrieve-platform-migrations) and [migrations.apply](/reference-admin/#apply-configuration-migrations) API methods.
+- Automated platform migration using the `migrations.get` and `migrations.apply` methods of the admin service of that release (since replaced by the [Admin API](/reference-admin/)).
 
 
 ## 1.6.20
 
 New routes:
 
-- [Deactivate MFA](/reference-admin/#deactivate-mfa-for-user) for admin API, for when the user has lost his 2nd factor.
+- [Deactivate MFA](/reference-admin/#deactivate-a-users-mfa) for admin API, for when the user has lost his 2nd factor.
 
 
 ## 1.6.19
@@ -955,7 +955,7 @@ New features:
  - Auth request now accepts a custom `serviceInfo` object, which is returned by the polling url. In case of success, a `pryvApiEndpoint` field is returned. See [Auth request](/reference/#auth-request) for more details.
  - Add `create-only` permission level. See the [Access data structure](/reference/#access) for more details.
  - Add multi-factor authentication for login using the optional MFA service. See the [MFA API methods](/reference/#multi-factor-authentication) for more details.
- - Add auditing capabilities through the Audit API. See the [Audit API methods](/reference/#audit) for more details.
+ - Add auditing capabilities through the Audit API. See the [audit logs guide](/guides/audit-logs/) for more details.
  - Pryv.io API now supports the Basic HTTP Authorization scheme.
  - Release of webhooks to notify of data changes. See Webhook [data structure](/reference/#webhook) and [methods](/reference/#webhooks) for more details.
  - Add route `/service/info` that provides a unified way for third party services to access the necessary information related to a Pryv.io platform. See [description](/reference/#service-info) for more details.
@@ -963,7 +963,7 @@ New features:
 
 Changes:
 
- - Enrich [access-info](/reference/#get-current-access-info) result with exhaustive access properties.
+ - Enrich [access-info](/reference/#access-info) result with exhaustive access properties.
  - Improve the update account API call, in particular when it applies a change of email address. It now correctly checks if the email address is not already in use before updating the account and throws consistent errors.
 
 Deprecated:

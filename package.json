@@ -18,6 +18,7 @@
     "gate:reference": "node scripts/gate-reference.cjs",
     "gate:openapi": "node scripts/gate-openapi.mjs",
     "gate:openapi:dist": "node scripts/gate-openapi.mjs --dist",
+    "gate:anchors": "node scripts/gate-anchors.mjs",
     "typecheck": "astro check"
   },
   "dependencies": {

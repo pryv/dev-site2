@@ -209,7 +209,7 @@ There are three main access types - **personal**, **app** and **shared** - that 
 
 Accesses are not systematically set with an expiry date. The optional field `expireAfter` of an [Access token](/reference/#access) allows you to set an expiry date for the token if you want to.
 
-If you are concerned with the security of the access, we provide you with monitoring tools to detect fraudulent use of tokens [here](/reference/#audit).
+If you are concerned with the security of the access, we provide you with monitoring tools to detect fraudulent use of tokens: see the [audit logs guide](/guides/audit-logs/).
 
 ### How can I access Pryv.io resources from another app?
 
