@@ -1627,6 +1627,50 @@ module.exports = exports =
                         `ok` on success.
                         """
           ]
+      ,
+
+        id: "dns.records.delete"
+        type: "method"
+        title: "Delete DNS records"
+        http: "DELETE /reg/records/{subdomain}"
+        httpOnly: true
+        adminOnly: true
+        server: "register"
+        description: """
+                    Admin endpoint removing the runtime DNS entries of a subdomain set with [update DNS records](#update-dns-records). The removal is persisted to PlatformDB and propagated to all cores in a multi-core deployment. Requires admin authorization (a missing or wrong key answers `404`, like the other admin routes).
+                    """
+        params:
+          properties: [
+            key: "subdomain"
+            type: "string"
+            http:
+              text: "set in request path"
+            description: """
+                        The subdomain whose records are removed.
+                        """
+          ]
+        result:
+          http: "200 OK"
+          properties: [
+            key: "subdomain"
+            type: "string"
+            description: """
+                        The subdomain.
+                        """
+          ,
+            key: "status"
+            type: "string"
+            description: """
+                        `deleted` on success.
+                        """
+          ]
+        errors: [
+          key: "unknown-resource"
+          http: "404"
+          description: """
+                      No DNS record for this subdomain (or the admin key is missing or wrong).
+                      """
+        ]
       ]
     ,
 

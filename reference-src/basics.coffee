@@ -1245,6 +1245,30 @@ module.exports = exports =
                      The `events.get` method in batch or websocket call yielded too many results. Call the API method directly, narrow the request scope or page the request.
                      """
       ,
+        key: "payload-too-large"
+        http: "413"
+        description: """
+                     The request is larger than the platform accepts: an attached file over the upload size limit, an oversized access request body, or an image with too many pixels to be previewed.
+                     """
+      ,
+        key: "missing-header"
+        http: "400"
+        description: """
+                     A required HTTP header is missing, e.g. `Content-Type` on a request with a body, or the authorization header of a High-Frequency series call (answered `401` on a series query).
+                     """
+      ,
+        key: "unsupported-content-type"
+        http: "415"
+        description: """
+                     The request's `Content-Type` is not one the method accepts (`application/json`, and for some methods `application/x-www-form-urlencoded` or `multipart/form-data`).
+                     """
+      ,
+        key: "unavailable-method"
+        http: "451"
+        description: """
+                     The method is switched off on this platform (e.g. account auto-deletion, account transfers without account delegation, shared secrets).
+                     """
+      ,
         key: "user-account-relocated"
         http: "301"
         description: """

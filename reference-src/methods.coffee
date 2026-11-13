@@ -1149,7 +1149,13 @@ module.exports = exports =
         key: "invalid-operation"
         http: "400"
         description: """
-                     The referenced stream is in the trash, and we prevent the recording of new events into trashed streams.
+                     The referenced stream is in the trash, and we prevent the recording of new events into trashed streams. Also answered for an event in an [account stream](/customer-resources/system-streams/) that breaks its rules: the event names more than one account stream, or another stream next to it; the account field is not editable; the account field is the email (change it with [update account information](##{_getDocId("account", "account.update")})).
+                     """
+      ,
+        key: "invalid-event-type"
+        http: "400"
+        description: """
+                     The type starts with `series:` but is not a known High-Frequency series type (`data.type`): free types cannot use that prefix.
                      """
       ]
       examples: [
@@ -1204,7 +1210,19 @@ module.exports = exports =
                        The updated event.
                        """
         ]
-      errors: []
+      errors: [
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The update turns a normal event into a High-Frequency series event or the reverse, or breaks the rules of an [account stream](/customer-resources/system-streams/): the event would be in more than one account stream, or in another stream next to it; it would move from one account stream to another; the account field is not editable; the account field is the email (change it with [update account information](##{_getDocId("account", "account.update")})).
+                     """
+      ,
+        key: "invalid-event-type"
+        http: "400"
+        description: """
+                     The new type starts with `series:` but is not a known High-Frequency series type (`data.type`): free types cannot use that prefix.
+                     """
+      ]
       examples: [
         title: "Changing streams"
         params:
@@ -2077,6 +2095,8 @@ module.exports = exports =
         http: "400"
         description: """
                      With `randomAlias`: the account already holds `accesses.maxAliasesPerAccount` aliases (`data: { maxAliasesPerAccount }`). Delete the accesses the account no longer uses (an expired access keeps its alias until it is deleted), or create the access without `randomAlias`. No alias is reserved by a refused request.
+
+                     Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold (`data.param` names the stream id): an unknown account stream, a hidden account stream, a level other than `read` or `none` on an account field or on the account root stream.
                      """
       ]
       examples: [
@@ -2154,7 +2174,7 @@ module.exports = exports =
         key: "invalid-operation"
         http: "400"
         description: """
-                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections.
+                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections. Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold, as for [create access](##{_getDocId("accesses", "accesses.create")}).
                      """
       ,
         key: "forbidden"
@@ -3112,6 +3132,13 @@ module.exports = exports =
                        The updated account information.
                        """
         ]
+      errors: [
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The update names an account field that is not editable (`data.field`), or an `emails` operation is refused (`data.email`; see the [email verification guide](/guides/email-verification/)).
+                     """
+      ]
       examples: [
         params:
           email: examples.users.two.email
