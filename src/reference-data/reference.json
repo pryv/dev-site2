@@ -3176,7 +3176,7 @@
               "title": "Get accesses",
               "v2Tag": true,
               "http": "GET /accesses",
-              "description": "Gets accesses that were created by your access token, unless you're using a personal token then it returns all accesses.\nOnly returns accesses that are active when making the request. To include accesses that have expired or were deleted, use\nthe `includeExpired` or `includeDeletions` parameters respectively.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) also lists all accesses, but receives `token` and `apiEndpoint` only for itself and for the accesses it created; the other accesses are returned without them.\n\nIn v2 the returned `id`, `createdBy`, and `modifiedBy` fields use the composite reference format `<base>:<serial>` for accesses that have been updated at least once. Never-updated accesses still serialise as bare cuid (`<base>`) for full backwards-compatibility. Parse with `pryv.utils.parseAccessRef(ref)` if you need to extract the version.",
+              "description": "Gets accesses that were created by your access token, unless you're using a personal token then it returns all accesses.\nOnly returns accesses that are active when making the request. To include accesses that have expired or were deleted, use\nthe `includeExpired` or `includeDeletions` parameters respectively.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) also lists all accesses, but receives `token` and `apiEndpoint` only for itself and for the accesses it created; the other accesses are returned without them.\n\nIn v2 the returned `id`, `createdBy`, and `modifiedBy` fields use the composite reference format `<base>:<serial>` for accesses that have been updated at least once. Never-updated accesses still serialise as bare cuid (`<base>`) for full backwards-compatibility. Parse with `pryv.utils.parseAccessRef(ref)` if you need to extract the version.\n\nCalled with a personal access (the account owner's, or a delegate's personal access), every access listed, deletion records (`includeDeletions`) included, carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](#data-structure-access) structure). `usage` is absent when access tracking is off on the platform (`accessTracking.isActive`), and app and shared callers never receive it (an app reads its own counters with [Access info](#methods-getAccessInfo)). Available from 2.0.0-rc.84.",
               "params": {
                 "properties": [
                   {
@@ -3289,7 +3289,7 @@
               "title": "Get one access",
               "v2Tag": true,
               "http": "GET /accesses/{id}",
-              "description": "Returns the access identified by `{id}`. The id can be either:\n\n- **bare** `<base>`, returns the current head row.\n- **composite** `<base>:<serial>` matching the current head's serial, returns the current head row.\n- **composite** `<base>:<serial>` referring to an *older* serial, returns the historical snapshot from that version, alongside a `current` hint pointing at the live head's composite id. Mirrors GitHub's `GET /repos/X/Y/commits/<sha>` behaviour for ref-by-version.\n- any other id (unknown base, or a serial that never existed), `404 unknown-resource`.\n\nPass `?includeHistory=true` to also return the full chronological history of the access (oldest first) in a `history` array. Default `false`, the singular case covers the typical \"audit this access\" use case without the list-side overhead.\n\nApp callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.",
+              "description": "Returns the access identified by `{id}`. The id can be either:\n\n- **bare** `<base>`, returns the current head row.\n- **composite** `<base>:<serial>` matching the current head's serial, returns the current head row.\n- **composite** `<base>:<serial>` referring to an *older* serial, returns the historical snapshot from that version, alongside a `current` hint pointing at the live head's composite id. Mirrors GitHub's `GET /repos/X/Y/commits/<sha>` behaviour for ref-by-version.\n- any other id (unknown base, or a serial that never existed), `404 unknown-resource`.\n\nPass `?includeHistory=true` to also return the full chronological history of the access (oldest first) in a `history` array. Default `false`, the singular case covers the typical \"audit this access\" use case without the list-side overhead.\n\nApp callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.\n\nCalled with a personal access (the account owner's, or a delegate's personal access), the current head carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](#data-structure-access) structure). An older version (a composite id with an earlier serial) and the `history` snapshots carry none. `usage` is absent when access tracking is off on the platform, and app and shared callers never receive it. Available from 2.0.0-rc.84.",
               "params": {
                 "properties": [
                   {
@@ -3648,12 +3648,12 @@
             "properties": [
               {
                 "key": "calls",
-                "type": "[key-value](#methods-key-value-)",
+                "type": "[key-value](#data-structure-key-value)",
                 "description": "A map of API methods and the number of time each of them was called using the current access."
               },
               {
                 "key": "user",
-                "type": "[key-value](#methods-key-value-)",
+                "type": "[key-value](#data-structure-key-value)",
                 "description": "A map of user account properties. `user.username` is the access's `alias` when it has one (the real username is never reported to an aliased access), otherwise the account's current username, also for an access issued before a username change and called under the former name."
               },
               {
@@ -5357,7 +5357,7 @@
                             "key": "delegate",
                             "type": "[timestamp](#data-structure-timestamp)",
                             "nullable": true,
-                            "description": "Latest use of the own token of a [delegate](#methods-delegations-) of the account: it counts as use of the account."
+                            "description": "Latest use of the own token of a [delegate](#methods-delegations) of the account: it counts as use of the account."
                           },
                           {
                             "key": "max",
@@ -5628,7 +5628,7 @@
                             "key": "delegate",
                             "type": "[timestamp](#data-structure-timestamp)",
                             "nullable": true,
-                            "description": "Latest use of the own token of a [delegate](#methods-delegations-) of the account: it counts as use of the account."
+                            "description": "Latest use of the own token of a [delegate](#methods-delegations) of the account: it counts as use of the account."
                           },
                           {
                             "key": "max",
@@ -7138,6 +7138,45 @@
               "description": "The time the access was last used."
             },
             {
+              "key": "usage",
+              "type": "object",
+              "optional": true,
+              "readOnly": true,
+              "description": "Approximate lifetime call counts of the access, per method and summed by class (from 2.0.0-rc.84). Returned only to a personal access (the account owner's, or a delegate's personal access) by [get accesses](#methods-accesses-accesses-get) (deletion records included) and [get one access](#methods-accesses-accesses-getOne) (current head only, never on an older version or a `history` snapshot); absent when access tracking is off on the platform (`accessTracking.isActive`), and never returned to app or shared callers. Refused at creation and update.\n\nThe counts are approximate, not a billing figure: they are written asynchronously after each reply (a call can go uncounted if the server stops in between), and a [batch call](#methods-callBatch) counts its inner calls, never itself. An access that was never used reports zeros.\n\nClasses, first match wins (`last` is the part of the method id after its last dot; a method id without a dot is its own `last`):\n1. `auth.*`, `mfa.*`, `oauth.*`, `sso.*` are `session`;\n2. `read` when `last` starts with `get`, `list`, `check` or `retrieve`, or is `info`, `usernameChanges`, `controlledStatus` or `extIdHolds`;\n3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;\n4. anything else is `other`.\n\n`usage` is not part of the access's [integrity](#data-structure-integrity): a client verifying it removes `usage` before hashing, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either.",
+              "properties": [
+                {
+                  "key": "total",
+                  "type": "number",
+                  "description": "The sum of every counted call."
+                },
+                {
+                  "key": "reads",
+                  "type": "number",
+                  "description": "Calls of the `read` class."
+                },
+                {
+                  "key": "writes",
+                  "type": "number",
+                  "description": "Calls of the `write` class."
+                },
+                {
+                  "key": "session",
+                  "type": "number",
+                  "description": "Calls of the `session` class."
+                },
+                {
+                  "key": "other",
+                  "type": "number",
+                  "description": "Calls of no other class."
+                },
+                {
+                  "key": "byMethod",
+                  "type": "object",
+                  "description": "The count per method, keyed by method id, e.g. `{ \"events.get\": 12, \"events.create\": 3 }`."
+                }
+              ]
+            },
+            {
               "key": "expireAfter",
               "type": "number",
               "optional": true,
@@ -7270,7 +7309,7 @@
             {
               "key": "storageUsed",
               "type": "object",
-              "description": "The current storage size used by the user account.",
+              "description": "The storage size used by the user account, as last computed: the core computes it in the background, about 15 minutes after it starts and then periodically (daily by default), so it does not reflect the most recent changes. Before 2.0.0-rc.84, both figures stayed at `0` unless the platform operator scheduled that computation.",
               "properties": [
                 {
                   "key": "dbDocuments",
@@ -7624,7 +7663,7 @@
         {
           "id": "integrity",
           "title": "Integrity",
-          "description": "An integrity hash computed from the JSON object it is contained in.\nThe hash is prefixed with the data structure it is computed for, as well as a representation version.",
+          "description": "An integrity hash computed from the JSON object it is contained in.\nThe hash is prefixed with the data structure it is computed for, as well as a representation version.\n\nThe integrity of an access verifies on the object the API returns, also after the access has been updated (from 2.0.0-rc.84): hash it with `@pryv/stable-object-representation` once `usage` is removed (the library itself leaves out `integrity`, `lastUsed`, `calls` and `apiEndpoint`). A copy returned without credentials (token removed, counterparty URLs rewritten, as in `accessDeletions` or an app's listing of accesses it does not hold the token of) cannot be re-hashed by its receiver: the value is the server's record, which a holder of the credentials can verify after restoring them.",
           "examples": [
             {
               "title": "A hash computed for an event with representation version 0:",
@@ -8938,7 +8977,7 @@
                       "key": "handoff",
                       "type": "object",
                       "optional": true,
-                      "description": "(When `ACCEPTED` and the request asked for `credentialHandoff`) A one-time credential hand-off in place of `token`, shaped `{ \"type\": \"shared-secret\", \"key\": \"<eventId>.<random>\" }`. Retrieve the credential exactly once with `POST {apiEndpoint}shared-secrets/retrieve` (body `{ \"key\": \"<key>\" }`, unauthenticated), which returns `{ \"secret\": { \"username\", \"token\", \"apiEndpoint\" } }`; a second retrieve answers `403 shared-secret-unavailable`. See [Shared secrets](#shared-secrets)."
+                      "description": "(When `ACCEPTED` and the request asked for `credentialHandoff`) A one-time credential hand-off in place of `token`, shaped `{ \"type\": \"shared-secret\", \"key\": \"<eventId>.<random>\" }`. Retrieve the credential exactly once with `POST {apiEndpoint}shared-secrets/retrieve` (body `{ \"key\": \"<key>\" }`, unauthenticated), which returns `{ \"secret\": { \"username\", \"token\", \"apiEndpoint\" } }`; a second retrieve answers `403 shared-secret-unavailable`. See [Shared secrets](/reference/#methods-shared-secrets)."
                     },
                     {
                       "key": "cmcInvites",

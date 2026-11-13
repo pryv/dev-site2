@@ -361,6 +361,61 @@ module.exports = exports =
       readOnly: true
       description: "The time the access was last used."
     ,
+      key: "usage"
+      type: "object"
+      optional: true
+      readOnly: true
+      description: """
+                   Approximate lifetime call counts of the access, per method and summed by class (from 2.0.0-rc.84). Returned only to a personal access (the account owner's, or a delegate's personal access) by [get accesses](#methods-accesses-accesses-get) (deletion records included) and [get one access](#methods-accesses-accesses-getOne) (current head only, never on an older version or a `history` snapshot); absent when access tracking is off on the platform (`accessTracking.isActive`), and never returned to app or shared callers. Refused at creation and update.
+
+                   The counts are approximate, not a billing figure: they are written asynchronously after each reply (a call can go uncounted if the server stops in between), and a [batch call](#methods-callBatch) counts its inner calls, never itself. An access that was never used reports zeros.
+
+                   Classes, first match wins (`last` is the part of the method id after its last dot; a method id without a dot is its own `last`):
+                   1. `auth.*`, `mfa.*`, `oauth.*`, `sso.*` are `session`;
+                   2. `read` when `last` starts with `get`, `list`, `check` or `retrieve`, or is `info`, `usernameChanges`, `controlledStatus` or `extIdHolds`;
+                   3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;
+                   4. anything else is `other`.
+
+                   `usage` is not part of the access's [integrity](##{_getDocId("integrity")}): a client verifying it removes `usage` before hashing, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either.
+                   """
+      properties: [
+        key: "total"
+        type: "number"
+        description: """
+                     The sum of every counted call.
+                     """
+      ,
+        key: "reads"
+        type: "number"
+        description: """
+                     Calls of the `read` class.
+                     """
+      ,
+        key: "writes"
+        type: "number"
+        description: """
+                     Calls of the `write` class.
+                     """
+      ,
+        key: "session"
+        type: "number"
+        description: """
+                     Calls of the `session` class.
+                     """
+      ,
+        key: "other"
+        type: "number"
+        description: """
+                     Calls of no other class.
+                     """
+      ,
+        key: "byMethod"
+        type: "object"
+        description: """
+                     The count per method, keyed by method id, e.g. `{ "events.get": 12, "events.create": 3 }`.
+                     """
+      ]
+    ,
       key: "expireAfter"
       type: "number"
       optional: true
@@ -447,7 +502,7 @@ module.exports = exports =
       key: "storageUsed"
       type: "object"
       description: """
-                   The current storage size used by the user account.
+                   The storage size used by the user account, as last computed: the core computes it in the background, about 15 minutes after it starts and then periodically (daily by default), so it does not reflect the most recent changes. Before 2.0.0-rc.84, both figures stayed at `0` unless the platform operator scheduled that computation.
                    """
       properties: [
         key: "dbDocuments"
@@ -874,6 +929,8 @@ module.exports = exports =
     description: """
                  An integrity hash computed from the JSON object it is contained in.
                  The hash is prefixed with the data structure it is computed for, as well as a representation version.
+
+                 The integrity of an access verifies on the object the API returns, also after the access has been updated (from 2.0.0-rc.84): hash it with `@pryv/stable-object-representation` once `usage` is removed (the library itself leaves out `integrity`, `lastUsed`, `calls` and `apiEndpoint`). A copy returned without credentials (token removed, counterparty URLs rewritten, as in `accessDeletions` or an app's listing of accesses it does not hold the token of) cannot be re-hashed by its receiver: the value is the server's record, which a holder of the credentials can verify after restoring them.
                  """
     examples: [
       title: "A hash computed for an event with representation version 0:"

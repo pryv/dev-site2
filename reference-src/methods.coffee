@@ -90,7 +90,7 @@ _autoDeletionResult =
         type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
         nullable: true
         description: """
-                     Latest use of the own token of a [delegate](##{_getDocId("delegations")}) of the account: it counts as use of the account.
+                     Latest use of the own token of a [delegate](##{helpers.getDocId("methods", "delegations")}) of the account: it counts as use of the account.
                      """
       ,
         key: "max"
@@ -1903,6 +1903,8 @@ module.exports = exports =
                    A delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) also lists all accesses, but receives `token` and `apiEndpoint` only for itself and for the accesses it created; the other accesses are returned without them.
 
                    In v2 the returned `id`, `createdBy`, and `modifiedBy` fields use the composite reference format `<base>:<serial>` for accesses that have been updated at least once. Never-updated accesses still serialise as bare cuid (`<base>`) for full backwards-compatibility. Parse with `pryv.utils.parseAccessRef(ref)` if you need to extract the version.
+
+                   Called with a personal access (the account owner's, or a delegate's personal access), every access listed, deletion records (`includeDeletions`) included, carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](##{dataStructure.getDocId("access")}) structure). `usage` is absent when access tracking is off on the platform (`accessTracking.isActive`), and app and shared callers never receive it (an app reads its own counters with [Access info](#methods-getAccessInfo)). Available from 2.0.0-rc.84.
                    """
       params:
         properties: [
@@ -1971,6 +1973,8 @@ module.exports = exports =
                    App callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.
 
                    A delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.
+
+                   Called with a personal access (the account owner's, or a delegate's personal access), the current head carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](##{dataStructure.getDocId("access")}) structure). An older version (a composite id with an earlier serial) and the `history` snapshots carry none. `usage` is absent when access tracking is off on the platform, and app and shared callers never receive it. Available from 2.0.0-rc.84.
                    """
       params:
         properties: [
@@ -2300,11 +2304,11 @@ module.exports = exports =
             """
       properties: [
         key: "calls"
-        type: "[key-value](##{_getDocId("key-value")})"
+        type: "[key-value](##{dataStructure.getDocId("key-value")})"
         description: "A map of API methods and the number of time each of them was called using the current access."
       ,
         key: "user"
-        type: "[key-value](##{_getDocId("key-value")})"
+        type: "[key-value](##{dataStructure.getDocId("key-value")})"
         description: """
                      A map of user account properties. `user.username` is the access's `alias` when it has one (the real username is never reported to an aliased access), otherwise the account's current username, also for an access issued before a username change and called under the former name.
                      """

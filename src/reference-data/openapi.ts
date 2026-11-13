@@ -50,7 +50,6 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'[access](#data-structure-access)': () => ref('access'),
 	'[webhook](#data-structure-webhook)': () => ref('webhook'),
 	'[key-value](#data-structure-key-value)': () => ref('key-value'),
-	'[key-value](#methods-key-value-)': () => ref('key-value'),
 	'[item deletion](#data-structure-item-deletion)': () => ref('item-deletion'),
 	'[external id](#data-structure-external-id)': () => ref('external-id'),
 	'[integrity](#data-structure-integrity)': () => ref('integrity'),
