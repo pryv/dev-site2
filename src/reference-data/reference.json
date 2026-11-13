@@ -4643,7 +4643,7 @@
               "type": "method",
               "title": "Get account information",
               "http": "GET /account",
-              "description": "**(DEPRECATED)** Please use events methods instead.\n\nRetrieves the user's account information.",
+              "description": "Retrieves the user's account information. Most account fields can also be read as events of the account streams.",
               "result": {
                 "http": "200 OK",
                 "properties": [
@@ -4676,7 +4676,7 @@
               "type": "method",
               "title": "Update account information",
               "http": "PUT /account",
-              "description": "**(DEPRECATED)** Please use events methods instead.\n\nModifies the user's account information.",
+              "description": "Modifies the user's account information, including the `emails` operations (see the errors below). Editable account fields can also be changed as events of the account streams.",
               "params": {
                 "properties": [
                   {
@@ -8885,7 +8885,7 @@
                 },
                 "errors": [
                   {
-                    "key": "UNKNOWN_EMAIL",
+                    "key": "unknown-email",
                     "http": "404",
                     "description": "The given email address is unknown (unregistered)."
                   }

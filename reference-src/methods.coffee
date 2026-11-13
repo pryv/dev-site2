@@ -3083,9 +3083,7 @@ module.exports = exports =
       title: "Get account information"
       http: "GET /account"
       description: """
-                   **(DEPRECATED)** Please use events methods instead.
-
-                   Retrieves the user's account information.
+                   Retrieves the user's account information. Most account fields can also be read as events of the account streams.
                    """
       result:
         http: "200 OK"
@@ -3109,9 +3107,7 @@ module.exports = exports =
       title: "Update account information"
       http: "PUT /account"
       description: """
-                   **(DEPRECATED)** Please use events methods instead.
-
-                   Modifies the user's account information.
+                   Modifies the user's account information, including the `emails` operations (see the errors below). Editable account fields can also be changed as events of the account streams.
                    """
       params:
         properties: [

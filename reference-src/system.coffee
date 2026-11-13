@@ -1023,7 +1023,7 @@ module.exports = exports =
                         """
           ]
         errors: [
-          key: "UNKNOWN_EMAIL"
+          key: "unknown-email"
           http: "404"
           description: """
                       The given email address is unknown (unregistered).
