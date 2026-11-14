@@ -2928,7 +2928,9 @@ module.exports = exports =
                    The answer has one bucket per period of the range, zeros included, in ascending order. The
                    range is not widened: the first and last buckets may be partial, and the first bucket's
                    `time` can be earlier than `fromTime`. A range spans at most 750 buckets (31 days by hour,
-                   about 2 years by day). Summaries of one account run one at a time.
+                   about 2 years by day). Summaries of one account run one at a time, and only a few run at
+                   once on a server: a call that cannot get its turn soon is refused rather than kept
+                   waiting.
                    """
       params:
         properties: [
@@ -3005,7 +3007,8 @@ module.exports = exports =
         key: "too-many-requests"
         http: "429"
         description: """
-                     Several summaries of the account are already pending; retry later.
+                     Too many summaries are pending (for the account or on the server), or the summary was
+                     interrupted: retry later. No partial answer is given.
                      """
       ,
         key: "unavailable-method"

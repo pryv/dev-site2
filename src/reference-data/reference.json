@@ -4470,7 +4470,7 @@
               "type": "method",
               "title": "Get audit summary",
               "http": "GET /audit/summary",
-              "description": "Counts the account's audit rows per hour, day or week over `[fromTime, toTime)`, by method\nclass, with the failed calls as an overlay: an activity chart over any range without\nlisting the rows. Personal accesses only (the account owner's, or a delegate's personal\naccess). Available from 2.0.0-rc.85.\n\nEach row counts in one class of its method id, whatever its outcome: `reads`, `writes`,\n`session` or `other`, the classes of `usage` in the [access](#data-structure-access)\nstructure; `total` is their sum. `errors` counts the failed calls among them (a failed\n`events.get` is one read and one error). The batch envelope (`callBatch`) is not counted;\nthe calls inside a batch are. The figures cover what the platform records: methods the\noperator's audit filter leaves out are not counted, so they can differ from an access's\nlifetime `usage` counters. The summary never counts a row that\n[events.get](#methods-events-events-get) would not list to the same caller.\n\nThe answer has one bucket per period of the range, zeros included, in ascending order. The\nrange is not widened: the first and last buckets may be partial, and the first bucket's\n`time` can be earlier than `fromTime`. A range spans at most 750 buckets (31 days by hour,\nabout 2 years by day). Summaries of one account run one at a time.",
+              "description": "Counts the account's audit rows per hour, day or week over `[fromTime, toTime)`, by method\nclass, with the failed calls as an overlay: an activity chart over any range without\nlisting the rows. Personal accesses only (the account owner's, or a delegate's personal\naccess). Available from 2.0.0-rc.85.\n\nEach row counts in one class of its method id, whatever its outcome: `reads`, `writes`,\n`session` or `other`, the classes of `usage` in the [access](#data-structure-access)\nstructure; `total` is their sum. `errors` counts the failed calls among them (a failed\n`events.get` is one read and one error). The batch envelope (`callBatch`) is not counted;\nthe calls inside a batch are. The figures cover what the platform records: methods the\noperator's audit filter leaves out are not counted, so they can differ from an access's\nlifetime `usage` counters. The summary never counts a row that\n[events.get](#methods-events-events-get) would not list to the same caller.\n\nThe answer has one bucket per period of the range, zeros included, in ascending order. The\nrange is not widened: the first and last buckets may be partial, and the first bucket's\n`time` can be earlier than `fromTime`. A range spans at most 750 buckets (31 days by hour,\nabout 2 years by day). Summaries of one account run one at a time, and only a few run at\nonce on a server: a call that cannot get its turn soon is refused rather than kept\nwaiting.",
               "params": {
                 "properties": [
                   {
@@ -4532,7 +4532,7 @@
                 {
                   "key": "too-many-requests",
                   "http": "429",
-                  "description": "Several summaries of the account are already pending; retry later."
+                  "description": "Too many summaries are pending (for the account or on the server), or the summary was\ninterrupted: retry later. No partial answer is given."
                 },
                 {
                   "key": "unavailable-method",
