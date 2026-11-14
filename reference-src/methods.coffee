@@ -2895,6 +2895,131 @@ module.exports = exports =
 
   ,
 
+    id: "audit"
+    title: "Audit"
+    description: """
+                 The audit trail of an account records each API call made on it. Its rows are read with
+                 [events.get](##{_getDocId("events", "events.get")}) on the `:_audit:` streams
+                 (`:_audit:access-{accessId}`, `:_audit:action-{methodId}`); the method below computes counts
+                 over them. On a platform where the operator has switched the audit trail off, it answers
+                 `451 unavailable-method`.
+                 """
+    sections: [
+
+      id: "audit.getSummary"
+      type: "method"
+      title: "Get audit summary"
+      http: "GET /audit/summary"
+      description: """
+                   Counts the account's audit rows per hour, day or week over `[fromTime, toTime)`, by method
+                   class, with the failed calls as an overlay: an activity chart over any range without
+                   listing the rows. Personal accesses only (the account owner's, or a delegate's personal
+                   access). Available from 2.0.0-rc.85.
+
+                   Each row counts in one class of its method id, whatever its outcome: `reads`, `writes`,
+                   `session` or `other`, the classes of `usage` in the [access](##{dataStructure.getDocId("access")})
+                   structure; `total` is their sum. `errors` counts the failed calls among them (a failed
+                   `events.get` is one read and one error). The batch envelope (`callBatch`) is not counted;
+                   the calls inside a batch are. The figures cover what the platform records: methods the
+                   operator's audit filter leaves out are not counted, so they can differ from an access's
+                   lifetime `usage` counters. The summary never counts a row that
+                   [events.get](##{_getDocId("events", "events.get")}) would not list to the same caller.
+
+                   The answer has one bucket per period of the range, zeros included, in ascending order. The
+                   range is not widened: the first and last buckets may be partial, and the first bucket's
+                   `time` can be earlier than `fromTime`. A range spans at most 750 buckets (31 days by hour,
+                   about 2 years by day). Summaries of one account run one at a time.
+                   """
+      params:
+        properties: [
+          key: "fromTime"
+          type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
+          description: """
+                       Start of the range (included).
+                       """
+        ,
+          key: "toTime"
+          type: "[timestamp](##{dataStructure.getDocId("timestamp")})"
+          optional: true
+          description: """
+                       End of the range (excluded); must be later than `fromTime`. Default: now.
+                       """
+        ,
+          key: "bucket"
+          type: "`hour`|`day`|`week`"
+          description: """
+                       The period of a bucket. Weeks start on Monday.
+                       """
+        ,
+          key: "timezone"
+          type: "string"
+          optional: true
+          description: """
+                       IANA time zone name (e.g. `Europe/Zurich`) in which buckets are aligned: local hours,
+                       local midnights, local Mondays. A day is 23 or 25 hours long across a daylight saving
+                       change. Default: `UTC`.
+                       """
+        ,
+          key: "accessIds"
+          type: "array of [identifier](##{dataStructure.getDocId("identifier")})"
+          optional: true
+          description: """
+                       Count only the rows of these accesses (1 to 50 ids, letters, digits, `_`, `:` and `-`).
+                       A base id counts every version of the access; a composite id (`{id}:{serial}`) that
+                       version only. A row matching several ids counts once; an unknown id counts nothing.
+                       Default: the whole trail.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "summary"
+          type: "object"
+          description: """
+                       `{ bucket, timezone, fromTime, toTime, buckets }`: the effective parameters, and
+                       `buckets`, an array of `{ time, total, reads, writes, session, other, errors }` where
+                       `time` is the bucket's start.
+                       """
+        ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     A parameter is missing or malformed, the time zone is unknown, `toTime` is not later than
+                     `fromTime`, or the range spans more than 750 buckets (`data.maxBuckets`).
+                     """
+      ,
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The access is not a personal access.
+                     """
+      ,
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     The range holds too many audit rows to be summarised in one call
+                     (`data.reason: 'summary-too-large'`): ask for a shorter range. No partial answer is given.
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     Several summaries of the account are already pending; retry later.
+                     """
+      ,
+        key: "unavailable-method"
+        http: "451"
+        description: """
+                     The audit trail is switched off on this platform.
+                     """
+      ]
+      examples: []
+
+    ]
+
+  ,
+
     id: "profile"
     title: "Profile sets"
     description: """

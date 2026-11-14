@@ -105,6 +105,7 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'`owner`|`delegate`': () => enumOf('owner', 'delegate'),
 	'`date`|`inactivity`|`minimum-notice`': () => enumOf('date', 'inactivity', 'minimum-notice'),
 	'`available`|`no-email`|`not-configured`': () => enumOf('available', 'no-email', 'not-configured'),
+	'`hour`|`day`|`week`': () => enumOf('hour', 'day', 'week'),
 };
 
 /** The type strings the generator knows (the gate checks the reference against it). */

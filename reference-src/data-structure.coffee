@@ -376,6 +376,8 @@ module.exports = exports =
                    3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;
                    4. anything else is `other`.
 
+                   The same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.85).
+
                    `usage` is not part of the access's [integrity](##{_getDocId("integrity")}): a client verifying it removes `usage` before hashing, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either.
                    """
       properties: [
