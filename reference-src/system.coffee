@@ -1627,6 +1627,31 @@ module.exports = exports =
                         `ok` on success.
                         """
           ]
+        errors: [
+          key: "invalid-parameters"
+          http: "400"
+          description: """
+                      The body is not an object, `subdomain` or `records` is missing or of the wrong type, or the record is not a valid DNS record (the message names the first problem).
+                      """
+        ,
+          key: "unknown-resource"
+          http: "404"
+          description: """
+                      The admin key is missing or wrong.
+                      """
+        ,
+          key: "item-already-exists"
+          http: "409"
+          description: """
+                      The subdomain has no record yet and an account holds that name.
+                      """
+        ,
+          key: "unexpected-error"
+          http: "500"
+          description: """
+                      The record could not be stored.
+                      """
+        ]
       ,
 
         id: "dns.records.delete"
@@ -1669,6 +1694,12 @@ module.exports = exports =
           http: "404"
           description: """
                       No DNS record for this subdomain (or the admin key is missing or wrong).
+                      """
+        ,
+          key: "unexpected-error"
+          http: "500"
+          description: """
+                      The record could not be removed.
                       """
         ]
       ]
