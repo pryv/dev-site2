@@ -378,7 +378,7 @@ module.exports = exports =
 
                    The same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.85).
 
-                   `usage` is not part of the access's [integrity](##{_getDocId("integrity")}): a client verifying it removes `usage` before hashing, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either.
+                   `usage` is not part of the access's [integrity](##{_getDocId("integrity")}): `@pryv/stable-object-representation` leaves it out from version 1.2.0 on, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either; with an older version of the library, remove `usage` before hashing.
                    """
       properties: [
         key: "total"
@@ -932,7 +932,7 @@ module.exports = exports =
                  An integrity hash computed from the JSON object it is contained in.
                  The hash is prefixed with the data structure it is computed for, as well as a representation version.
 
-                 The integrity of an access verifies on the object the API returns, also after the access has been updated (from 2.0.0-rc.84): hash it with `@pryv/stable-object-representation` once `usage` is removed (the library itself leaves out `integrity`, `lastUsed`, `calls` and `apiEndpoint`). A copy returned without credentials (token removed, counterparty URLs rewritten, as in `accessDeletions` or an app's listing of accesses it does not hold the token of) cannot be re-hashed by its receiver: the value is the server's record, which a holder of the credentials can verify after restoring them.
+                 The integrity of an access verifies on the object the API returns, also after the access has been updated (from 2.0.0-rc.84): hash it with `@pryv/stable-object-representation`, which leaves out `integrity`, `lastUsed`, `calls`, `apiEndpoint` and, from version 1.2.0 on, `usage` (with an older version, remove `usage` first). A copy returned without credentials (token removed, counterparty URLs rewritten, as in `accessDeletions` or an app's listing of accesses it does not hold the token of) cannot be re-hashed by its receiver: the value is the server's record, which a holder of the credentials can verify after restoring them.
                  """
     examples: [
       title: "A hash computed for an event with representation version 0:"
