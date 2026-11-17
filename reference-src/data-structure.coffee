@@ -376,7 +376,7 @@ module.exports = exports =
                    3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;
                    4. anything else is `other`.
 
-                   The same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.85).
+                   The same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.86).
 
                    `usage` is not part of the access's [integrity](##{_getDocId("integrity")}): `@pryv/stable-object-representation` leaves it out from version 1.2.0 on, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either; with an older version of the library, remove `usage` before hashing.
                    """

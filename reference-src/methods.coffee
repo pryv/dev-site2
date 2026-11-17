@@ -2914,7 +2914,7 @@ module.exports = exports =
                    Counts the account's audit rows per hour, day or week over `[fromTime, toTime)`, by method
                    class, with the failed calls as an overlay: an activity chart over any range without
                    listing the rows. Personal accesses only (the account owner's, or a delegate's personal
-                   access). Available from 2.0.0-rc.85.
+                   access). Available from 2.0.0-rc.86.
 
                    Each row counts in one class of its method id, whatever its outcome: `reads`, `writes`,
                    `session` or `other`, the classes of `usage` in the [access](##{dataStructure.getDocId("access")})
