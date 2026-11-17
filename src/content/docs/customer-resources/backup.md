@@ -20,6 +20,8 @@ NODE_ENV=production node bin/backup.js --output /backups/pryv-$(date +%Y%m%d)
 
 The backup is a directory containing gzipped chunk files and a `manifest.json`. Default chunk size is 50 MB compressed — tune with `--max-chunk-size`.
 
+A backup directory holds the backup only. Since 2.0.0-rc.86 a backup refuses to start in a directory that already holds other files (the leftovers of an interrupted full backup: remove them or use a new directory), and refuses to complete a run when a file appeared in its directory while it was written.
+
 For any backup that leaves the host, add encryption — the recommended form encrypts to a recipient public key so the backup host holds no decryption secret:
 
 ```bash
@@ -71,11 +73,26 @@ openssl pkey -in recipient.key.pem -pubout -out recipient.pub.pem
 node bin/backup.js --output /backups/pryv-$(date +%Y%m%d) --recipient-pubkey recipient.pub.pem
 ```
 
+**Signing (recommended with a recipient public key, since 2.0.0-rc.86).** With a recipient public key alone, whoever holds that public key and can write to the backup destination could replace a run. Sign each run with an Ed25519 key so the restore can tell:
+
+```bash
+# one-time: generate a signing keypair
+openssl genpkey -algorithm ed25519 -out backup-signing.key.pem
+openssl pkey -in backup-signing.key.pem -pubout -out backup-signing.pub.pem
+
+# backup, encrypted and signed
+node bin/backup.js --output /backups/pryv-rolling --incremental --recipient-pubkey recipient.pub.pem --signing-key backup-signing.key.pem
+```
+
+Keep the private signing key on the backup host and the public key with the restore secret, and pass it at restore (`--signing-pubkey`): every run must then be signed by that key, or the restore is refused. The backup prints a warning when a run is not signed, and a restore of a signed backup without `--signing-pubkey` warns that the signatures are not verified. Signing starts with a full backup: a chain that was started unsigned cannot be signed later; take a new full backup into a new directory.
+
 **Passphrase.** Simpler, but the same machine can decrypt its own backups. The data key is derived from a passphrase; pass it with `--passphrase-file <path>` (first line of the file), or the `PRYV_BACKUP_PASSPHRASE` environment variable. `--encrypt-passphrase` also works but shows the passphrase in the process list and the shell history.
 
 ```bash
 node bin/backup.js --output /backups/pryv-$(date +%Y%m%d) --passphrase-file /etc/pryv/backup-passphrase
 ```
+
+Since 2.0.0-rc.86, new passphrase-encrypted backups use a stronger key derivation: about 134 MiB of memory once per run. Existing backups are unaffected.
 
 An encrypted backup carries a small cleartext `encryption.json` at its root (crypto headers and the wrapped key only, never user data) plus a self-contained `decrypt-backup.mjs` and `RESTORE-README.md`, so the key holder can decrypt it with only Node.js installed, even on a machine without Pryv.io. Every run of a chain carries its own `encryption.json` and, since 2.0.0-rc.51, its own copy of the script and README: **use the newest run's script**: run from the backup directory, `node incrementals/<runId>/decrypt-backup.mjs` decrypts the whole chain (given a run directory, the script climbs to the chain's root). A full backup taken before 2.0.0-rc.51 keeps an older script at its root that does not know incremental runs.
 
@@ -98,6 +115,11 @@ Restore auto-detects an encrypted backup (from its `encryption.json`) and asks f
 
 - `--private-key recipient.key.pem` (plus `--private-key-passphrase` if the key file is itself passphrase-protected) for a backup made with `--recipient-pubkey`.
 - `--passphrase-file <path>` (or `PRYV_BACKUP_PASSPHRASE`, or `--decrypt-passphrase`) for a backup made with a passphrase.
+- `--signing-pubkey backup-signing.pub.pem` for a signed backup (see [Signing](#encrypting-the-backup)).
+
+Since 2.0.0-rc.86 every file of a run is listed in the run's manifest with its size and hash: a run whose files were added, removed, changed or cut short is refused, and an account's files are checked before anything of the account is written. A file the backup did not write, found in a run's directory, is also refused; files that operating systems and storage appliances create by themselves (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`, `.nfs*`, `lost+found`, `@eaDir`, `.snapshot`, `.zfs`, ...) are ignored with a notice. `node bin/backup.js --inspect --verify-files <dir>` (with the backup's secret) reads and checks every file without restoring: run it after a backup, or before relying on one. A backup written before 2.0.0-rc.86 is restored without that check (its runs are reported as "file list not verified").
+
+> **Upgrading and going back.** A backup written by 2.0.0-rc.86 or later is restored with that release or later. After going back to an earlier release, start a new chain in a new directory: a run that an earlier release appends to a chain of 2.0.0-rc.86 or later is refused at restore (`--through-run` stops before it).
 
 Restoring a chain applies the full backup, then every incremental run in order: the newest version of a stream, access, event or attachment replaces the older one, deletions included. Accounts deleted along the chain are not restored; the restore report names them.
 
@@ -121,6 +143,8 @@ Useful restore flags:
 - high-frequency series
 - audit records (if audit is active)
 - the account's aliases (those of its `randomAlias` accesses and its former usernames), reserved again on restore; high-frequency series still kept under a former username are exported too and restored under the username (see [aliases and username changes](/customer-resources/aliases-and-username-changes/#backup-and-restore))
+
+Each run's `manifest.json` lists every file of the run with its size and hash; a signed run also has a `manifest.sig`.
 
 It does **not** export: sessions and password-reset tokens (add `--include-ephemeral` if you want them), rqlite platform-DB state (see below), user-level webhooks' ephemeral queue, or your YAML configuration files.
 

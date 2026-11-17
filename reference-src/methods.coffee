@@ -1769,7 +1769,7 @@ module.exports = exports =
         key: "invalid-item-id"
         http: "400"
         description: """
-                     The specified id is invalid (e.g. it's a reserved word such as `null`).
+                     The specified id is invalid: a reserved word such as `null` or `..`, or (since 2.0.0-rc.85) a path-style id (`:_cmc:…`, kept as given) holding whitespace or a control character.
                      """
       ]
       examples: [
