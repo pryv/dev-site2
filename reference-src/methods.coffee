@@ -276,6 +276,25 @@ module.exports = exports =
                        _If password minimum age rule is enabled_: The time after which the password can be changed, according to platform setting `PASSWORD_AGE_MIN_DAYS`. Can be in the past.
                        """
         ]
+      errors: [
+        key: "invalid-credentials"
+        http: "401"
+        description: """
+                     The username and password do not match.
+                     """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many wrong passwords for the account or from the client address: the password is not checked until the delay runs out. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`. See [Limits at a glance](/customer-resources/rate-limiting/#limits-at-a-glance).
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the password was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
+                     """
+      ]
       examples: [
         params:
           username: examples.users.one.username
@@ -492,7 +511,7 @@ module.exports = exports =
         key: "too-many-requests"
         http: "429"
         description: """
-                     The server holds too many pending MFA sessions. Retry later (`Retry-After` header).
+                     The server holds too many pending MFA sessions, or (from open-pryv.io 2.0.0-rc.87) is checking too many passwords at once: a step-up `password` was then not checked, and the call does not count as a failed attempt. Retry later (`Retry-After` header).
                      """
       ]
       examples: [
@@ -767,6 +786,12 @@ module.exports = exports =
         description: """
                      Too many failed second factors or step-ups for this account: the step-up is not checked until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`).
                      """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the step-up `password` was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
+                     """
       ]
       examples: [
         title: "Deactivating MFA with the account password."
@@ -830,6 +855,12 @@ module.exports = exports =
         http: "400"
         description: """
                      MFA is not active for this account.
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the password was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
                      """
       ]
       examples: [
@@ -3309,6 +3340,18 @@ module.exports = exports =
         description: """
                      The new password does not match password complexity rules (if enabled).
                      """
+      ,
+        key: "too-many-attempts"
+        http: "429"
+        description: """
+                     Too many wrong passwords for the account or from the client address: `oldPassword` is not checked until the delay runs out. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`. See [Limits at a glance](/customer-resources/rate-limiting/#limits-at-a-glance).
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the password was not changed, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
+                     """
       ]
       examples: [
         params:
@@ -4065,6 +4108,12 @@ module.exports = exports =
                      Too many wrong passwords for the account or from the client address. Retry after the `Retry-After` header (seconds).
                      """
       ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the `password` was not checked and nothing was changed, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds). From open-pryv.io 2.0.0-rc.87.
+                     """
+      ,
         key: "unavailable-method"
         http: "451"
         description: """
@@ -4345,6 +4394,12 @@ module.exports = exports =
         http: "400"
         description: """
                      The new password does not match password complexity rules (if enabled).
+                     """
+      ,
+        key: "too-many-requests"
+        http: "429"
+        description: """
+                     The server is checking too many passwords at once: the password was not changed. The reset token is single-use and already spent, so request a new password reset after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
                      """
       ]
       examples: [

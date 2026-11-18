@@ -740,6 +740,12 @@ module.exports = exports =
           description: """
                       (Multi-core platform) The registration landed on one core for another core's hosting, and that core could not take it: it is unreachable, or it refused the forward itself. Nothing is created; retry later. A refusal of the registration by that core (e.g. `409 item-already-exists`) is answered as that core answered it. From open-pryv.io 2.0.0-rc.62 (earlier releases answer `500 unexpected-error` in these cases, and for any refusal by the other core).
                       """
+        ,
+          key: "too-many-requests"
+          http: "429"
+          description: """
+                      The server is hashing too many passwords at once: nothing is created and the username stays free. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
+                      """
         ]
         examples: [
           title: "Creating a user."

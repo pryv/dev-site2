@@ -1269,6 +1269,12 @@ module.exports = exports =
                      The method is switched off on this platform (e.g. account auto-deletion, account transfers without account delegation, shared secrets).
                      """
       ,
+        key: "api-unavailable"
+        http: "503"
+        description: """
+                     The server cannot serve the request right now, e.g. a feature that is not set up on this platform, or (from open-pryv.io 2.0.0-rc.87, PostgreSQL engine) a database statement of the request ran past the platform's time limit and was stopped. Nothing of a stopped statement is kept, so the same request can be retried; for an expensive read, narrowing the request (time range, streams, `limit`) is the better answer. A response already streaming when this happens is cut short instead.
+                     """
+      ,
         key: "user-account-relocated"
         http: "301"
         description: """

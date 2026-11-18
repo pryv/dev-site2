@@ -860,6 +860,11 @@
                   "description": "The method is switched off on this platform (e.g. account auto-deletion, account transfers without account delegation, shared secrets)."
                 },
                 {
+                  "key": "api-unavailable",
+                  "http": "503",
+                  "description": "The server cannot serve the request right now, e.g. a feature that is not set up on this platform, or (from open-pryv.io 2.0.0-rc.87, PostgreSQL engine) a database statement of the request ran past the platform's time limit and was stopped. Nothing of a stopped statement is kept, so the same request can be retried; for an expensive read, narrowing the request (time range, streams, `limit`) is the better answer. A response already streaming when this happens is cut short instead."
+                },
+                {
                   "key": "user-account-relocated",
                   "http": "301",
                   "description": "The user has relocated her account to another server. Both the `Location` header and the error's `data` contain the equivalent URL pointing to the physical server now hosting the user's account. This error can only occur between the moment the account is relocated and the moment your DNS is updated to point to the new server. So we're stretching the HTTP convention a little, in that the returned URL should not be used permanently (only until `{username}.pryv.me` points to the correct server again). It's up to you to decide whether to keep it for the duration of the session (if you use sessions), for a given time, etc."
@@ -972,6 +977,23 @@
                   }
                 ]
               },
+              "errors": [
+                {
+                  "key": "invalid-credentials",
+                  "http": "401",
+                  "description": "The username and password do not match."
+                },
+                {
+                  "key": "too-many-attempts",
+                  "http": "429",
+                  "description": "Too many wrong passwords for the account or from the client address: the password is not checked until the delay runs out. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`. See [Limits at a glance](/customer-resources/rate-limiting/#limits-at-a-glance)."
+                },
+                {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the password was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
+                }
+              ],
               "examples": [
                 {
                   "params": {
@@ -1162,7 +1184,7 @@
                 {
                   "key": "too-many-requests",
                   "http": "429",
-                  "description": "The server holds too many pending MFA sessions. Retry later (`Retry-After` header)."
+                  "description": "The server holds too many pending MFA sessions, or (from open-pryv.io 2.0.0-rc.87) is checking too many passwords at once: a step-up `password` was then not checked, and the call does not count as a failed attempt. Retry later (`Retry-After` header)."
                 }
               ],
               "examples": [
@@ -1428,6 +1450,11 @@
                   "key": "too-many-attempts",
                   "http": "429",
                   "description": "Too many failed second factors or step-ups for this account: the step-up is not checked until the delay runs out (`Retry-After` header, `error.data.retryAfterSeconds`)."
+                },
+                {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the step-up `password` was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
                 }
               ],
               "examples": [
@@ -1492,6 +1519,11 @@
                   "key": "invalid-operation",
                   "http": "400",
                   "description": "MFA is not active for this account."
+                },
+                {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the password was not checked, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
                 }
               ],
               "examples": [
@@ -4847,6 +4879,16 @@
                   "key": "invalid-parameters-format",
                   "http": "400",
                   "description": "The new password does not match password complexity rules (if enabled)."
+                },
+                {
+                  "key": "too-many-attempts",
+                  "http": "429",
+                  "description": "Too many wrong passwords for the account or from the client address: `oldPassword` is not checked until the delay runs out. Retry after the `Retry-After` header (seconds), also given as `error.data.retryAfterSeconds`. See [Limits at a glance](/customer-resources/rate-limiting/#limits-at-a-glance)."
+                },
+                {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the password was not changed, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
                 }
               ],
               "examples": [
@@ -5908,6 +5950,11 @@
                   "description": "Too many wrong passwords for the account or from the client address. Retry after the `Retry-After` header (seconds)."
                 },
                 {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the `password` was not checked and nothing was changed, and the call does not count as a failed attempt. Retry after the `Retry-After` header (5 seconds). From open-pryv.io 2.0.0-rc.87."
+                },
+                {
                   "key": "unavailable-method",
                   "http": "451",
                   "description": "The platform has turned the feature off."
@@ -6198,6 +6245,11 @@
                   "key": "invalid-parameters-format",
                   "http": "400",
                   "description": "The new password does not match password complexity rules (if enabled)."
+                },
+                {
+                  "key": "too-many-requests",
+                  "http": "429",
+                  "description": "The server is checking too many passwords at once: the password was not changed. The reset token is single-use and already spent, so request a new password reset after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
                 }
               ],
               "examples": [
@@ -8669,6 +8721,11 @@
                     "key": "cross-core-registration-failed",
                     "http": "503",
                     "description": "(Multi-core platform) The registration landed on one core for another core's hosting, and that core could not take it: it is unreachable, or it refused the forward itself. Nothing is created; retry later. A refusal of the registration by that core (e.g. `409 item-already-exists`) is answered as that core answered it. From open-pryv.io 2.0.0-rc.62 (earlier releases answer `500 unexpected-error` in these cases, and for any refusal by the other core)."
+                  },
+                  {
+                    "key": "too-many-requests",
+                    "http": "429",
+                    "description": "The server is hashing too many passwords at once: nothing is created and the username stays free. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87."
                   }
                 ],
                 "examples": [
