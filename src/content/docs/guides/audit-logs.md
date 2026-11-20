@@ -22,6 +22,7 @@ It describes what Audit Logs are, why to use them and how they were designed on 
 In regards to new requirements on data privacy, you need to be able by now to track all activities related to the personal data you hold on your servers. This includes tracking of consents, data accesses, data retrievals, but also tracking of data changes.
 
 Audit logs are considered to be the best way of demonstrating compliance – and “demonstrating compliance” is a key point of new privacy regulations. Keeping logs of processes made on personal data is not only a best practice, but a must for you to achieve compliance.
+To see which regulation requirements audit logs help you meet (GDPR, HIPAA, Swiss nLPD and others), see the [Pryv compliance matrix](https://pryv.github.io/compliance-matrix/).
 
 Audit capabilities on Pryv.io now enable you to keep track of data in your system and to generate audit logs.
 

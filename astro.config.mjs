@@ -181,6 +181,7 @@ export default defineConfig({
 						{ slug: 'guides/custom-auth' },
 						{ slug: 'guides/email-verification' },
 						{ slug: 'guides/privacy-by-design' },
+						{ label: 'Compliance matrix', link: 'https://pryv.github.io/compliance-matrix/' },
 						{ slug: 'guides/webhooks' },
 					],
 				},
@@ -245,6 +246,7 @@ export default defineConfig({
 						{ slug: 'agents' },
 						{ label: 'llms.txt', link: '/llms.txt' },
 						{ label: 'llms-full.txt', link: '/llms-full.txt' },
+						{ label: 'Compliance matrix llms.txt', link: 'https://pryv.github.io/compliance-matrix/llms.txt' },
 					],
 				},
 				{

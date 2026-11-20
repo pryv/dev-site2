@@ -6,6 +6,7 @@ description: "How Pryv.io supports privacy by design and by default: its archite
 
 In this guide we address developers building data-collecting applications who want to understand how Pryv.io supports privacy by design and privacy by default.
 It describes Pryv.io's architectural choices, the platform defaults that protect personal data out of the box, and what remains in the developer's hands.
+For a requirement-by-requirement view of how Pryv.io maps onto GDPR and other regulations, see the [Pryv compliance matrix](https://pryv.github.io/compliance-matrix/#/scope/gdpr).
 
 ## Introduction
 
@@ -177,6 +178,7 @@ Pryv.io's architecture doesn't preclude any of these — they sit on top of the 
 - [GDPR full text](https://gdpr.eu) — official EU regulation.
 - [Article 25 — Data protection by design and by default](https://gdpr.eu/article-25-data-protection-by-design).
 - [Swiss Federal Act on Data Protection (FADP)](https://www.fedlex.admin.ch/eli/cc/2022/491/en).
+- [Pryv compliance matrix](https://pryv.github.io/compliance-matrix/): how Pryv.io maps onto 15 regulations and standards; [GDPR view](https://pryv.github.io/compliance-matrix/#/scope/gdpr).
 - [Consent implementation with Pryv.io](/guides/consent/) — companion guide.
 - [Audit logs](/guides/audit-logs/) — companion guide.
 - [Cross-account messaging (CMC)](/guides/cross-account-messaging/) — CMC consent flow.

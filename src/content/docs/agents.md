@@ -26,6 +26,24 @@ Everything here is stable, machine-readable, and safe to fetch.
   (`classes['{class}'].formats['{format}']`). See the
   [event types reference](/event-types/).
 
+## Compliance and regulations
+
+Use these when a question is whether or how Pryv.io supports a regulation or standard
+requirement (GDPR, HIPAA, Swiss nLPD, CCPA, PIPEDA, DiGA, MDR, HDS, ISO 27001/27701/13485,
+SOC 2, data governance). The [compliance matrix](https://pryv.github.io/compliance-matrix/)
+says, per requirement, what Pryv.io handles, what is configurable, what it facilitates and
+what stays with the implementer.
+
+- **[llms.txt](https://pryv.github.io/compliance-matrix/llms.txt)** - agent index of the matrix.
+- **[llms-full.txt](https://pryv.github.io/compliance-matrix/llms-full.txt)** - the whole
+  matrix in one text file.
+- **One Markdown file per regulation**: `https://pryv.github.io/compliance-matrix/regulations/{id}.md`,
+  for example [gdpr.md](https://pryv.github.io/compliance-matrix/regulations/gdpr.md). Ids:
+  `gdpr`, `hipaa-privacy`, `hipaa-security`, `hipaa-breach`, `swiss-nlpd`, `ccpa`, `pipeda`,
+  `diga`, `mdr`, `hds`, `iso-27001`, `iso-27701`, `iso-13485`, `soc2`, `data-governance`.
+- **[compliance.json](https://pryv.github.io/compliance-matrix/compliance.json)** - the matrix
+  as machine-readable JSON.
+
 ## Discovering a platform at runtime
 
 Every Pryv.io platform exposes a **service info** descriptor that a client should fetch

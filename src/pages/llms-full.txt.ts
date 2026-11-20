@@ -29,6 +29,8 @@ export const GET: APIRoute = async () => {
 	out.push('');
 	out.push('> Dense machine-readable dump of the API reference. Full HTML version: https://pryv.github.io/reference/');
 	out.push('');
+	out.push('> Regulation and standard coverage (GDPR, HIPAA, Swiss nLPD, ISO 27001, SOC 2 and more) is in the Pryv compliance matrix: https://pryv.github.io/compliance-matrix/llms.txt');
+	out.push('');
 	for (const s of userSections) walk(s, out, 1);
 	out.push('# System API', '');
 	for (const s of systemSection.sections ?? []) walk(s, out, 1);

@@ -20,6 +20,16 @@ export const GET: APIRoute = async ({ site }) => {
 	lines.push(`- [Functional specifications](${base}/functional-specifications/)`);
 	lines.push(`- [Full reference dump](${base}/llms-full.txt)`);
 	lines.push('');
+	// The compliance matrix is a separate site under the same origin (pryv/compliance-matrix).
+	const cm = 'https://pryv.github.io/compliance-matrix';
+	const regulationIds = ['gdpr', 'hipaa-privacy', 'hipaa-security', 'hipaa-breach', 'swiss-nlpd', 'ccpa', 'pipeda', 'diga', 'mdr', 'hds', 'iso-27001', 'iso-27701', 'iso-13485', 'soc2', 'data-governance'];
+	lines.push('## Compliance');
+	lines.push(`- [Compliance matrix](${cm}/): how 15 regulations and standards map onto Pryv.io (what it handles, what is configurable, what it facilitates, what stays with the implementer); one regulation at ${cm}/#/scope/<id>`);
+	lines.push(`- [Compliance matrix llms.txt](${cm}/llms.txt): agent index of the matrix`);
+	lines.push(`- [Compliance matrix llms-full.txt](${cm}/llms-full.txt): the whole matrix in one text file`);
+	lines.push(`- Per-regulation Markdown: ${cm}/regulations/<id>.md, one file per regulation, with <id> one of ${regulationIds.join(', ')}`);
+	lines.push(`- [compliance.json](${cm}/compliance.json): the matrix as machine-readable JSON`);
+	lines.push('');
 	lines.push('## Docs');
 	for (const d of docs) {
 		if (d.id === 'index') continue;
