@@ -48,7 +48,7 @@ Content-Type: application/json
 { "sent": true }
 ```
 
-The core mails an 8-character code, shown to the holder as `XXXX-XXXX`. It is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address.
+The core mails a 10-character code, shown to the holder as `XXXXX-XXXXX` (8 characters, `XXXX-XXXX`, before the release after 2.0.0-rc.87: a code field must accept 10). It is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address.
 
 What can come back instead:
 

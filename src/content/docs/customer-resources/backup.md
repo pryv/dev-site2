@@ -148,6 +148,44 @@ Each run's `manifest.json` lists every file of the run with its size and hash; a
 
 It does **not** export: sessions and password-reset tokens (add `--include-ephemeral` if you want them), rqlite platform-DB state (see below), user-level webhooks' ephemeral queue, or your YAML configuration files.
 
+## Erased accounts on disk and in the database
+
+From the release after 2.0.0-rc.87, work still running for an account while it is erased (a long request, a cross-account dispatch) can no longer store data for it. Two guards do this; both matter when you back up, restore or clean up a core.
+
+### SQLite: the `erased.json` marker
+
+With the SQLite storage and `audit.onUserDelete: keep`, an erasure leaves the account's directory under `data/users/` with its `audit-*` files and one marker file, `erased.json` (content `{"v":1,"erasedAt":<ms>}`, no username), and nothing else. While the marker is there, no new file is created in that directory: late work for the erased account is refused instead of opening new, empty databases next to the kept audit. The marker is on disk, so every process of the core reads it, and it survives restarts.
+
+- **Do not delete `erased.json` to "clean up" a kept directory.** It is what keeps the directory to its audit files; removing it lets late work create empty databases there again.
+- **A restore clears it.** `bin/backup.js --restore` (whole core or `--user`, with or without `--overwrite`) removes the marker of each account it brings back before writing its data; you do nothing by hand.
+- Directories kept by erasures before this release carry no marker: empty databases found next to their audit files hold no row and may be removed.
+
+### PostgreSQL: no row for an id the users index does not hold
+
+The database refuses a new row for a user id that the users index does not hold (SQLSTATE `PU001`) in `events`, `streams`, `accesses`, `profile`, `webhooks`, `account_fields`, `passwords` and `store_key_values`. The erasure removes an account's index entry before its data, and an insert in flight holds that entry until it commits, so once the entry is gone no new row is stored for the account in those tables. The guard is installed at boot (function `refuse_unindexed_user()`, one `BEFORE INSERT` trigger per table; a trigger found disabled is enabled again with a warning) and by a migration. Rows already stored are not checked. A request refused this way answers `404` `unknown-resource` ("Unknown user"), and the server logs the refusal at warn with the table: outside an erasure, it points at a write under a wrong user id.
+
+- **`bin/backup.js`** writes an account's index entry before its data and is not affected.
+- **A full `pg_restore`** (schema and data) creates the triggers after the data and is not affected.
+- **A data-only `pg_restore`** into an existing schema loads tables in an order that puts rows before their `users_index` entries: run it with `--disable-triggers`, or set `pryv.unindexed_writes = 'allow'` in that session (see [Restore raw dumps](#restore-raw-dumps)).
+
+**Upgrading.** All processes of a core must run this release: a process of an earlier release writes a registration's personal access before the account's index entry, which the database now refuses (registration with a session fails). During the upgrade, do not let a process of the earlier release serve registrations once a process of this release has started on the database.
+
+**Rolling back.** The earlier release does not remove the guard. Before going back to it, with every process stopped, remove it:
+
+```sql
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON events;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON streams;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON accesses;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON profile;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON webhooks;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON account_fields;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON passwords;
+DROP TRIGGER IF EXISTS refuse_unindexed_user ON store_key_values;
+DROP FUNCTION IF EXISTS refuse_unindexed_user();
+```
+
+Starting this release again installs it again.
+
 
 ## Alternative: raw database + filesystem dumps
 
@@ -192,6 +230,8 @@ influxd restore -portable /backups/pryv-influx-20260414
 ```
 
 Then restore the `data/users/` tree in place, start the core, and check the [healthchecks](/customer-resources/healthchecks/).
+
+A full `pg_restore` as above is not affected by the [PostgreSQL guard on erased accounts](#postgresql-no-row-for-an-id-the-users-index-does-not-hold). A data-only restore (`--data-only`) into a schema that already exists is: add `--disable-triggers`, or run it in a session that has `SET pryv.unindexed_writes = 'allow'`. The `erased.json` markers in a restored `data/users/` tree are kept as they were dumped: leave them in place.
 
 
 ## Important notice on consistency

@@ -63,7 +63,7 @@ Each core runs one sweep, in one of its API workers, every `sweepIntervalMs` (de
 1. computes the latest use and the deadline, and sends the reminders that are due;
 2. when the account is due, reads its latest use again (a sign-in may have just happened);
 3. runs the same checks as a direct account deletion. When one refuses (for example, the account controls a delegated account that has no email address of its own), the schedule is held (`blocked`), the holder is mailed once, and the check is retried at each pass without further mail;
-4. deletes the account exactly as a direct deletion does: its data, attachments, high-frequency series and accesses, its delegations and cross-account relationships (the counterparties are notified), and its audit log according to `audit.onUserDelete`.
+4. deletes the account exactly as a direct deletion does: its data, attachments, high-frequency series and accesses, its delegations and cross-account relationships (the counterparties are notified), and its audit log according to `audit.onUserDelete`. What an erasure leaves on disk, and how late work for an erased account is refused, is described under [erased accounts](/customer-resources/backup/#erased-accounts-on-disk-and-in-the-database).
 
 Safeguards:
 
