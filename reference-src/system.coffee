@@ -1332,6 +1332,8 @@ module.exports = exports =
                     until it receives `ACCEPTED`, `REFUSED`, or `ERROR`.
 
                     Possible statuses: `NEED_SIGNIN` (waiting), `ACCEPTED` (token issued), `REFUSED`, `ERROR`.
+
+                    A request that no read has opened yet lives `access.unopenedRequestTtl` seconds (600 by default); the first read opens it and gives it the full hour. By default any read opens it, the app's own polls included. With `access.openedOnlyByAuthPage: true` (default `false`) only a read carrying `authPage=1`, as the auth page sends it, opens the request, so an app polling a request no user has looked at no longer keeps it alive for the hour. Turn the setting on only once the platform's auth page sends the flag (the reference auth page of app-web-user-account does); with an auth page that does not, every request ends at the unopened life.
                     """
         params:
           properties: [
@@ -1341,6 +1343,13 @@ module.exports = exports =
               text: "set in request path"
             description: """
                         The polling key returned by [Create access request](#create-access-request).
+                        """
+          ,
+            key: "authPage"
+            type: "string"
+            optional: true
+            description: """
+                        `1`, sent by the auth page only, as a query parameter: marks the read as the auth page's, which opens the request when the platform sets `access.openedOnlyByAuthPage`. Requesting apps do not send it.
                         """
           ]
         result:

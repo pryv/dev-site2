@@ -256,6 +256,8 @@ module.exports = exports =
                   Get notified of data changes in a web service using [webhooks](#webhook).
 
                   An unfiltered webhook reports the coarse change types (`eventsChanged`, `streamsChanged`, …). A [scoped webhook](#webhook) (one created with a `scopes` map) instead reports the **matched scope keys** in the same `messages` array — see the second example below.
+
+                  Each call of a webhook with a signing secret carries a `Pryv-Signature: t=<unix seconds>,v1=<hex>` header that lets the receiver check the call comes from the platform: see [verify the signature](/guides/webhooks/#verify-the-signature).
                   """
       examples: [
         title: "Webhooks data changes payload"

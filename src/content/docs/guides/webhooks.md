@@ -106,6 +106,7 @@ For example:
     "url": "https://notifications.service.com/pryv/my-pryv-username"
 }
 ```
+The result carries the webhook's signing `secret`, returned this once only: hand it to the notified service so it can [verify the signature](#verify-the-signature) of each call.
 
 2. You should then provide an Access token to the notified service so that it can retrieve new data when changes occur. You can generate an access token from the [Pryv Access Token Generator](https://pryv.github.io/app-web-access/?pryvServiceInfoUrl=https://reg.pryv.me/service/info).  
 You can set the permissions and leave other parameters unchanged:  
@@ -254,7 +255,7 @@ In case the access that has created the webhook is deleted, it does not alter th
 
 ## Endpoint setup
 
-*In this section, we present possible ways to identify the user from which the data change is originating in the webhook URL and to share a secret between your application and the webhook provider.*
+*In this section, we present possible ways to identify the user from which the data change is originating in the webhook URL, and how your service checks that a call comes from the platform.*
 
 ### User identification
 
@@ -278,19 +279,83 @@ In the query parameters:
 
 In order to test that your service's endpoint is reachable by the webhook calls, we offer the [webhooks.test](/reference/#test-webhook) API method that triggers the webhook execution.
 
-### Webhook authorization
+### Verify the signature
 
-You might need to include a shared secret between your application and the webhook provider in order to control the API usage of your external service.
+Each call of a webhook is signed, so your service can check that it comes from the platform and that its body was not altered, and discard any other request.
 
-You can add a "shared secret" to the Pryv.io webhooks that your application trusts. This means that when you will be receiving a webhook notification, you can validate the provided secret and discard the request if it is not trustworthy.
+**Getting the secret.** [webhooks.create](/reference/#create-webhook) returns the webhook with a `secret` (`whsec_` followed by 43 characters). It is returned this once only, never by `webhooks.get`, `webhooks.getOne` or `webhooks.update`: store it with your service when you create the webhook. [webhooks.rotateSecret](/reference/#methods-webhooks-webhooks-rotateSecret) (`POST /webhooks/{id}/rotate-secret`) replaces it at once and returns the new one; from that moment calls are signed with the new secret only, so let your service accept both secrets while it switches.
 
-This secret can be provided in the same way as the username, illustrated above. In this example, we use the path parameter to store the secret:  
+**Webhooks created before signed calls** have no secret and send unsigned calls until `webhooks.rotateSecret` gives them one. Their read-only `signed` property tells them apart: `true` when calls carry the signature, `false` otherwise.
+
+**The header.** Each call of a webhook with a secret (retries and [webhooks.test](/reference/#test-webhook) included, each signed afresh) carries:
+
+```
+Pryv-Signature: t=1763640000,v1=5f2b…
+```
+
+- `t` is the time the call was signed, in unix seconds;
+- `v1` is the HMAC-SHA256, in lowercase hex, keyed with the whole secret string (`whsec_` prefix included, as UTF-8), of `t`, a `.`, then the exact bytes of the request body.
+
+**Checking it.** On each call:
+
+1. Read the body as **raw bytes**, before any JSON parsing: a parsed and re-serialised body may differ from the bytes that were signed.
+2. Split the header on `,` into `key=value` pairs and ignore keys you do not know. Accept the call when a `v1` value matches.
+3. Compare with a constant-time comparison.
+4. Refuse a call whose `t` is more than 300 seconds away from your clock.
+
+A Node.js example, with Express:
+
+```js
+const { createHmac, timingSafeEqual } = require('node:crypto');
+const express = require('express');
+
+const WEBHOOK_SECRET = process.env.PRYV_WEBHOOK_SECRET; // whsec_…
+const MAX_SKEW_SECONDS = 300;
+
+function isValidSignature (header, rawBody, secret) {
+  if (typeof header !== 'string') return false;
+  let t = null;
+  const v1s = [];
+  for (const part of header.split(',')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    const key = part.slice(0, i).trim();
+    const value = part.slice(i + 1).trim();
+    if (key === 't') t = value;
+    else if (key === 'v1') v1s.push(value);
+  }
+  if (t == null || !/^\d+$/.test(t)) return false;
+  if (Math.abs(Math.floor(Date.now() / 1000) - Number(t)) > MAX_SKEW_SECONDS) return false;
+  const expected = createHmac('sha256', secret).update(t + '.').update(rawBody).digest();
+  return v1s.some((v1) => {
+    const received = Buffer.from(v1, 'hex');
+    return received.length === expected.length && timingSafeEqual(received, expected);
+  });
+}
+
+const app = express();
+// Keep the body as raw bytes: the signature covers them exactly.
+app.post('/pryv/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!isValidSignature(req.get('Pryv-Signature'), req.body, WEBHOOK_SECRET)) {
+    return res.sendStatus(401);
+  }
+  const notification = JSON.parse(req.body.toString('utf8'));
+  // … fetch the changes with your read token (see Events synchronization below)
+  res.sendStatus(200);
+});
+```
+
+**Replays.** The signature carries no delivery id: within the 300-second window, a recorded call can be sent again. A webhook call only tells your service that something changed; what changed is always fetched with your own token, so a replayed call costs one more read, nothing else.
+
+**A secret in the URL** remains possible as a second check, or for a receiver that cannot verify signatures: add a value your service trusts to the webhook's `url`, in the same way as the username shown above, and discard calls that do not carry it:
 
 ```json
 {
   "url": "https://my-notifications.com/stefan.pryv.me/my-secret"
 }
 ```
+
+Prefer the signature: a URL is returned with the webhook and tends to end up in logs, and it does not protect the body.
 
 ## Events synchronization
 

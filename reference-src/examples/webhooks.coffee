@@ -5,7 +5,12 @@ firstId = generateId();
 secondId = generateId();
 
 module.exports = exports =
-  simple: 
+  # Signing secrets as returned once by webhooks.create and webhooks.rotateSecret
+  # (made-up values of the real shape: `whsec_` and 43 base64url characters).
+  secrets:
+    created: 'whsec_kX3pV9qL2mN7rT0wY5zB8cD1fG4hJ6sA2uE9iO3yR7t'
+    rotated: 'whsec_Qe8Lw2Zr5Tn0Hs7Kd4Vb1Mx6Gc9Pj3Fa8Uy2Wo5Ri7N'
+  simple:
     id: generateId()
     accessId: firstId
     url: 'https://notifications.service.com/pryv'
@@ -13,6 +18,7 @@ module.exports = exports =
     maxRetries: 5
     currentRetries: 0
     state: 'active'
+    signed: true
     runCount: 2
     failCount: 0
     lastRun:
@@ -36,6 +42,7 @@ module.exports = exports =
     minIntervalMs: 5000
     maxRetries: 5
     state: 'active'
+    signed: false
     currentRetries: 0
     runCount: 5
     failCount: 5
@@ -66,6 +73,7 @@ module.exports = exports =
     maxRetries: 5
     currentRetries: 2
     state: 'active'
+    signed: true
     runCount: 8
     failCount: 2
     lastRun:
@@ -108,6 +116,7 @@ module.exports = exports =
     maxRetries: 5,
     currentRetries: 0
     state: 'active'
+    signed: true
     runCount: 0
     failCount: 0
     lastRun: {}
@@ -134,6 +143,7 @@ module.exports = exports =
     maxRetries: 5,
     currentRetries: 5
     state: 'inactive'
+    signed: true
     runCount: 5
     failCount: 5
     lastRun:

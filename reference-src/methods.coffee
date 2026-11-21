@@ -2514,7 +2514,7 @@ module.exports = exports =
           key: "webhook"
           type: "[webhook](##{dataStructure.getDocId("webhook")})"
           description: """
-                       The created webhook.
+                       The created webhook, with its signing `secret` (`whsec_` followed by 43 characters). This is the only time the secret is returned (apart from [rotate webhook secret](##{_getDocId("webhooks", "webhooks.rotateSecret")})): store it now. Each call of the webhook carries a `Pryv-Signature` header computed with it; see [verify the signature](/guides/webhooks/#verify-the-signature).
                        """
         ]
       errors: [
@@ -2528,12 +2528,12 @@ module.exports = exports =
         title: "A simple webhook"
         params: _.pick(examples.webhooks.simple, "url")
         result:
-          webhook: examples.webhooks.simple
+          webhook: _.extend({}, examples.webhooks.simple, {secret: examples.webhooks.secrets.created})
       ,
         title: "A scoped webhook (notified only of matching changes)"
         params: _.pick(examples.webhooks.new, "url", "scopes")
         result:
-          webhook: examples.webhooks.new
+          webhook: _.extend({}, examples.webhooks.new, {secret: examples.webhooks.secrets.created})
       ]
 
     ,
@@ -2625,6 +2625,56 @@ module.exports = exports =
 
     ,
 
+      id: "webhooks.rotateSecret"
+      type: "method"
+      title: "Rotate webhook secret"
+      http: "POST /webhooks/{id}/rotate-secret"
+      description: """
+                   Replaces the webhook's signing secret and returns the new one. The replacement is immediate, with no overlap: the next call of the webhook is signed with the new secret only, so the receiver should accept both secrets while it switches. A webhook created before signed calls were introduced has no secret (`signed: false`); this method gives it its first one.
+
+                   The same access rules as [update webhook](##{_getDocId("webhooks", "webhooks.update")}) apply: only the access that created the webhook, or a personal access. Also refused to an account delegate that may not read the webhook's URL in full.
+                   """
+      params:
+        properties: [
+          key: "id"
+          type: "[identifier](##{dataStructure.getDocId("identifier")})"
+          http:
+            text: "set in request path"
+          description: """
+                       The id of the webhook.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "webhook"
+          type: "[webhook](##{dataStructure.getDocId("webhook")})"
+          description: """
+                       The webhook, with its new signing `secret`. No other method returns it: store it now.
+                       """
+        ]
+      errors: [
+        key: "forbidden"
+        http: "403"
+        description: """
+                     The webhook was not created by this access (and the access is not personal), or the caller may not see the webhook's credentials.
+                     """
+      ,
+        key: "unknown-resource"
+        http: "404"
+        description: """
+                     No webhook with this id.
+                     """
+      ]
+      examples: [
+        params:
+          id: examples.webhooks.simple.id
+        result:
+          webhook: _.extend({}, examples.webhooks.simple, {secret: examples.webhooks.secrets.rotated})
+      ]
+
+    ,
+
       id: "webhooks.test"
       type: "method"
       title: "Test webhook"
@@ -2632,7 +2682,7 @@ module.exports = exports =
       description: """
                    Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.
 
-                   The call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.
+                   The call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout) and, for a webhook with a secret, carries the same `Pryv-Signature` header. Whatever the reason of a failure, the answer is the same error.
 
                    Refused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`.
                    """

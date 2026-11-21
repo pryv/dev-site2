@@ -373,7 +373,7 @@ module.exports = exports =
                    Classes, first match wins (`last` is the part of the method id after its last dot; a method id without a dot is its own `last`):
                    1. `auth.*`, `mfa.*`, `oauth.*`, `sso.*` are `session`;
                    2. `read` when `last` starts with `get`, `list`, `check` or `retrieve`, or is `info`, `usernameChanges`, `controlledStatus` or `extIdHolds`;
-                   3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;
+                   3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate`, `erase` or `rotate`, or is `adminRelease` or `extIdRelease`;
                    4. anything else is `other`.
 
                    The same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.86).
@@ -602,6 +602,8 @@ module.exports = exports =
 
                  Only the app access used to create the webhook or a personal access can retrieve and modify it. This is meant to separate the responsibilities between the actor that sets the webhooks and the one(s) that consume the data following the webhook setup.
 
+                 A webhook has a signing secret (`whsec_` followed by 43 characters), returned once by [create webhook](#methods-webhooks-webhooks-create) and by [rotate webhook secret](#methods-webhooks-webhooks-rotateSecret), never by any other method. Each call of a webhook with a secret carries a `Pryv-Signature: t=<unix seconds>,v1=<hex>` header, where `v1` is the HMAC-SHA256, keyed with the whole secret string (UTF-8), of `t`, a `.` and the exact bytes of the request body. See [verify the signature](/guides/webhooks/#verify-the-signature) for the receiver's side.
+
 
                  """
     properties: [
@@ -660,6 +662,13 @@ module.exports = exports =
       type: "`active`|`inactive`"
       description: """
                    The current state of the Webhook. An inactive Webhook will not make any HTTP call when changes occur. It must be activated using the [update webhook](#methods-webhooks-webhooks-update) method. Set by the server at creation (`active`); alterable with an update.
+                   """
+    ,
+      key: "signed"
+      type: "boolean"
+      readOnly: true
+      description: """
+                   `true` when the webhook has a signing secret, so its calls carry the `Pryv-Signature` header. A webhook created before signed calls were introduced has none (`false`) until [rotate webhook secret](#methods-webhooks-webhooks-rotateSecret) gives it one. The secret itself is never part of the webhook as read.
                    """
     ,
       key: "runCount"

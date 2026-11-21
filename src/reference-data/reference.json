@@ -112,7 +112,7 @@
             {
               "id": "with-webhooks",
               "title": "With webhooks",
-              "description": "Get notified of data changes in a web service using [webhooks](#webhook).\n\nAn unfiltered webhook reports the coarse change types (`eventsChanged`, `streamsChanged`, …). A [scoped webhook](#webhook) (one created with a `scopes` map) instead reports the **matched scope keys** in the same `messages` array — see the second example below.",
+              "description": "Get notified of data changes in a web service using [webhooks](#webhook).\n\nAn unfiltered webhook reports the coarse change types (`eventsChanged`, `streamsChanged`, …). A [scoped webhook](#webhook) (one created with a `scopes` map) instead reports the **matched scope keys** in the same `messages` array — see the second example below.\n\nEach call of a webhook with a signing secret carries a `Pryv-Signature: t=<unix seconds>,v1=<hex>` header that lets the receiver check the call comes from the platform: see [verify the signature](/guides/webhooks/#verify-the-signature).",
               "examples": [
                 {
                   "title": "Webhooks data changes payload",
@@ -3839,6 +3839,7 @@
                         "maxRetries": 5,
                         "currentRetries": 0,
                         "state": "active",
+                        "signed": true,
                         "runCount": 2,
                         "failCount": 0,
                         "lastRun": {
@@ -3868,6 +3869,7 @@
                         "maxRetries": 5,
                         "currentRetries": 2,
                         "state": "active",
+                        "signed": true,
                         "runCount": 8,
                         "failCount": 2,
                         "lastRun": {
@@ -3958,6 +3960,7 @@
                       "maxRetries": 5,
                       "currentRetries": 0,
                       "state": "active",
+                      "signed": true,
                       "runCount": 2,
                       "failCount": 0,
                       "lastRun": {
@@ -4010,7 +4013,7 @@
                   {
                     "key": "webhook",
                     "type": "[webhook](#data-structure-webhook)",
-                    "description": "The created webhook."
+                    "description": "The created webhook, with its signing `secret` (`whsec_` followed by 43 characters). This is the only time the secret is returned (apart from [rotate webhook secret](#methods-webhooks-webhooks-rotateSecret)): store it now. Each call of the webhook carries a `Pryv-Signature` header computed with it; see [verify the signature](/guides/webhooks/#verify-the-signature)."
                   }
                 ]
               },
@@ -4036,6 +4039,7 @@
                       "maxRetries": 5,
                       "currentRetries": 0,
                       "state": "active",
+                      "signed": true,
                       "runCount": 2,
                       "failCount": 0,
                       "lastRun": {
@@ -4055,7 +4059,8 @@
                       "created": 1735603200,
                       "createdBy": "c000000000000000000000051",
                       "modified": 1735603200,
-                      "modifiedBy": "c000000000000000000000051"
+                      "modifiedBy": "c000000000000000000000051",
+                      "secret": "whsec_kX3pV9qL2mN7rT0wY5zB8cD1fG4hJ6sA2uE9iO3yR7t"
                     }
                   }
                 },
@@ -4094,6 +4099,7 @@
                       "maxRetries": 5,
                       "currentRetries": 0,
                       "state": "active",
+                      "signed": true,
                       "runCount": 0,
                       "failCount": 0,
                       "lastRun": {},
@@ -4122,7 +4128,8 @@
                       "created": 1735689595,
                       "createdBy": "c000000000000000000000052",
                       "modified": 1735689595,
-                      "modifiedBy": "c000000000000000000000052"
+                      "modifiedBy": "c000000000000000000000052",
+                      "secret": "whsec_kX3pV9qL2mN7rT0wY5zB8cD1fG4hJ6sA2uE9iO3yR7t"
                     }
                   }
                 }
@@ -4185,6 +4192,7 @@
                       "minIntervalMs": 5000,
                       "maxRetries": 5,
                       "state": "active",
+                      "signed": false,
                       "currentRetries": 0,
                       "runCount": 5,
                       "failCount": 5,
@@ -4261,11 +4269,92 @@
               ]
             },
             {
+              "id": "webhooks.rotateSecret",
+              "type": "method",
+              "title": "Rotate webhook secret",
+              "http": "POST /webhooks/{id}/rotate-secret",
+              "description": "Replaces the webhook's signing secret and returns the new one. The replacement is immediate, with no overlap: the next call of the webhook is signed with the new secret only, so the receiver should accept both secrets while it switches. A webhook created before signed calls were introduced has no secret (`signed: false`); this method gives it its first one.\n\nThe same access rules as [update webhook](#methods-webhooks-webhooks-update) apply: only the access that created the webhook, or a personal access. Also refused to an account delegate that may not read the webhook's URL in full.",
+              "params": {
+                "properties": [
+                  {
+                    "key": "id",
+                    "type": "[identifier](#data-structure-identifier)",
+                    "http": {
+                      "text": "set in request path"
+                    },
+                    "description": "The id of the webhook."
+                  }
+                ]
+              },
+              "result": {
+                "http": "200 OK",
+                "properties": [
+                  {
+                    "key": "webhook",
+                    "type": "[webhook](#data-structure-webhook)",
+                    "description": "The webhook, with its new signing `secret`. No other method returns it: store it now."
+                  }
+                ]
+              },
+              "errors": [
+                {
+                  "key": "forbidden",
+                  "http": "403",
+                  "description": "The webhook was not created by this access (and the access is not personal), or the caller may not see the webhook's credentials."
+                },
+                {
+                  "key": "unknown-resource",
+                  "http": "404",
+                  "description": "No webhook with this id."
+                }
+              ],
+              "examples": [
+                {
+                  "params": {
+                    "id": "c000000000000000000000053"
+                  },
+                  "result": {
+                    "webhook": {
+                      "id": "c000000000000000000000053",
+                      "accessId": "c000000000000000000000051",
+                      "url": "https://notifications.service.com/pryv",
+                      "minIntervalMs": 5000,
+                      "maxRetries": 5,
+                      "currentRetries": 0,
+                      "state": "active",
+                      "signed": true,
+                      "runCount": 2,
+                      "failCount": 0,
+                      "lastRun": {
+                        "status": 200,
+                        "timestamp": 1735686000
+                      },
+                      "runs": [
+                        {
+                          "status": 200,
+                          "timestamp": 1735686000
+                        },
+                        {
+                          "status": 200,
+                          "timestamp": 1735682400
+                        }
+                      ],
+                      "created": 1735603200,
+                      "createdBy": "c000000000000000000000051",
+                      "modified": 1735603200,
+                      "modifiedBy": "c000000000000000000000051",
+                      "secret": "whsec_Qe8Lw2Zr5Tn0Hs7Kd4Vb1Mx6Gc9Pj3Fa8Uy2Wo5Ri7N"
+                    }
+                  }
+                }
+              ]
+            },
+            {
               "id": "webhooks.test",
               "type": "method",
               "title": "Test webhook",
               "http": "POST /webhooks/{id}/test",
-              "description": "Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.\n\nThe call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout). Whatever the reason of a failure, the answer is the same error.\n\nRefused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`.",
+              "description": "Sends a post request containing a message called `test` to the URL of the specified webhook's `url`. You can only test webhooks with the access that was used to create them, unless you are using a personal token.\n\nThe call follows the same rules as the webhook's own calls (destination checked, no redirect followed, platform timeout) and, for a webhook with a secret, carries the same `Pryv-Signature` header. Whatever the reason of a failure, the answer is the same error.\n\nRefused (`403 forbidden`) for an access carrying the feature permission `webhooks: forbidden`.",
               "params": {
                 "properties": [
                   {
@@ -4300,6 +4389,7 @@
                       "maxRetries": 5,
                       "currentRetries": 0,
                       "state": "active",
+                      "signed": true,
                       "runCount": 0,
                       "failCount": 0,
                       "lastRun": {},
@@ -7372,7 +7462,7 @@
               "type": "object",
               "optional": true,
               "readOnly": true,
-              "description": "Approximate lifetime call counts of the access, per method and summed by class (from 2.0.0-rc.84). Returned only to a personal access (the account owner's, or a delegate's personal access) by [get accesses](#methods-accesses-accesses-get) (deletion records included) and [get one access](#methods-accesses-accesses-getOne) (current head only, never on an older version or a `history` snapshot); absent when access tracking is off on the platform (`accessTracking.isActive`), and never returned to app or shared callers. Refused at creation and update.\n\nThe counts are approximate, not a billing figure: they are written asynchronously after each reply (a call can go uncounted if the server stops in between), and a [batch call](#methods-callBatch) counts its inner calls, never itself. An access that was never used reports zeros.\n\nClasses, first match wins (`last` is the part of the method id after its last dot; a method id without a dot is its own `last`):\n1. `auth.*`, `mfa.*`, `oauth.*`, `sso.*` are `session`;\n2. `read` when `last` starts with `get`, `list`, `check` or `retrieve`, or is `info`, `usernameChanges`, `controlledStatus` or `extIdHolds`;\n3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate` or `erase`, or is `adminRelease` or `extIdRelease`;\n4. anything else is `other`.\n\nThe same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.86).\n\n`usage` is not part of the access's [integrity](#data-structure-integrity): `@pryv/stable-object-representation` leaves it out from version 1.2.0 on, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either; with an older version of the library, remove `usage` before hashing.",
+              "description": "Approximate lifetime call counts of the access, per method and summed by class (from 2.0.0-rc.84). Returned only to a personal access (the account owner's, or a delegate's personal access) by [get accesses](#methods-accesses-accesses-get) (deletion records included) and [get one access](#methods-accesses-accesses-getOne) (current head only, never on an older version or a `history` snapshot); absent when access tracking is off on the platform (`accessTracking.isActive`), and never returned to app or shared callers. Refused at creation and update.\n\nThe counts are approximate, not a billing figure: they are written asynchronously after each reply (a call can go uncounted if the server stops in between), and a [batch call](#methods-callBatch) counts its inner calls, never itself. An access that was never used reports zeros.\n\nClasses, first match wins (`last` is the part of the method id after its last dot; a method id without a dot is its own `last`):\n1. `auth.*`, `mfa.*`, `oauth.*`, `sso.*` are `session`;\n2. `read` when `last` starts with `get`, `list`, `check` or `retrieve`, or is `info`, `usernameChanges`, `controlledStatus` or `extIdHolds`;\n3. `write` when `last` starts with `create`, `update`, `delete`, `set`, `replace`, `claim`, `release`, `change`, `accept`, `refuse`, `cancel`, `detach`, `dismiss`, `issue`, `notify`, `request`, `reset`, `verify`, `test`, `transfer`, `deactivate`, `erase` or `rotate`, or is `adminRelease` or `extIdRelease`;\n4. anything else is `other`.\n\nThe same classes count the audit trail over time in [get audit summary](#methods-audit-audit-getSummary) (from 2.0.0-rc.86).\n\n`usage` is not part of the access's [integrity](#data-structure-integrity): `@pryv/stable-object-representation` leaves it out from version 1.2.0 on, like `lastUsed`, `calls` and `apiEndpoint`, which are not hashed either; with an older version of the library, remove `usage` before hashing.",
               "properties": [
                 {
                   "key": "total",
@@ -7660,7 +7750,7 @@
         {
           "id": "webhook",
           "title": "Webhook",
-          "description": "Webhooks provide push notifications to web servers using HTTP POST requests.\n\nOnce created, they will run, executing a HTTP POST request to the provided URL for each [data change](#with-webhooks) in the user account.\n\nWhen the webhooks service is booted, it will send a `webhooksServiceBoot` message to all active webhooks. This allows to query the API for potentially missed notifications during its down time.\n\nOnly the app access used to create the webhook or a personal access can retrieve and modify it. This is meant to separate the responsibilities between the actor that sets the webhooks and the one(s) that consume the data following the webhook setup.\n\n",
+          "description": "Webhooks provide push notifications to web servers using HTTP POST requests.\n\nOnce created, they will run, executing a HTTP POST request to the provided URL for each [data change](#with-webhooks) in the user account.\n\nWhen the webhooks service is booted, it will send a `webhooksServiceBoot` message to all active webhooks. This allows to query the API for potentially missed notifications during its down time.\n\nOnly the app access used to create the webhook or a personal access can retrieve and modify it. This is meant to separate the responsibilities between the actor that sets the webhooks and the one(s) that consume the data following the webhook setup.\n\nA webhook has a signing secret (`whsec_` followed by 43 characters), returned once by [create webhook](#methods-webhooks-webhooks-create) and by [rotate webhook secret](#methods-webhooks-webhooks-rotateSecret), never by any other method. Each call of a webhook with a secret carries a `Pryv-Signature: t=<unix seconds>,v1=<hex>` header, where `v1` is the HMAC-SHA256, keyed with the whole secret string (UTF-8), of `t`, a `.` and the exact bytes of the request body. See [verify the signature](/guides/webhooks/#verify-the-signature) for the receiver's side.\n\n",
           "properties": [
             {
               "key": "id",
@@ -7703,6 +7793,12 @@
               "key": "state",
               "type": "`active`|`inactive`",
               "description": "The current state of the Webhook. An inactive Webhook will not make any HTTP call when changes occur. It must be activated using the [update webhook](#methods-webhooks-webhooks-update) method. Set by the server at creation (`active`); alterable with an update."
+            },
+            {
+              "key": "signed",
+              "type": "boolean",
+              "readOnly": true,
+              "description": "`true` when the webhook has a signing secret, so its calls carry the `Pryv-Signature` header. A webhook created before signed calls were introduced has none (`false`) until [rotate webhook secret](#methods-webhooks-webhooks-rotateSecret) gives it one. The secret itself is never part of the webhook as read."
             },
             {
               "key": "runCount",
@@ -7782,6 +7878,7 @@
                 "maxRetries": 5,
                 "currentRetries": 0,
                 "state": "active",
+                "signed": true,
                 "runCount": 2,
                 "failCount": 0,
                 "lastRun": {
@@ -9316,7 +9413,7 @@
                 "http": "GET /reg/access/{key}",
                 "httpOnly": true,
                 "server": "register",
-                "description": "Polls the status of a pending access request. The requesting app calls this periodically\nuntil it receives `ACCEPTED`, `REFUSED`, or `ERROR`.\n\nPossible statuses: `NEED_SIGNIN` (waiting), `ACCEPTED` (token issued), `REFUSED`, `ERROR`.",
+                "description": "Polls the status of a pending access request. The requesting app calls this periodically\nuntil it receives `ACCEPTED`, `REFUSED`, or `ERROR`.\n\nPossible statuses: `NEED_SIGNIN` (waiting), `ACCEPTED` (token issued), `REFUSED`, `ERROR`.\n\nA request that no read has opened yet lives `access.unopenedRequestTtl` seconds (600 by default); the first read opens it and gives it the full hour. By default any read opens it, the app's own polls included. With `access.openedOnlyByAuthPage: true` (default `false`) only a read carrying `authPage=1`, as the auth page sends it, opens the request, so an app polling a request no user has looked at no longer keeps it alive for the hour. Turn the setting on only once the platform's auth page sends the flag (the reference auth page of app-web-user-account does); with an auth page that does not, every request ends at the unopened life.",
                 "params": {
                   "properties": [
                     {
@@ -9326,6 +9423,12 @@
                         "text": "set in request path"
                       },
                       "description": "The polling key returned by [Create access request](#create-access-request)."
+                    },
+                    {
+                      "key": "authPage",
+                      "type": "string",
+                      "optional": true,
+                      "description": "`1`, sent by the auth page only, as a query parameter: marks the read as the auth page's, which opens the request when the platform sets `access.openedOnlyByAuthPage`. Requesting apps do not send it."
                     }
                   ]
                 },
