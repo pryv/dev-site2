@@ -8526,6 +8526,206 @@
                     ]
                   }
                 ]
+              },
+              {
+                "id": "erasures",
+                "title": "Erasures",
+                "adminOnly": true,
+                "description": "The [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger): one durable record per erased account, kept in the platform database after the account is gone (from the release after open-pryv.io 2.0.0-rc.87). A record names the account only by keyed hashes of its user id and username. Served by every core under `/system/admin/` with the admin key; any core answers for the whole platform. Both calls are reads, audited without a user. There is no delete call: records leave only after `accountErasure.ledger.retentionDays`.",
+                "sections": [
+                  {
+                    "id": "erasures.list",
+                    "type": "method",
+                    "title": "List erasures",
+                    "http": "GET /system/admin/erasures",
+                    "httpOnly": true,
+                    "server": "core",
+                    "description": "Lists the erasure records with an erasure time at or after `since`, oldest first (ordered by `deletedAt`, then `userIdHash`), one page at a time. Pass the answer's `next` as `after` to get the next page.\n\nA record can arrive after later ones were listed (merged from a backup, written by a core whose clock lags, an erasure completed by a later sweep pass). A forwarder polling with `since` must overlap its windows (for example `since` = its last poll minus a day) and drop the `userIdHash` + `deletedAt` pairs it already holds.",
+                    "params": {
+                      "properties": [
+                        {
+                          "key": "since",
+                          "type": "number",
+                          "optional": true,
+                          "http": {
+                            "text": "query parameter"
+                          },
+                          "description": "Only the erasures that ended at or after this time, in milliseconds since the epoch. Defaults to `0` (all)."
+                        },
+                        {
+                          "key": "limit",
+                          "type": "number",
+                          "optional": true,
+                          "http": {
+                            "text": "query parameter"
+                          },
+                          "description": "The page size, a whole number from 1 to 1000. Defaults to 200."
+                        },
+                        {
+                          "key": "after",
+                          "type": "string",
+                          "optional": true,
+                          "http": {
+                            "text": "query parameter"
+                          },
+                          "description": "The `next` value of the previous page."
+                        }
+                      ]
+                    },
+                    "result": {
+                      "http": "200 OK",
+                      "properties": [
+                        {
+                          "key": "erasures",
+                          "type": "array of objects",
+                          "description": "One object per erased account: `userIdHash` and `usernameHash` (hex HMAC-SHA256 of the user id and of the lowercased username), `keyId` (the key they were made with), `startedAt` and `deletedAt` (milliseconds since the epoch), `trigger` (`holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `unfinished-registration`, `ledger-replay`, or `unknown` for an erasure started by an earlier version), `coreId`, `stepsCompleted`, `auditMode` (`erase` or `keep`), `attempts`, `serverVersion`, `v` (the record version); `restoredAt` when the account was restored since with `--restore-erased`; `firstDeletedAt` and `firstTrigger` when `bin/erasures.js --replay` erased again an account a storage restore brought back (the first erasure's date and trigger). Never a username, an email or account data."
+                        },
+                        {
+                          "key": "next",
+                          "type": "string",
+                          "description": "The cursor of the next page, `null` on the last one."
+                        }
+                      ]
+                    },
+                    "errors": [
+                      {
+                        "key": "invalid-parameters-format",
+                        "http": "400",
+                        "description": "`since` is not a time in milliseconds, `limit` is not a whole number from 1 to 1000, or `after` is not a `next` value."
+                      }
+                    ],
+                    "examples": [
+                      {
+                        "title": "Listing the erasures since a date",
+                        "params": {
+                          "since": 1793577600000,
+                          "limit": 2
+                        },
+                        "result": {
+                          "erasures": [
+                            {
+                              "userIdHash": "3f9c2a7d41e8b06c5d12f0a9e7b3c4d58a6e1f20b9c7d3e4f5a60718293a4b5c",
+                              "v": 1,
+                              "keyId": "a1b2c3d4",
+                              "usernameHash": "7e1d9c3b5a2f40e8d6c1b7a9f3e5d2c40b8a6f1e9d3c7b5a2f4e0d8c6b1a9f3e",
+                              "startedAt": 1793640000000,
+                              "deletedAt": 1793640004210,
+                              "trigger": "holder",
+                              "coreId": "core-1",
+                              "stepsCompleted": [
+                                "deleteUserFiles",
+                                "deleteHFData",
+                                "deleteAttachments",
+                                "deleteAuditDataStorage",
+                                "deleteUser",
+                                "deleteAuditData",
+                                "dropHFDataAgain"
+                              ],
+                              "auditMode": "erase",
+                              "attempts": 1,
+                              "serverVersion": "2.0.0"
+                            }
+                          ],
+                          "next": "1793640004210:3f9c2a7d41e8b06c5d12f0a9e7b3c4d58a6e1f20b9c7d3e4f5a60718293a4b5c"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "erasures.lookup",
+                    "type": "method",
+                    "title": "Look up an erasure",
+                    "http": "POST /system/admin/erasures/lookup",
+                    "httpOnly": true,
+                    "server": "core",
+                    "description": "Tells whether an account of this user id, or of this username (any case), was erased, and when. A POST so that the id or name looked up stays out of URLs and access logs. The name is the one the account held when erased: its aliases are not matched. A name used again by a later account only answers that an account of this name was erased at that time.\n\nRecords written under another key (a key change, for example an admin-key rotation without `accountErasure.ledger.hmacKey` set, or cores with different keys) cannot be matched; the answer counts them in `otherKeyRecords`. When that count is not 0, `erased: false` is not a proof.",
+                    "params": {
+                      "properties": [
+                        {
+                          "key": "userId",
+                          "type": "string",
+                          "optional": true,
+                          "description": "The user id of the account. Give exactly one of `userId` or `username`."
+                        },
+                        {
+                          "key": "username",
+                          "type": "string",
+                          "optional": true,
+                          "description": "The username of the account, in any case."
+                        }
+                      ]
+                    },
+                    "result": {
+                      "http": "200 OK",
+                      "properties": [
+                        {
+                          "key": "erased",
+                          "type": "boolean",
+                          "description": "`true` when at least one record matches."
+                        },
+                        {
+                          "key": "erasures",
+                          "type": "array of objects",
+                          "description": "The matching records, as in [List erasures](#list-erasures); empty when none."
+                        },
+                        {
+                          "key": "keyId",
+                          "type": "string",
+                          "description": "The id of the key the lookup matched with (the `keyId` of the records it can find)."
+                        },
+                        {
+                          "key": "otherKeyRecords",
+                          "type": "number",
+                          "description": "The number of records written under another key, which no lookup can match."
+                        }
+                      ]
+                    },
+                    "errors": [
+                      {
+                        "key": "invalid-parameters-format",
+                        "http": "400",
+                        "description": "Neither or both of `userId` and `username`, an empty value, or another property."
+                      }
+                    ],
+                    "examples": [
+                      {
+                        "title": "Looking up an account by username",
+                        "params": {
+                          "username": "jane-doe"
+                        },
+                        "result": {
+                          "erased": true,
+                          "erasures": [
+                            {
+                              "userIdHash": "3f9c2a7d41e8b06c5d12f0a9e7b3c4d58a6e1f20b9c7d3e4f5a60718293a4b5c",
+                              "v": 1,
+                              "keyId": "a1b2c3d4",
+                              "usernameHash": "7e1d9c3b5a2f40e8d6c1b7a9f3e5d2c40b8a6f1e9d3c7b5a2f4e0d8c6b1a9f3e",
+                              "startedAt": 1793640000000,
+                              "deletedAt": 1793640004210,
+                              "trigger": "holder",
+                              "coreId": "core-1",
+                              "stepsCompleted": [
+                                "deleteUserFiles",
+                                "deleteHFData",
+                                "deleteAttachments",
+                                "deleteAuditDataStorage",
+                                "deleteUser",
+                                "deleteAuditData",
+                                "dropHFDataAgain"
+                              ],
+                              "auditMode": "erase",
+                              "attempts": 1,
+                              "serverVersion": "2.0.0"
+                            }
+                          ],
+                          "keyId": "a1b2c3d4",
+                          "otherKeyRecords": 0
+                        }
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },

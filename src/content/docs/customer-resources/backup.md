@@ -126,6 +126,8 @@ Restoring a chain applies the full backup, then every incremental run in order: 
 - `--through-run <runId>` restores the chain up to that run (the state as of that run; `--inspect` lists the run ids). It is also the way to restore an account as of the last run that held it.
 - A run missing from the chain refuses the restore, naming the run and the `--through-run` that stops before it.
 
+From the release after 2.0.0-rc.87, a restore does not bring back an account that was erased after the backup was taken: it checks the [erasure ledger](#proof-of-erasure-the-erasure-ledger) and lists such accounts under "Erased after this backup". `--restore-erased` restores them anyway. Two new exit codes: `3` (nothing restored, every account was erased after the backup) and `4` (restored with `--restore-erased`, but an erasure record could not be marked restored).
+
 Useful restore flags:
 
 - `--verify-integrity` — after restore, verify event/access integrity hashes and roll back any user whose hashes don't match.
@@ -185,6 +187,74 @@ DROP FUNCTION IF EXISTS refuse_unindexed_user();
 ```
 
 Starting this release again installs it again.
+
+## Proof of erasure: the erasure ledger
+
+From the release after 2.0.0-rc.87, every account erasure leaves one durable record, kept after the account is gone, so that you can show later that an account was erased and when, and so that a restore does not bring an erased account back unnoticed. It is on by default.
+
+### What a record holds, and what it does not
+
+The record is written in the platform database (replicated to every core) as the last step of the erasure, once all the account's data is gone. It holds:
+
+- `userIdHash` and `usernameHash`: keyed hashes (HMAC-SHA256) of the user id and of the username (lowercased), and `keyId`, which names the key they were made with;
+- `startedAt` and `deletedAt`: when the erasure started and ended (milliseconds since the epoch);
+- `trigger`: what decided it, `holder` (`DELETE /users/:username` with the account's personal token), `admin` (the same call with the admin key), `date`, `inactivity` or `transfer-fallback` ([account auto-deletion](/customer-resources/account-auto-deletion/)), `unfinished-registration` (`bin/reconcile-user-cores.js --registrations`), `ledger-replay` (`bin/erasures.js --replay`, below), or `unknown` (an unfinished erasure started by an earlier version, completed by this one);
+- `coreId`, the core that erased the account, `stepsCompleted`, `auditMode` (the `audit.onUserDelete` mode applied), `attempts` and `serverVersion`;
+- `restoredAt`, only when the account was restored since with `--restore-erased`;
+- `firstDeletedAt` and `firstTrigger`, only on a record replaced by `bin/erasures.js --replay`: the date and trigger of the first erasure.
+
+It holds **no** username, email, address, access id or account content. Nothing is written for the rollback of an account creation that failed, an account transfer, or `DELETE /system/users/:username?onlyReg=true`: none of them erases an account. A later erasure of the same id replaces its record: as a new record after a restore marked it restored; otherwise (an account a storage restore brought back, erased again by `--replay`) keeping the first erasure's date and trigger in `firstDeletedAt` / `firstTrigger`.
+
+A record that cannot be written fails the erasure: the data is already gone, the call answers an error, and the account auto-deletion sweep completes the erasure (this last step only) at its next pass once the erasure has been idle 15 minutes (passes run every 6 hours by default), as for any erasure that stops halfway. An erasure never looks finished without its record. Each record is also logged once (`account erased`, with `userIdHash`, `trigger` and `coreId`), so a log shipper keeps a second copy.
+
+### Reading the ledger
+
+With the admin key, on any core: [List erasures](/reference-system/#list-erasures) (`GET /system/admin/erasures`) and [Look up an erasure](/reference-system/#look-up-an-erasure) (`POST /system/admin/erasures/lookup`, by user id or username). Or on a core's host:
+
+```bash
+node bin/erasures.js --list [--since <ms | ISO date>] [--limit <n>]
+node bin/erasures.js --check <userId | username>
+```
+
+`--check` answers whether an account of this id, or of this name in any case, was erased, and when. The name is the one the account held when erased: its aliases are not matched. A name used again by a later account only tells you that "an account of this name was erased at T". The tool never prints a username it was not given. Multi-core joiners pass their host config with `--config <file>`, as for `bin/master.js`.
+
+The lookup also answers `keyId` (the key it matched with) and `otherKeyRecords`, the number of records written under another key, which no id or name can match: when it is not 0, `erased: false` is not a proof (see [the key](#configuration) below). `--check` warns with that count.
+
+**Forwarding the ledger to your own register.** Poll [List erasures](/reference-system/#list-erasures) with `since`, and make your windows overlap: the order is by erasure date, and a record can arrive after later ones were listed (merged from a backup, written by a core whose clock lags, an erasure completed by a later sweep pass). For example, set `since` to your last poll minus a day and drop the `userIdHash` + `deletedAt` pairs you already hold.
+
+### Restores
+
+- **`bin/backup.js --restore` refuses an account erased after the backup was taken**: the ledger records its erasure and no restore since, or an erasure of it started on this core after the backup and stopped unfinished (earlier releases withdrew such an erasure on a plain restore). An account that still exists on the core gets the usual refusal first (use `--overwrite` or `--skip-conflicts`). A whole restore lists the erased accounts under "Erased after this backup" and restores the others; it exits with code `3` when it restored nothing else. A `--user` restore of one fails, naming the override. In a chain, each account is dated by the newest run that holds it.
+- **A restore that cannot read the ledger** (its key cannot be built: no `hmacKey` and no `auth.adminAccessKey`, or an invalid `hmacKey`) is refused, unless `--restore-erased`.
+- **`--restore-erased`** (with `--restore`, for one `--user` or for the whole backup) restores such an account anyway and marks its record `restoredAt`; for an erasure that never completed, its record is written, already marked restored. The mark is set once `--verify-integrity`, if given, kept the account: an account rolled back stays recorded as erased. The record is kept: the trail of the erasure is never deleted. **When a record cannot be marked**, the restore lists the account and exits with code `4`: `bin/erasures.js --replay` would erase that account, so run the restore again once the ledger is reachable.
+- **The platform backup carries the ledger**, and a restore merges it into the live one (a record missing is written, a newer erasure is kept, nothing is removed), so a platform database rebuilt from a backup keeps the proof of the erasures made before it.
+- **A restore of the storage itself** (a volume snapshot, a `pg_dump`, the raw dumps below) does not go through this check. After such a restore, run on each core so restored:
+
+  ```bash
+  node bin/erasures.js --replay          # dry run: lists the ids
+  node bin/erasures.js --replay --apply  # erases them again
+  ```
+
+  It looks up every account of the core's users index in the ledger, lists by id those recorded as erased and not restored since, and with `--apply` erases them again, with the trigger `ledger-replay` (the record keeps the first erasure's date and trigger). Check the list before `--apply`: an account restored by a restore that could not mark its record (exit code `4`) is in it.
+
+### Configuration
+
+The same values on every core (platform-wide):
+
+```yaml
+accountErasure:
+  ledger:
+    enabled: true        # false: no record written (no proof, no restore check)
+    retentionDays: 1825  # 5 years; 0 keeps the records forever
+    hmacKey: ''          # base64 of 32 bytes; empty: derived from auth.adminAccessKey
+```
+
+- **Retention is the shortest one set on any core.** Every core's account auto-deletion sweep purges the shared ledger with its own `retentionDays`, so one core set to 30 days removes the records of all. Set the same value everywhere, and keep it at least as long as your longest backup retention: a record purged while a backup taken before its erasure still exists lets that backup bring the account back unnoticed. A value under 365 gets a warning at boot. A regime with a longer documentation period (for example six years under HIPAA) needs a higher value or `0`.
+- **The key.** When `hmacKey` is empty, the key is derived from `auth.adminAccessKey`. Every core must use the same key. **A key change disarms the ledger for the records written before it**, unless you keep the old key: those records stay listed (each carries its `keyId`) but are no longer matched by an id or a name, so the lookup does not find them, a restore no longer refuses those accounts, and `bin/erasures.js --replay` no longer finds them. With the key derived, rotating `auth.adminAccessKey` is such a change: **set `hmacKey` first** (`bin/check-config.js` hints when the key is derived). The restore, the lookup, `--check` and `--replay` warn with the count of records under another key. Like other secrets, `hmacKey` is set in the YAML configuration only. Destroying the key makes the records anonymous: it is the end-of-life act for the ledger.
+
+### Data protection
+
+While the key exists, the two hashes are pseudonymous personal data: whoever holds the key can test a known id or name. The record is kept for the proof of erasure (accountability), minimised (no content) and time-limited (`retentionDays`), and readable with the admin key only. Add one line for it to your record of processing activities: purpose "proof of account erasure and refusal to restore an erased account", data "keyed hashes of user id and username, dates, trigger, core", retention `retentionDays`.
 
 
 ## Alternative: raw database + filesystem dumps
