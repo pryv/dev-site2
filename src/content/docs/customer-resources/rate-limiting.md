@@ -13,7 +13,7 @@ Every number in it is a starting point. Read the [limits at a glance](#limits-at
 
 Pryv does not limit request **rates** in-process. A per-core counter only sees its share of the traffic in a multi-core deployment, and what counts as abuse depends on the workload: a research consortium's batch import is a legitimate burst that a consumer app should never produce. The layer that sees all traffic before it is sharded, and that you already tune for your own traffic, is the reverse proxy. The full reasoning is in the compliance matrix context note on [rate limiting and DoS protection](https://github.com/pryv/compliance-matrix/blob/master/context/rate-limiting-and-dos-protection.md).
 
-Pryv **does** bound, by itself, the checks of a credential (passwords, second factors), the actions that send mail or SMS, the few unauthenticated actions that can be keyed on an account or an address, and the size of what one request may ask for. These limits keep working when nothing sits in front of the core. Know them, so that your proxy limits do not duplicate or contradict them:
+Pryv **does** bound, by itself, the checks of a credential (passwords, second factors), the actions that send mail or SMS, the few unauthenticated actions that can be keyed on an account or an address, the size of what one request may ask for, and (from the release after 2.0.0-rc.87) how much work one account, access or connection may hold at once. These limits keep working when nothing sits in front of the core. Know them, so that your proxy limits do not duplicate or contradict them:
 
 | In-process limit | Where it applies | Configured by | Since |
 |---|---|---|---|
@@ -33,13 +33,23 @@ Pryv **does** bound, by itself, the checks of a credential (passwords, second fa
 | Credential methods are refused inside a batch call and over socket.io (`400 invalid-operation`), so each password guess is one HTTP request your proxy sees | `auth.login`, `auth.register`, `mfa.recover`, `account.requestPasswordReset`, `account.resetPassword`, `account.verifyEmail`, `sharedSecrets.retrieve`, the email challenge methods | fixed | 2.0.0-rc.47 |
 | Request size: a batch holds at most 1000 calls and returns at most 100 000 items in all (`413 too-many-results`); `events.get` `limit` / `skip` at most 100 000; a socket.io message at most 1 MB (the connection is closed past it) | batch calls, `events.get`, socket.io | `limits.batch.maxTotalItems`, `socketIO.maxMessageBytes` | 2.0.0-rc.47 |
 | Request body size: JSON bodies and each file of a multipart upload; at most 10 files per upload; an image declaring more than 100 million pixels gets no preview (`413`) | every route; attachments; previews | `uploads.maxSizeMb` (default 50), `uploads.maxFiles`, `eventFiles.previewsMaxInputPixels` | file count: 2.0.0-rc.47; pixels: 2.0.0-rc.50 |
-| Embedded DNS: at most 64 simultaneous TCP connections, size-limited UDP answers | the DNS server (`dns.active`) | `dns.tcpMaxConnections` | 2.0.0-rc.46 |
+| Calls in progress, per API worker: 64 per account and 32 per access (HTTP, a batch counted once, socket.io); past either `429 too-many-requests` with `Retry-After: 1`, the call not run. Calls without an access (`auth.login`, password reset) are not counted. A streamed read counts until it has been sent. | every authenticated call | `limits.requests.maxInflightPerUser`, `limits.requests.maxInflightPerAccess` | after 2.0.0-rc.87 |
+| Shape of the parameters: nesting depth 64, 10 000 keys in any one object; past either `400 invalid-parameters-format` before the method runs | every call | `limits.json.maxDepth`, `limits.json.maxObjectKeys` | after 2.0.0-rc.87 |
+| socket.io, per API worker: 20 connections per access and 100 per account (refused at the handshake, `connect_error` with `data.id: 'too-many-requests'`), 16 calls in progress per connection (`too-many-requests`), 100 subscription scopes per connection (`invalid-operation`) | `/socket.io/` | `socketIO.maxConnectionsPerAccess`, `maxConnectionsPerUser`, `maxInflightCallsPerConnection`, `maxScopesPerConnection` | after 2.0.0-rc.87 |
+| Stream tree: 32 levels deep and 10 000 streams per account (trashed ones included); 100 distinct stream ids per event; past them the write answers `400` (`invalid-operation` for the tree, `invalid-parameters-format` for the ids). What an account already holds stays readable. | `streams.create`, `streams.update`, `accesses.create` / `.update` with a `defaultName`, `events.create`, `events.update` | `limits.streams.maxDepth`, `limits.streams.maxPerAccount`, `limits.events.maxStreamIds` | after 2.0.0-rc.87 |
+| Webhooks: 10 per access, 100 per account (`400 invalid-operation` on create), 20 scopes per webhook (`400 invalid-parameters-format`); existing webhooks keep working | `webhooks.create`, `webhooks.update` | `webhooks.maxPerAccess`, `webhooks.maxPerUser`, `webhooks.maxScopes` | after 2.0.0-rc.87 |
+| Streamed audit reads: one at a time per access and worker; a further read waits for its turn up to 30 s, then `429 too-many-requests` | `events.get` on `:_audit:` streams | `limits.audit.maxConcurrentReadsPerAccess`, `limits.audit.maxReadWaitMs` | after 2.0.0-rc.87 |
+| Idle connections: an HTTP connection with no traffic either way for 120 s is closed (a client that stopped reading no longer holds a database cursor); websockets are not affected | every HTTP route | `http.responseIdleTimeoutMs` | after 2.0.0-rc.87 |
+| Mail a caller can trigger: registration codes, 10 an hour per client address (`429 too-many-attempts`, `data.reason: 'ip-limit'`); verification mails, 10 distinct addresses per account a day (`emails.resend` past it: `429 too-many-attempts`, `data.reason: 'account-address-limit'`); a breaker of 500 caller-triggered mails an hour per core, counted apart for registration mails and account mails (`429 too-many-requests` where the request waits for the mail). Notices the platform sends on its own are not counted. | `email-challenge`, registration, `account.update` (`emails`), password reset | `account.emailVerification.registrationCodesPerIpPerHour`, `addressesPerAccountPerDay`, `services.email.maxPerHour` | after 2.0.0-rc.87 |
+| Unknown account names, per client address (an IPv4 address or an IPv6 /64) and API worker: past 60 `/{username}/...` lookups a minute that found no account, `429 too-many-requests` for names not already cached until the minute ends; known names and other clients are not affected | every `/{username}/...` route (multi-core) | `limits.routing.unknownNamesPerClientPerMinute` | after 2.0.0-rc.87 |
+| Embedded DNS: at most 64 simultaneous TCP connections, size-limited UDP answers. From the release after 2.0.0-rc.87: UDP answers that need a platform lookup (`<core>.<domain>`, `<username>.<domain>`) limited to 20 a second per client network (/24 IPv4, /56 IPv6), and, for the whole server, 100 lookups a second of names not already known that found nothing; past either the answer is dropped, every second one sent truncated so a real resolver retries over TCP. TCP is not limited by them. | the DNS server (`dns.active`) | `dns.tcpMaxConnections`, `dns.responseRateLimit.perSecond`, `slip`, `missesPerSecond` | TCP: 2.0.0-rc.46; UDP lookups: after 2.0.0-rc.87 |
+| Revocation lag: `oauth.clientRevokeCheckSeconds` (socket re-validation, revoked-client cache) and `caching.accessMaxAgeSeconds` (access cache) above 300 are used as 300, so a revoked or narrowed access stops working within 5 minutes where no invalidation message arrives | open sockets, every worker's access cache | as named | after 2.0.0-rc.87 |
 
-"Per core" counters are held by one core and shared by its workers; "across all cores" counters live in the platform database, so a client spreading its calls over several cores gains nothing. The per-address limits read the client address the way described in [how Pryv reads the client IP](#the-routes-that-matter) below: behind a proxy that is not listed in `http.trustedProxies`, every client shares the proxy's address and therefore one budget.
+"Per core" counters are held by one core and shared by its workers; "across all cores" counters live in the platform database, so a client spreading its calls over several cores gains nothing. "Per API worker" ceilings are counted by each worker process (`cluster.apiWorkers`): a core with 4 workers lets one account hold up to 4 times the number, when its calls are spread over the workers. These ceilings bound concurrent work, not request rates, and every one of them takes `0` to turn it off. The per-address limits read the client address the way described in [how Pryv reads the client IP](#the-routes-that-matter) below: behind a proxy that is not listed in `http.trustedProxies`, every client shares the proxy's address and therefore one budget.
 
 **The per-account delays are a soft lockout under a distributed sender.** A delay never locks the account, but whoever keeps sending wrong passwords for an account (or wrong codes, for someone who holds the password), from enough addresses to stay under the per-address budget, keeps its delay running, and the owner's own attempt during a delay is refused without being checked. A user who reports "retry in N seconds" while typing the right password is therefore a sign that someone is guessing that account; the per-IP limits and bans below are what stop it.
 
-There is **no** in-process limit on request rates: per token, per address on data routes, on registration volume per caller, on lookups, on OAuth2. Those are what this page covers.
+There is **no** in-process limit on request rates: per token, per address on data routes, on registration volume per caller, on lookups of names that exist, on OAuth2. Those are what this page covers.
 
 Requests rejected by nginx never reach Pryv, so they appear in nginx's logs, not in Pryv's audit log or observability metrics. The nginx logs are therefore the record of a limit firing; keep them (see [logs are personal data](#logs-are-personal-data)).
 
@@ -267,8 +277,9 @@ server {
     proxy_set_header X-Forwarded-Port  $server_port;
 
     # A JSON 429 shaped like Pryv's own errors, readable by browser apps.
-    # Pryv's own 429s (MFA backoff, access-request ceiling) pass through
-    # untouched: proxy_intercept_errors is off.
+    # Pryv's own 429s (MFA backoff, access-request ceiling, calls in
+    # progress per account or access) pass through untouched:
+    # proxy_intercept_errors is off.
     error_page 429 @pryv_429;
     location @pryv_429 {
         default_type application/json;
@@ -395,7 +406,9 @@ server {
         limit_req zone=pryv_tok_read  burst=40  nodelay;
         proxy_pass http://pryv_api;
         # Idle time between two reads from Pryv; large event queries stream,
-        # which keeps the timer fed.
+        # which keeps the timer fed. From the release after 2.0.0-rc.87 the
+        # core itself also closes a connection idle either way for
+        # http.responseIdleTimeoutMs (120 s): keep both above your slowest call.
         proxy_read_timeout 120s;
     }
 }
@@ -439,6 +452,8 @@ With `dns.domain` set, apps address `https://alice.example.com/...` and the path
 ### Multi-core deployments
 
 The usual shape is one nginx per core, each with this configuration. Per-token limits stay exact: a token only works on its user's home core (other cores answer `421 wrong-core`), so all of a token's traffic meets the same nginx. The same holds for logins. Registration, lookups and access requests can be sent to any core, so a client spreading them over N cores gets N times the per-IP budget: divide those rates by the number of cores, or put a single edge in front of all cores so one counter sees everything.
+
+With the embedded DNS (`dns.active`), from the release after 2.0.0-rc.87, each core answers at most 20 UDP queries a second that need a platform lookup per client network (/24 IPv4, /56 IPv6), and at most 100 lookups a second of unknown names in all. A public resolver sending many clients' queries from one network meets the per-network limit first: it then retries the truncated answers over TCP, so size `dns.responseRateLimit.perSecond` and `dns.tcpMaxConnections` for your traffic, and watch the core log for "refused by dns.responseRateLimit". During a flood of random names, an account the DNS has not resolved in the last 30 s also falls back to TCP. Core names, an account's core, the service names and hosted sites are answered from the core list the DNS re-reads every 30 s, so a core change reaches the DNS within 30 s.
 
 Other proxies (HAProxy stick tables, Traefik or Caddy rate-limit middlewares, a CDN's rate-limiting rules) apply the same route table with the same keys.
 
@@ -582,7 +597,7 @@ The configuration above is the consumer profile. Edit the `rate=` values in the 
 
 Trade-offs to keep in mind:
 
-- **Shared addresses.** Mobile carriers put many subscribers behind one address (carrier-grade NAT), and hospitals put all staff behind a few. Per-IP limits and IP bans then hit everyone behind it. Keep per-IP limits for the unauthenticated surfaces, where there is nothing better to key on, and rely on per-token limits for data traffic. For known shared addresses, raise the limits through a `geo` map (as done for the admin zone) and list them in `ignoreip`. Pryv's own per-address password budget (`auth.passwordAttempts.perIp`) counts every failed password from such an address together: 30 typos across a hospital in 15 minutes refuse every password check from it until the window ends. It is one setting for all addresses, so where staff share a few egress addresses, raise `maxFailures` or set it to `0` and rely on the per-account delays and on your proxy limits.
+- **Shared addresses.** Mobile carriers put many subscribers behind one address (carrier-grade NAT), and hospitals put all staff behind a few. Per-IP limits and IP bans then hit everyone behind it. Keep per-IP limits for the unauthenticated surfaces, where there is nothing better to key on, and rely on per-token limits for data traffic. For known shared addresses, raise the limits through a `geo` map (as done for the admin zone) and list them in `ignoreip`. Pryv's own per-address password budget (`auth.passwordAttempts.perIp`) counts every failed password from such an address together: 30 typos across a hospital in 15 minutes refuse every password check from it until the window ends. It is one setting for all addresses, so where staff share a few egress addresses, raise `maxFailures` or set it to `0` and rely on the per-account delays and on your proxy limits. The same holds for the registration codes per address (`account.emailVerification.registrationCodesPerIpPerHour`, 10 an hour) and the unknown account names per address (`limits.routing.unknownNamesPerClientPerMinute`, 60 a minute): raise them for a clinic or campus that registers or mistypes many accounts from one address.
 - **IPv6.** `$binary_remote_addr` is a full /128 address and a single host usually controls a whole /64. If you see abuse rotating through one prefix, key the per-IP zones on the /64 instead (a `map` on `$remote_addr` keeping the first four groups).
 - **Bursts versus rates.** The rate is what a client can sustain; the burst is how far ahead of it a client may go before refusals start. Batch importers need large bursts; login needs a small one. Too small a burst on read zones breaks apps that load a dashboard with a dozen parallel calls.
 
@@ -620,6 +635,8 @@ Authorization: rate-limit-test-token
 ```
 
 Run it a second time with `?auth=rate-limit-test-token` in the URL and no `Authorization` header: the counts must be the same, which proves the query-string token is keyed too.
+
+With a **valid** token and slow calls, from the release after 2.0.0-rc.87, Pryv may refuse some calls itself: past 32 calls in progress on one access (64 on one account) a worker answers `429 too-many-requests` without running the call. The body is the same as nginx's; tell them apart by the access log, where nginx's refusals show `lr=REJECTED` and Pryv's show `lr=PASSED`.
 
 **3. The jails.** Check each filter against the real logs, then watch a ban happen:
 
