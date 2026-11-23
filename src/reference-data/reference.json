@@ -8726,6 +8726,109 @@
                     ]
                   }
                 ]
+              },
+              {
+                "id": "config.effective.get",
+                "type": "method",
+                "title": "Get the effective configuration",
+                "http": "GET /system/admin/config/effective",
+                "httpOnly": true,
+                "server": "core",
+                "description": "The configuration the answering core runs with (from the release after open-pryv.io 2.0.0-rc.87), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).\n\n**Entries.** `keys` maps each dotted path (`http.port`, `oauth.signingKeys.0.kid`; a `.` inside a name is written `\\.`) to `{ value, source, scope }`, sorted. `source` is the layer that set the value: `default-file`, `base-file` (the `--config` or `NODE_ENV` file), `override-file`, `bootstrap-file`, `env`, `argv`, `derived` (computed at boot), `service-info`, `shipped-plugin`, `built-in`, or `platform-db` for an observability value a platform setting decides. `scope` is `platform` when every core of the platform is expected to hold the same value, `core` when it differs by design (host, ports, paths, local credentials, local tuning). Only the sections of the shipped `default-config.yml` (plus `service`, `serviceInfoUrl`, `accessState`) are reported: other environment variables and command-line flags never are, and unknown top-level keys of the configuration files are listed by name in `configMeta.unknownTopLevelKeys`.\n\n**Redaction.** A secret, or a subtree that can carry credentials (SMS provider endpoints, telemetry headers, data-store settings, OAuth extension options), is `{ redacted: true, class, set, type }` with optionally `placeholder: true` (the value is a template one such as `REPLACE ME`), `size` (entries of a redacted list or subtree) and `fingerprint`: 12 hex characters of an HMAC keyed by `auth.filesReadTokenSecret` over the path and the value. Equal values on two cores show the same fingerprint; a guessed value cannot be tested against it without `auth.filesReadTokenSecret`. Every entry that hides all or part of its value carries one (a sanitised URL too), except `auth.adminAccessKey` and `auth.filesReadTokenSecret`. No fingerprint at all when `auth.filesReadTokenSecret` is a placeholder, a value published with the server's development or test configuration, or shorter than 16 characters (`configMeta.secretFingerprints: false`). The protection of the fingerprints rests on that secret: use 32 or more random characters (`openssl rand -base64 32`). `class` is `secret`, `opaque`, `unclassified` (a key no rule names, such as an unknown member of the OAuth, syslog or data-store settings, or a shown key whose name looks like a secret), `value-pattern` (a value that contains a configured secret or its base64 or URL-encoded form, a PEM block, a `Bearer`/`Basic` credential, a JWT, key-like material or a `user:password@host` shape, or a URL that does not parse cleanly), `shape-mismatch` (a value where the defaults hold a section, or the reverse) or `unsupported-type`. A shown URL loses its credentials, query values, `;` parameters and fragment (`sanitized: true`); some URLs (service endpoints) show their origin only.\n\n**Digests.** `configMeta.digests.platform` and `.full` are the SHA-256 (hex) of the canonical JSON of `{ format, keys }` (object keys sorted in UTF-16 code unit order, as JavaScript sorts strings; no whitespace), the entries without `source` and `scope`: `platform` over the `platform` entries, to compare cores, and `full` over all entries, to compare a core with an earlier snapshot. Anyone holding the document can recompute them. Redacted values enter the digests through their fingerprints, so without fingerprints (`secretFingerprints: false`) a change of a hidden value does not change them.",
+                "params": {
+                  "properties": [
+                    {
+                      "key": "digest",
+                      "type": "boolean",
+                      "optional": true,
+                      "http": {
+                        "text": "query parameter"
+                      },
+                      "description": "`true` answers `configMeta` only (no `keys`), for a cheap drift check. Defaults to `false`."
+                    }
+                  ]
+                },
+                "result": {
+                  "http": "200 OK",
+                  "properties": [
+                    {
+                      "key": "configMeta",
+                      "type": "object",
+                      "description": "`format` (`pryv-effective-config/1`), `coreId`, `apiVersion`, `snapshotAt` (ISO 8601), `digestAlgorithm` (`sha256`), `digests` (`full`, `platform`), `secretFingerprints`, `sourceFiles` (the file name of each file layer), `unknownTopLevelKeys`."
+                    },
+                    {
+                      "key": "keys",
+                      "type": "object",
+                      "description": "The entries, as described above. Absent with `digest=true`."
+                    }
+                  ]
+                },
+                "errors": [
+                  {
+                    "key": "invalid-parameters-format",
+                    "http": "400",
+                    "description": "`digest` is not `true` or `false`, or another parameter is given."
+                  },
+                  {
+                    "key": "api-unavailable",
+                    "http": "503",
+                    "description": "The platform storage is unreachable, so the observability values cannot be resolved."
+                  }
+                ],
+                "examples": [
+                  {
+                    "title": "Reading the effective configuration",
+                    "params": {},
+                    "result": {
+                      "configMeta": {
+                        "format": "pryv-effective-config/1",
+                        "coreId": "core-1",
+                        "apiVersion": "2.0.0",
+                        "snapshotAt": "2026-11-22T10:00:00.000Z",
+                        "digestAlgorithm": "sha256",
+                        "digests": {
+                          "full": "399cfbab106b6c9b6b9e7f0d058796d85d14c919636ddb58c8433ea1f956310b",
+                          "platform": "ea771f00af26080946a9b9b7f86071d331b6fbc913c593604a2ac3ca690d3435"
+                        },
+                        "secretFingerprints": true,
+                        "sourceFiles": {
+                          "override-file": "override-config.yml",
+                          "default-file": "default-config.yml"
+                        },
+                        "unknownTopLevelKeys": []
+                      },
+                      "keys": {
+                        "auth.adminAccessKey": {
+                          "redacted": true,
+                          "class": "secret",
+                          "set": true,
+                          "type": "string",
+                          "source": "override-file",
+                          "scope": "platform"
+                        },
+                        "dns.domain": {
+                          "value": "example.com",
+                          "source": "override-file",
+                          "scope": "platform"
+                        },
+                        "http.port": {
+                          "value": 3000,
+                          "source": "default-file",
+                          "scope": "core"
+                        },
+                        "services.email.smtp.auth.pass": {
+                          "redacted": true,
+                          "class": "secret",
+                          "set": true,
+                          "type": "string",
+                          "fingerprint": "9f2c1a77b0e4",
+                          "source": "override-file",
+                          "scope": "core"
+                        }
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
