@@ -75,6 +75,18 @@ Safeguards:
 
 There is no grace period after the deadline: the 1-day last notice, the minimum notice, the per-pass cap and the dry run are the safeguards. A holder who comes back before the deadline only needs to sign in.
 
+From the release after 2.0.0-rc.87, a pass never acts on a schedule changed while it checks the account: it reads the holder's setting, the schedule and the transfer again right before it erases, opens or ends a claim window, and a last time once the erasure is recorded as in progress. A change made meanwhile (the holder moving their date, a support reset, a claim) leaves the account to the next pass.
+
+### Stopping a pending deletion (support)
+
+For a holder who cannot sign in in time (in hospital, travelling), call [Stop a pending deletion](/reference-system/#stop-a-pending-deletion) (`POST /system/admin/auto-deletion/clear`, admin key, from the release after 2.0.0-rc.87) on the core that hosts the account, with the `username` and a `reason`:
+
+- **By default the schedule restarts**: its clock starts again from now, as a sign-in would, with its full period and reminders. Your preset or the holder's own period still applies. A holder's own **date** has no clock: it is refused.
+- **`removeSetting: true` removes the holder's own schedule** (a date or a period); your preset, if any, then applies from now. The holder's schedule is their own erasure request: remove it only on their verified request. A `never` setting is never removed.
+- A transfer claim window nobody has claimed yet is cancelled, as a use of the account would; once the claimant controls the account the transfer is completed and the call answers `409`. An erasure already started cannot be stopped.
+
+The holder is mailed the change with your `reason` as written (keep it factual, plain text, without anyone else's data), and the account's own audit trail records it. **Set the `account-deletion-scheduled` template again first** on a platform seeded before that release: the earlier template does not show the reason and ends with the advice to change the password.
+
 ## Configuration
 
 The block lives in the per-core `account` section of `override-config.yml`. Values shown are the defaults.
@@ -154,7 +166,7 @@ Instead of a deletion, a holder may choose `action: transfer`: at the date, or a
 
 **When it is due,** the sweep opens a **claim window** of `transfer.claimWindowDays` days instead of erasing: the beneficiary is mailed a claim link (sent again 30 and 60 days later, the same link), and the holder is told. The reminders before it say "will be transferred to". In `inactivity` mode, a use of the account before anyone claims it (the holder's, or a delegate's) cancels the transfer, up to the moment the fallback would apply: both are mailed and the clock starts again. In `date` mode the holder cancels it in the account app; a new date or period not yet due also closes an open window. Transfers are offered only with the claim mail on, and telling the beneficiary at setup only with the beneficiary-named mail on.
 
-**The claim.** The link opens the account app's claim page. The beneficiary signs in to their own account on the platform (any core), or creates one, and accepts: the page calls [`account.transferClaim`](/reference/#methods-account-account-transferClaim) on the holder's core, which binds the transfer to that account and sends it a delegation invite on the holder's behalf; the page accepts the invite on the beneficiary's core and claims again, which completes the transfer. The holder's auto-deletion setting is then cleared (a new schedule needs the holder's own sign-in) and both are mailed. Possession of the link is the proof of being the beneficiary; the name and date of birth are never asked. The first account to claim is the only one that can; a claim with a wrong link counts on the address's budget of failed secrets (`auth.passwordAttempts.perIp`) and is reported to the holder in the app; it refuses nothing else, so nobody who merely knows the username can lock the beneficiary out. A beneficiary who claimed may still decline until they accept the delegation invite (after that the transfer is completed), and refusing the invite counts as declining. A holder who uses the account (inactivity) before the claimant accepted also cancels the transfer; after a decline the schedule goes on as a deletion, never as a transfer to the same person.
+**The claim.** The link opens the account app's claim page. The beneficiary signs in to their own account on the platform (any core), or creates one, and accepts: the page calls [`account.transferClaim`](/reference/#methods-account-account-transferClaim) on the holder's core, which binds the transfer to that account and sends it a delegation invite on the holder's behalf; the page accepts the invite on the beneficiary's core and claims again, which completes the transfer. The holder's auto-deletion setting is then cleared (a new schedule needs the holder's own sign-in) and both are mailed. Possession of the link is the proof of being the beneficiary; the name and date of birth are never asked. The first account to claim is the only one that can; a claim with a wrong link counts on the address's budget of failed secrets (`auth.passwordAttempts.perIp`) and is reported to the holder in the app; it refuses nothing else, so nobody who merely knows the username can lock the beneficiary out. A beneficiary who claimed may still decline until they accept the delegation invite (after that the transfer is completed), and refusing the invite counts as declining. A holder who uses the account (inactivity) before the claimant accepted also cancels the transfer; after a decline the schedule goes on as a deletion, never as a transfer to the same person. The holder's core accepts a transfer's delegation invite only while that transfer is still claimed by the invited account: an invite left over from a transfer that was cancelled, declined or lapsed is refused (`410`) and withdrawn from both accounts' delegate lists.
 
 **At the end of the window without a claim,** the fallback applies: `keep` leaves the account (the holder's setting becomes `never`, or your preset where opting out is not allowed, with its full reminder schedule from that day); `delete` erases it as a scheduled deletion would, through the same checks (deletion guards, self-deletion, `maxDeletionsPerPass`), recorded with the trigger `transfer-fallback`. A beneficiary who declines makes the fallback apply at once (before the deadline: the schedule becomes a deletion, or `never`).
 
@@ -164,7 +176,7 @@ Instead of a deletion, a holder may choose `action: transfer`: at the date, or a
 
 | Mail | Sent when | Template | Switch |
 |---|---|---|---|
-| **Confirmation** | the holder changes the setting, clearing included; it names the deadline, or says nothing is scheduled | `account-deletion-scheduled` | `services.email.enabled.accountDeletionScheduled` |
+| **Confirmation** | the holder changes the setting, clearing included, or the support resets it; it names the deadline, or says nothing is scheduled | `account-deletion-scheduled` | `services.email.enabled.accountDeletionScheduled` |
 | **Reminder** | at each `reminders.leadDays` before the deletion | `account-deletion-reminder` | `services.email.enabled.accountDeletionReminder` |
 | **Deletion held** | a check refused the deletion (sent once) | `account-deletion-blocked` | `services.email.enabled.accountDeletionBlocked` |
 | **Beneficiary named** | to the beneficiary, when named with `atSetup` (with a decline link) | `account-transfer-named` | `services.email.enabled.accountTransferNamed` |
@@ -195,8 +207,9 @@ The templates get these variables:
 | `BENEFICIARY` | the beneficiary's name if the holder gave one, else their address (in the beneficiary's own mails: always the address) |
 | `BENEFICIARY_EMAIL`, `BENEFICIARY_NAME` | the two separately (`BENEFICIARY_NAME` is never sent to the beneficiary) |
 | `FALLBACK_DELETE`, `FALLBACK_KEEP`, `IDENTITY_GIVEN`, `NOTIFY_AT_SETUP` | `'true'` or `''` |
+| `BY_OPERATOR`, `OPERATOR_REASON` | in the confirmation: `'true'` and the support's reason when the support reset the schedule, else `''` |
 
-The transfer mails also get `OPERATOR_NAME` (`service.name`), `TO_BENEFICIARY` (`'true'` in the beneficiary's copy), `CLAIM_LINK` and `DECLINE_LINK` (pages of the account app, `''` when not usable), `WINDOW_END` and `WINDOW_DAYS`, `CLAIMANT` (the account that claimed it), and `REASON` (`declined`, `owner-activity`, `delegate-activity`, `owner-change`) with one flag each (`REASON_DECLINED`, ...).
+The transfer mails also get `OPERATOR_NAME` (`service.name`), `TO_BENEFICIARY` (`'true'` in the beneficiary's copy), `CLAIM_LINK` and `DECLINE_LINK` (pages of the account app, `''` when not usable), `WINDOW_END` and `WINDOW_DAYS`, `CLAIMANT` (the account that claimed it), and `REASON` (`declined`, `owner-activity`, `delegate-activity`, `owner-change`, and `operator` for a support reset, from the release after 2.0.0-rc.87) with one flag each (`REASON_DECLINED`, ...; `operator` has none: the bundled template uses its generic "cancelled" line).
 
 **Existing platforms must add the templates.** The bundled templates (en, fr) are seeded only into an empty PlatformDB, on a platform's first boot. A platform seeded before this feature adds them with `bin/mail.js templates set` (or the admin API), per language and part; the bundled sources are in `components/mail/templates/` of open-pryv.io:
 

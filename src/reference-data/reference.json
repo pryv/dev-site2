@@ -8528,6 +8528,125 @@
                 ]
               },
               {
+                "id": "autoDeletion",
+                "title": "Account auto-deletion",
+                "adminOnly": true,
+                "description": "Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from the release after open-pryv.io 2.0.0-rc.87). Served under `/system/admin/` with the admin key, by the core that hosts the account.",
+                "sections": [
+                  {
+                    "id": "autoDeletion.reset",
+                    "type": "method",
+                    "title": "Stop a pending deletion",
+                    "http": "POST /system/admin/auto-deletion/clear",
+                    "httpOnly": true,
+                    "server": "core",
+                    "description": "For a holder who cannot sign in in time (in hospital, travelling) and whose account is about to be deleted or transferred. By default the schedule **restarts**: its clock starts again from now, as a sign-in would, with its full period, reminders and minimum notice; the policy that applies (your preset or the holder's own period) does not change. A holder's own **date** has no clock to restart and is refused unless `removeSetting` is set. Send it to the core that hosts the account; another core answers `307` with that core in `server` (and the `Location` header).\n\n`removeSetting: true` removes the holder's own schedule (date or period), after which your platform's policy applies again from now. That schedule is the holder's own erasure request: use it only on their verified request. A \"never\" setting is never removed.\n\nA transfer claim window not claimed yet is cancelled, as a use of the account would cancel it, and the beneficiary is told; a pending claim invite is withdrawn first. Once the claimant controls the account the transfer is done: it is completed and the call answers `409`. An erasure already started, or starting while the call runs, is not stopped (`400`, `data.reason: \"erasure-in-progress\"`).\n\nEvery change is mailed to the holder with the `reason` as written (template `account-deletion-scheduled`, variables `BY_OPERATOR` and `OPERATOR_REASON`; platforms seeded earlier must set that template again first, or the mail ends with the advice to change the password) and recorded in the account's own audit trail (`account.autoDeletion.resetByAdmin`). The call itself is audited without a user. A call that finds nothing pending changes nothing and answers `cleared: false`.",
+                    "params": {
+                      "properties": [
+                        {
+                          "key": "username",
+                          "type": "string",
+                          "description": "The account."
+                        },
+                        {
+                          "key": "reason",
+                          "type": "string",
+                          "description": "Why the schedule is reset, 1 to 500 characters, shown to the holder as written: keep it factual, plain text, free of anyone else's data."
+                        },
+                        {
+                          "key": "removeSetting",
+                          "type": "boolean",
+                          "optional": true,
+                          "description": "Remove the holder's own schedule instead of restarting it. Default `false`."
+                        }
+                      ]
+                    },
+                    "result": {
+                      "http": "200 OK",
+                      "properties": [
+                        {
+                          "key": "cleared",
+                          "type": "boolean",
+                          "description": "`true` when something changed; `false` when nothing was pending (a repeated call is harmless)."
+                        },
+                        {
+                          "key": "removedSetting",
+                          "type": "boolean",
+                          "description": "The holder's own schedule was removed."
+                        },
+                        {
+                          "key": "transferCancelled",
+                          "type": "boolean",
+                          "description": "An open transfer claim window was cancelled."
+                        },
+                        {
+                          "key": "was",
+                          "type": "object",
+                          "description": "The schedule before the call: `source`, `mode`, `action`, `deleteAt`."
+                        },
+                        {
+                          "key": "autoDeletion",
+                          "type": "object",
+                          "description": "The schedule after the call, same fields."
+                        },
+                        {
+                          "key": "notified",
+                          "type": "`mail`|`audit-only`|`none`",
+                          "description": "`mail` when the holder was mailed; `audit-only` when only the account's audit trail records it (no address, mail off or the send failed); `none` when nothing was written."
+                        }
+                      ]
+                    },
+                    "errors": [
+                      {
+                        "key": "invalid-parameters-format",
+                        "http": "400",
+                        "description": "A parameter is missing or malformed."
+                      },
+                      {
+                        "key": "invalid-operation",
+                        "http": "400",
+                        "description": "`data.reason`: `date-schedule` (a holder's own date without `removeSetting`) or `erasure-in-progress`."
+                      },
+                      {
+                        "key": "unknown-resource",
+                        "http": "404",
+                        "description": "No such account."
+                      },
+                      {
+                        "key": "auto-deletion-transfer-claimed",
+                        "http": "409",
+                        "description": "The claimant already controls the account: the transfer was completed."
+                      },
+                      {
+                        "key": "api-unavailable",
+                        "http": "503",
+                        "description": "A pending claim invite could not be removed on this core (a storage error); nothing changed, the call can be repeated."
+                      },
+                      {
+                        "key": "unavailable-method",
+                        "http": "451",
+                        "description": "Account auto-deletion is turned off on this platform."
+                      }
+                    ],
+                    "examples": [
+                      {
+                        "title": "Restarting a schedule",
+                        "params": {
+                          "username": "jane",
+                          "reason": "Hospital stay reported to support on 2027-02-03; the account stays open."
+                        },
+                        "result": {
+                          "cleared": true,
+                          "removedSetting": false,
+                          "transferCancelled": false,
+                          "notified": "mail"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
                 "id": "erasures",
                 "title": "Erasures",
                 "adminOnly": true,
