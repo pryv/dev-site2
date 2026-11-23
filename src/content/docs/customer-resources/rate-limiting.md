@@ -1,10 +1,10 @@
 ---
 title: 'Rate limiting and DoS protection'
-description: Reference nginx and fail2ban configuration for rate limiting a Pryv deployment, keyed on the routes that matter, with per-workload limits and a load test to prove the limits fire.
+description: Reference nginx, HAProxy and fail2ban configuration for rate limiting a Pryv deployment, keyed on the routes that matter, with per-workload limits and a load test to prove the limits fire.
 ---
 
 
-This page gives operators a reference **nginx + fail2ban** setup that throttles abusive traffic before it reaches Pryv: per-IP limits on the unauthenticated surfaces (login, registration, password reset, access requests), per-token limits on data reads and writes, connection caps, body size limits and slow-client timeouts, plus fail2ban jails that ban the source addresses.
+This page gives operators a reference **nginx** or **HAProxy** setup, with **fail2ban**, that throttles abusive traffic before it reaches Pryv: per-IP limits on the unauthenticated surfaces (login, registration, password reset, access requests), per-token limits on data reads and writes, connection caps, body size limits and slow-client timeouts, plus fail2ban jails that ban the source addresses.
 
 Every number in it is a starting point. Read the [limits at a glance](#limits-at-a-glance) table for your workload, then [verify](#verify-the-limits-fire) that the limits fire before you rely on them.
 
@@ -51,7 +51,7 @@ Pryv **does** bound, by itself, the checks of a credential (passwords, second fa
 
 There is **no** in-process limit on request rates: per token, per address on data routes, on registration volume per caller, on lookups of names that exist, on OAuth2. Those are what this page covers.
 
-Requests rejected by nginx never reach Pryv, so they appear in nginx's logs, not in Pryv's audit log or observability metrics. The nginx logs are therefore the record of a limit firing; keep them (see [logs are personal data](#logs-are-personal-data)).
+Requests rejected by the proxy never reach Pryv, so they appear in the proxy's logs, not in Pryv's audit log or observability metrics. The proxy logs are therefore the record of a limit firing; keep them (see [logs are personal data](#logs-are-personal-data)).
 
 
 ## The routes that matter
@@ -455,7 +455,267 @@ The usual shape is one nginx per core, each with this configuration. Per-token l
 
 With the embedded DNS (`dns.active`), from the release after 2.0.0-rc.87, each core answers at most 20 UDP queries a second that need a platform lookup per client network (/24 IPv4, /56 IPv6), and at most 100 lookups a second of unknown names in all. A public resolver sending many clients' queries from one network meets the per-network limit first: it then retries the truncated answers over TCP, so size `dns.responseRateLimit.perSecond` and `dns.tcpMaxConnections` for your traffic, and watch the core log for "refused by dns.responseRateLimit". During a flood of random names, an account the DNS has not resolved in the last 30 s also falls back to TCP. Core names, an account's core, the service names and hosted sites are answered from the core list the DNS re-reads every 30 s, so a core change reaches the DNS within 30 s.
 
-Other proxies (HAProxy stick tables, Traefik or Caddy rate-limit middlewares, a CDN's rate-limiting rules) apply the same route table with the same keys.
+HAProxy has [its own configuration](#haproxy-configuration) below. Other proxies (Traefik or Caddy rate-limit middlewares, a CDN's rate-limiting rules) apply the same route table with the same keys.
+
+
+## HAProxy configuration
+
+The same routes, keys and limits as the nginx configuration above (consumer health app profile), in one `haproxy.cfg` for HAProxy 2.8 or later. It was verified with HAProxy 3.2 in front of an open-pryv.io 2.0.0-rc.87 core in DNSless mode, with the same assumptions as for nginx: HAProxy terminates TLS, and Pryv listens on plain HTTP on `127.0.0.1:3000` (API) and `127.0.0.1:4000` (HFS), so the default `http.trustedProxies` (`['loopback']`) covers it.
+
+What differs from nginx:
+
+- **Windows instead of buckets.** HAProxy counts each client's requests over a sliding window (a stick table storing `http_req_rate(<window>)`) and refuses past a limit. Each limit below is the nginx rate over the window plus the nginx burst: `10r/m, burst 5` becomes "more than 15 in one minute". Refused requests are counted too, so a client that keeps sending stays refused until it slows down, where nginx lets the refill through. To use the other profiles of [limits at a glance](#limits-at-a-glance), compute each limit the same way.
+- **Three counters per request.** HAProxy tracks at most three counters per request by default (`sc0` to `sc2`): connections, the per-IP budget and the budget of the route or token. Each route class needs at most those three.
+- **Body size by `Content-Length`.** A request declaring more than 51 MiB is refused with `413`; a chunked body without a length is capped by Pryv only (`uploads.maxSizeMb`).
+- **Token keys are hashed** (64-bit `xxh64`), so no token is kept in a table.
+- **Logs go to syslog** (`/var/log/haproxy.log` on Debian and Ubuntu, through rsyslog). The log line resembles nginx's `pryv` format, without query strings, and names the limit that refused a request (`lr=REJECTED zone=pryv_login`): HAProxy has no error log of its own refusals, so the [fail2ban filters for HAProxy](#haproxy-filters) read this line.
+
+```text
+# /etc/haproxy/haproxy.cfg
+
+global
+    log /dev/log local0
+    chroot /var/lib/haproxy
+    user haproxy
+    group haproxy
+    daemon
+    ssl-default-bind-options ssl-min-ver TLSv1.2
+    # `echo "show table st_login" | socat stdio /run/haproxy/admin.sock`
+    # lists the addresses a table holds and their counts.
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+
+defaults
+    mode http
+    log global
+    option dontlognull
+    # ---------- Slow clients and idle connections ----------
+    # A client must send its whole request head within 15 s (slow-loris).
+    timeout http-request    15s
+    timeout http-keep-alive 65s
+    timeout client          60s
+    timeout connect         5s
+    # Idle time between two reads from Pryv; large event queries stream,
+    # which keeps the timer fed. From the release after 2.0.0-rc.87 the core
+    # itself also closes a connection idle either way for
+    # http.responseIdleTimeoutMs (120 s): keep both above your slowest call.
+    timeout server          120s
+    # WebSockets (socket.io) once upgraded.
+    timeout tunnel          3600s
+
+# ---------- Counters ----------
+# One table per budget, as nginx has one zone per budget. A table counts
+# requests over a sliding window (`http_req_rate(<window>)`) and a rule
+# below refuses the request once the count is over the limit. The limit is
+# the nginx rate over the window plus its burst: nginx's "10r/m, burst 5"
+# is "more than 15 in one minute" here. Refused requests count too, so a
+# client that keeps sending stays refused until it slows down.
+# size: how many keys a table holds (when full, the oldest entries are
+# dropped, so an undersized table forgets attackers, it does not block
+# legitimate users); expire: how long an idle entry stays, at least the window.
+backend st_conn
+    stick-table type ipv6 size 100k expire 10m store conn_cur
+backend st_login
+    stick-table type ipv6 size 100k expire 10m store http_req_rate(1m)
+backend st_signup
+    stick-table type ipv6 size 100k expire 10m store http_req_rate(1m)
+backend st_lookup
+    stick-table type ipv6 size 100k expire 1m store http_req_rate(10s)
+backend st_access_create
+    stick-table type ipv6 size 100k expire 10m store http_req_rate(1m)
+backend st_poll
+    stick-table type ipv6 size 100k expire 1m store http_req_rate(10s)
+backend st_oauth_token
+    stick-table type ipv6 size 100k expire 10m store http_req_rate(1m)
+backend st_oauth_auth
+    stick-table type ipv6 size 100k expire 10m store http_req_rate(1m)
+backend st_admin
+    stick-table type ipv6 size 10k expire 10m store http_req_rate(1m)
+backend st_ip
+    stick-table type ipv6 size 200k expire 1m store http_req_rate(10s)
+# Per-token tables are keyed on a 64-bit hash of the token, so no token is
+# kept in a table nor shown by `show table`.
+backend st_tok_write
+    stick-table type integer size 200k expire 1m store http_req_rate(10s)
+backend st_tok_read
+    stick-table type integer size 200k expire 1m store http_req_rate(10s)
+backend st_hfs
+    stick-table type integer size 200k expire 1m store http_req_rate(10s)
+
+frontend pryv
+    bind :80
+    bind :443 ssl crt /etc/haproxy/certs/core.example.com.pem alpn h2,http/1.1
+    # Concurrent connections per address, counted when a connection opens.
+    tcp-request connection track-sc0 src table st_conn
+    http-request redirect scheme https code 301 unless { ssl_fc }
+
+    # ---------- Log line without query strings ----------
+    # %HPO is the path alone: the query string can carry `auth=<token>`,
+    # which must not land in a log file. lr= is PASSED or REJECTED (by a
+    # limit below), "-" when HAProxy answered before the limits ran; zone=
+    # names the limit that refused the request. The fail2ban filters read it.
+    http-request capture req.hdr(host) len 100
+    log-format "%ci - [%tr] \"%HM %HPO %HV\" %ST %B lr=%[var(txn.pryv_lr)] zone=%[var(txn.pryv_zone)] rt=%Ta host=%hr"
+
+    # ---------- Bodies ----------
+    # Pryv's uploads.maxSizeMb (default 50) caps each uploaded file and the
+    # JSON body. Here the whole request is capped by its Content-Length:
+    # the Pryv limit plus 1 MiB of multipart overhead (51 MiB). A body sent
+    # without Content-Length (chunked) is only capped by Pryv.
+    http-request deny deny_status 413 if { req.hdr_val(content-length) gt 53477376 }
+
+    # ---------- Headers Pryv needs ----------
+    # Overwrite, never append: Pryv records X-Forwarded-For as the client
+    # address, and a client-sent X-Forwarded-Host would pick the host a DPoP
+    # proof is checked against. Host is passed as received (hosted sites and
+    # user subdomains are recognised by it). Do not use `option forwardfor`,
+    # which appends.
+    http-request set-header X-Forwarded-For   %[src]
+    http-request set-header X-Forwarded-Host  %[req.hdr(host)]
+    http-request set-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto http  unless { ssl_fc }
+    http-request set-header X-Forwarded-Port  %[dst_port]
+
+    # ---------- The access token, read the way Pryv reads it ----------
+    # Header first: "Bearer <t>", "Basic <b64>", or the bare token (a
+    # trailing " <callerId>" is ignored). Otherwise the `auth` query
+    # parameter. Basic is keyed on the encoded credentials: still one bucket
+    # per token, but not the same bucket as the bare token.
+    http-request set-var(txn.pryv_tok) "req.fhdr(authorization),regsub('^(bearer|basic)[[:space:]]+','',i),word(1,' '),xxh64" if { req.fhdr(authorization) -m found }
+    http-request set-var(txn.pryv_tok) url_param(auth),xxh64 if !{ var(txn.pryv_tok) -m found } { url_param(auth) -m found }
+
+    # ---------- Route classes ----------
+    # Pryv matches paths regardless of letter case and with or without a
+    # trailing slash, so every pattern is case-insensitive (-i) and ends in
+    # "/?$": /alice/Auth/Login/ must not escape the login limit. A request
+    # takes the first class whose pattern matches.
+    acl pryv_read      method GET HEAD OPTIONS
+    acl pryv_post      method POST
+    acl r_login        path -m reg -i ^(/[^/]+)?/(auth/login|mfa/(challenge|verify|confirm|recover|activate|deactivate))/?$
+    acl r_reset        path -m reg -i ^(/[^/]+)?/account/(request-password-reset|reset-password|verify-email)/?$
+    acl r_signup       path -m reg -i ^(/reg)?/(users?|email-challenge(/verify)?|access/invitationtoken/check)/?$
+    acl r_shared       path -m reg -i ^(/[^/]+)?/shared-secrets/retrieve/?$
+    acl r_access_new   path -m reg -i ^/reg/access/?$
+    acl r_access       path -m reg -i ^/reg/access/
+    acl r_admin        path -m reg -i ^/(system|reg/admin)(/|$)
+    acl r_reg          path -m reg -i ^/reg(/|$)
+    acl r_oauth_token  path -m reg -i ^/oauth2/(token|introspect|revoke)/?$
+    acl r_oauth_auth   path -m reg -i ^/oauth2/authorize(/|$)
+    acl r_sso          path -m reg -i ^/auth/sso(/|$)
+    acl r_hfs          path -m reg -i ^/[^/]+/(events/[^/]+/series|series/batch)(/|$)
+    acl r_socket       path_beg /socket.io/
+    # Hosts exempt from the admin limit: your cores (they call each other's
+    # /system routes) and your administration hosts. Replace the example range.
+    acl admin_exempt   src 127.0.0.1 ::1 10.0.0.0/8
+
+    http-request set-var(txn.pryv_class) str(login)        if r_login
+    http-request set-var(txn.pryv_class) str(signup)       if !{ var(txn.pryv_class) -m found } r_reset
+    http-request set-var(txn.pryv_class) str(signup)       if !{ var(txn.pryv_class) -m found } r_signup
+    http-request set-var(txn.pryv_class) str(lookup)       if !{ var(txn.pryv_class) -m found } r_shared
+    http-request set-var(txn.pryv_class) str(access_new)   if !{ var(txn.pryv_class) -m found } r_access_new
+    http-request set-var(txn.pryv_class) str(access)       if !{ var(txn.pryv_class) -m found } r_access
+    http-request set-var(txn.pryv_class) str(admin)        if !{ var(txn.pryv_class) -m found } r_admin
+    http-request set-var(txn.pryv_class) str(lookup)       if !{ var(txn.pryv_class) -m found } r_reg
+    http-request set-var(txn.pryv_class) str(oauth_token)  if !{ var(txn.pryv_class) -m found } r_oauth_token
+    http-request set-var(txn.pryv_class) str(oauth_auth)   if !{ var(txn.pryv_class) -m found } r_oauth_auth
+    http-request set-var(txn.pryv_class) str(lookup)       if !{ var(txn.pryv_class) -m found } r_sso
+    http-request set-var(txn.pryv_class) str(hfs)          if !{ var(txn.pryv_class) -m found } r_hfs
+    http-request set-var(txn.pryv_class) str(socket)       if !{ var(txn.pryv_class) -m found } r_socket
+    http-request set-var(txn.pryv_class) str(data)         if !{ var(txn.pryv_class) -m found }
+    acl c_login        var(txn.pryv_class) -m str login
+    acl c_signup       var(txn.pryv_class) -m str signup
+    acl c_lookup       var(txn.pryv_class) -m str lookup
+    acl c_access_new   var(txn.pryv_class) -m str access_new
+    acl c_access       var(txn.pryv_class) -m str access
+    acl c_admin        var(txn.pryv_class) -m str admin
+    acl c_oauth_token  var(txn.pryv_class) -m str oauth_token
+    acl c_oauth_auth   var(txn.pryv_class) -m str oauth_auth
+    acl c_hfs          var(txn.pryv_class) -m str hfs
+    acl c_socket       var(txn.pryv_class) -m str socket
+    acl c_data         var(txn.pryv_class) -m str data
+    acl c_poll         var(txn.pryv_class) -m str access_new access
+    acl c_per_ip       var(txn.pryv_class) -m str data hfs socket
+    acl has_token      var(txn.pryv_tok) -m found
+
+    # ---------- Counting ----------
+    # Three counter slots: sc0 concurrent connections (counted when the
+    # connection opens, at the top of this frontend), sc1 the per-IP budget,
+    # sc2 the budget of the route class (or of the token).
+    http-request track-sc2 src table st_login           if c_login
+    http-request track-sc2 src table st_signup          if c_signup
+    http-request track-sc2 src table st_lookup          if c_lookup
+    # Creation (POST /reg/access, nothing after it) counts against its own
+    # budget and the polling one; polls and decisions (GET and POST
+    # /reg/access/{key}) only against the polling one, so accepting or
+    # refusing never spends the creation budget. A CORS preflight is not a
+    # creation.
+    http-request track-sc1 src table st_poll            if c_poll
+    http-request track-sc2 src table st_access_create   if c_access_new pryv_post
+    http-request track-sc2 src table st_admin           if c_admin !admin_exempt
+    http-request track-sc2 src table st_oauth_token     if c_oauth_token
+    http-request track-sc2 src table st_oauth_auth      if c_oauth_auth
+    # Per IP (backstop, also covers requests without a token), and per token
+    # with separate read and write budgets. A batch call (POST /{username}/)
+    # counts as one write however many methods it carries.
+    http-request track-sc1 src table st_ip              if c_per_ip
+    http-request track-sc2 var(txn.pryv_tok) table st_hfs       if c_hfs has_token
+    http-request track-sc2 var(txn.pryv_tok) table st_tok_read  if c_data has_token pryv_read
+    http-request track-sc2 var(txn.pryv_tok) table st_tok_write if c_data has_token !pryv_read
+
+    # ---------- Limits (consumer health app profile) ----------
+    # Each line: refuse past <limit> requests in the table's window.
+    # 30 concurrent connections per address: generous for one person's apps,
+    # including a WebSocket each.
+    http-request set-var(txn.pryv_zone) str(pryv_conn)          if { sc_conn_cur(0) gt 30 }
+    # Login and MFA, 10/min + 5: a user mistyping a password a few times is
+    # never refused; a guessing script gets about 15 tries a minute.
+    http-request set-var(txn.pryv_zone) str(pryv_login)         if c_login        { sc_http_req_rate(2) gt 15 }
+    # Account creation, sign-up email codes, password reset: 3/min + 3.
+    http-request set-var(txn.pryv_zone) str(pryv_signup)        if c_signup       { sc_http_req_rate(2) gt 6 }
+    # Lookups, shared secrets, SSO: 1/s + 20.
+    http-request set-var(txn.pryv_zone) str(pryv_lookup)        if c_lookup       { sc_http_req_rate(2) gt 30 }
+    # Access-request creation 6/min + 5; polling 3/s + 10.
+    http-request set-var(txn.pryv_zone) str(pryv_access_create) if c_access_new pryv_post { sc_http_req_rate(2) gt 11 }
+    http-request set-var(txn.pryv_zone) str(pryv_poll)          if c_poll         { sc_http_req_rate(1) gt 40 }
+    # Admin surface 30/min + 20, exempt hosts not counted.
+    http-request set-var(txn.pryv_zone) str(pryv_admin)         if c_admin !admin_exempt { sc_http_req_rate(2) gt 50 }
+    # OAuth2, the values of the reference nginx vhost shipped with open-pryv.io.
+    http-request set-var(txn.pryv_zone) str(pryv_oauth_token)   if c_oauth_token  { sc_http_req_rate(2) gt 70 }
+    http-request set-var(txn.pryv_zone) str(pryv_oauth_auth)    if c_oauth_auth   { sc_http_req_rate(2) gt 330 }
+    # Per IP 20/s + 100; per token writes 5/s + 20, reads 10/s + 40, HFS 5/s + 20.
+    http-request set-var(txn.pryv_zone) str(pryv_ip)            if c_per_ip       { sc_http_req_rate(1) gt 300 }
+    http-request set-var(txn.pryv_zone) str(pryv_hfs)           if c_hfs has_token { sc_http_req_rate(2) gt 70 }
+    http-request set-var(txn.pryv_zone) str(pryv_tok_read)      if c_data has_token pryv_read  { sc_http_req_rate(2) gt 140 }
+    http-request set-var(txn.pryv_zone) str(pryv_tok_write)     if c_data has_token !pryv_read { sc_http_req_rate(2) gt 70 }
+
+    # ---------- Refusal ----------
+    # A JSON 429 shaped like Pryv's own errors, readable by browser apps.
+    # 429 is what Pryv itself uses for "slow down", and what clients retry
+    # on. Pryv's own 429s (MFA backoff, access-request ceiling, calls in
+    # progress per account or access) pass through untouched.
+    http-request set-var(txn.pryv_lr) str(PASSED)
+    http-request set-var(txn.pryv_lr) str(REJECTED) if { var(txn.pryv_zone) -m found }
+    http-request return status 429 content-type application/json string '{"error":{"id":"too-many-requests","message":"Rate limit reached, retry later."}}' hdr Retry-After 10 hdr Access-Control-Allow-Origin "*" hdr Access-Control-Expose-Headers Retry-After if { var(txn.pryv_zone) -m found }
+
+    use_backend pryv_hfs if c_hfs
+    default_backend pryv_api
+
+backend pryv_api
+    server api1 127.0.0.1:3000
+
+# High-frequency series (HFS worker). Host is the worker's own address. With
+# usernames in the host (dns.domain set), the HFS worker reads the first label
+# of Host as a username, which would break these path-style requests; in
+# DNSless mode it is harmless.
+backend pryv_hfs
+    http-request set-header Host 127.0.0.1:4000
+    server hfs1 127.0.0.1:4000
+```
+
+Check the file with `haproxy -c -f /etc/haproxy/haproxy.cfg` and apply it with `systemctl reload haproxy`. The certificate file named by `crt` holds the certificate chain followed by the private key (`cat fullchain.pem privkey.pem`). To see what a table counts: `echo "show table st_login" | socat stdio /run/haproxy/admin.sock`.
+
+**Username-in-host deployments.** The three changes listed for nginx apply: a wildcard certificate, the shorter paths on the reserved hosts `reg.`, `access.` and `mfa.` (match the host with `req.hdr(host)` and give those paths the same classes), and the HFS paths of a user host sent to `pryv_api` (the core forwards them to the HFS worker). This shape was not part of the verified setup.
+
+**Multi-core deployments.** The notes for nginx hold as they are: one HAProxy per core keeps the per-token limits exact; registration, lookups and access requests spread over N cores get N times the per-IP budget, unless one edge sees all cores. HAProxy can share its tables between several HAProxy instances (`peers` section), which gives one count per client across them.
 
 
 ## Composing with TLS
@@ -463,8 +723,9 @@ Other proxies (HAProxy stick tables, Traefik or Caddy rate-limit middlewares, a 
 **nginx terminates TLS (the configuration above).** Pryv runs on plain HTTP (`http.port: 3000`, no `http.ssl` block). You can still let Pryv manage the certificate:
 
 - Keep `letsEncrypt.enabled: true`. The renewer writes the certificate to `var-pryv/tls/<hostname>/fullchain.pem` and `privkey.pem` (under `letsEncrypt.tlsDir`); point `ssl_certificate` and `ssl_certificate_key` there, and set `letsEncrypt.onRotateScript` to a script running `nginx -t && nginx -s reload` (see [SSL certificate](/customer-resources/ssl-certificate/#strategy-a--built-in-auto-renewal-recommended)).
+- With HAProxy, `crt` names one file holding the chain followed by the key: have the `onRotateScript` write it (`cat fullchain.pem privkey.pem > /etc/haproxy/certs/core.example.com.pem`), then run `haproxy -c -f /etc/haproxy/haproxy.cfg && systemctl reload haproxy`.
 - With **DNS-01** (wildcard, username-in-host deployments) nothing else changes.
-- With **HTTP-01** (single host name), Pryv answers the challenge on its own listener bound to port 80. nginx must then not listen on port 80: drop the redirect server block. Pryv's port-80 listener answers 404 to everything but the challenge, so plain-HTTP clients get no redirect to HTTPS. If you need that redirect, issue the certificate outside Pryv instead (certbot, or an ACME-capable proxy) and leave `letsEncrypt.enabled: false`.
+- With **HTTP-01** (single host name), Pryv answers the challenge on its own listener bound to port 80. nginx must then not listen on port 80: drop the redirect server block (with HAProxy, the `bind :80` line). Pryv's port-80 listener answers 404 to everything but the challenge, so plain-HTTP clients get no redirect to HTTPS. If you need that redirect, issue the certificate outside Pryv instead (certbot, or an ACME-capable proxy) and leave `letsEncrypt.enabled: false`.
 
 **Pryv terminates TLS itself** (`http.port: 443` with `http.ssl`, often with the built-in renewer). An HTTP-aware proxy cannot sit in front without taking over TLS, because it cannot read paths or headers inside a connection it does not decrypt. Your options:
 
@@ -475,7 +736,7 @@ Other proxies (HAProxy stick tables, Traefik or Caddy rate-limit middlewares, a 
 
 ## fail2ban
 
-Three jails, all reading nginx's logs (Pryv's own logs are not involved). Install the filters, then the jail file, then `fail2ban-client reload`.
+Three jails, all reading the proxy's logs (Pryv's own logs are not involved). Install the filters, then the jail file, then `fail2ban-client reload`. The filters and jails below read nginx's logs; with HAProxy, use the [HAProxy filters](#haproxy-filters) instead.
 
 ### Filters
 
@@ -560,6 +821,47 @@ findtime = 10m
 bantime  = 1h
 ```
 
+### HAProxy filters
+
+The same three jails, reading the HAProxy log line of the [HAProxy configuration](#haproxy-configuration) through syslog (`common.conf` strips the syslog prefix). There is no error log to read: the excess-rate filter counts the refusals HAProxy logs with `lr=REJECTED` and the name of a per-IP limit.
+
+```ini
+# /etc/fail2ban/filter.d/pryv-haproxy-auth-login-fail.conf
+# Same statuses as pryv-auth-login-fail above.
+[INCLUDES]
+before = common.conf
+[Definition]
+_daemon = haproxy
+failregex = ^%(__prefix_line)s<HOST> - \[[^\]]*\] "POST (?i:(?:/[^/" ]+)?/auth/login/?) HTTP/[\d.]+" (?:401|404) 
+            ^%(__prefix_line)s<HOST> - \[[^\]]*\] "POST (?i:(?:/[^/" ]+)?/mfa/(?:verify|confirm|recover)/?) HTTP/[\d.]+" (?:400|401|404) 
+ignoreregex =
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-haproxy-excess-rate.conf
+# Only the per-IP limits of unauthenticated surfaces and the connection cap:
+# an app exceeding its per-token budget gets 429s, not an IP ban.
+[INCLUDES]
+before = common.conf
+[Definition]
+_daemon = haproxy
+failregex = ^%(__prefix_line)s<HOST> - \[[^\]]*\] "[A-Z]+ [^"]*" 429 \d+ lr=REJECTED zone=pryv_(?:login|signup|lookup|access_create|oauth_token|oauth_auth|admin|conn) 
+ignoreregex =
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-haproxy-access-create-abuse.conf
+# Access-request creations (201) and refused creations (429, Pryv's or HAProxy's).
+[INCLUDES]
+before = common.conf
+[Definition]
+_daemon = haproxy
+failregex = ^%(__prefix_line)s<HOST> - \[[^\]]*\] "POST (?i:(?:/reg)?/access/?) HTTP/[\d.]+" (?:201|429) 
+ignoreregex =
+```
+
+In the jail file above, name these filters (`filter = pryv-haproxy-auth-login-fail`, ...) and read `/var/log/haproxy.log` for all three (`logpath`).
+
 If nginx runs in Docker with published ports, bans must go to the `DOCKER-USER` chain (for example `banaction = iptables-multiport` with `chain = DOCKER-USER`), or they never see the traffic.
 
 Pryv's audit log also records the source IP of every audited API call, for your SIEM. fail2ban reads the nginx logs here because they cover requests that never reach Pryv, and failed logins for usernames that do not exist (which have no per-user audit log to write to).
@@ -567,12 +869,12 @@ Pryv's audit log also records the source IP of every audited API call, for your 
 
 ## Logs are personal data
 
-IP addresses in the nginx logs and the fail2ban database are personal data in most regimes. Rotate them on a schedule you have documented (`logrotate`, `dbpurgeage` in `fail2ban.conf`), and keep them in the same region as the core they protect when you operate cores under different data-residency rules. The log format above leaves query strings out so that tokens passed as `?auth=` never reach the access log; the error log still records the full request line of a refused request, so prefer the `Authorization` header in your apps.
+IP addresses in the nginx logs and the fail2ban database are personal data in most regimes. Rotate them on a schedule you have documented (`logrotate`, `dbpurgeage` in `fail2ban.conf`), and keep them in the same region as the core they protect when you operate cores under different data-residency rules. The log format above leaves query strings out so that tokens passed as `?auth=` never reach the access log; the error log still records the full request line of a refused request, so prefer the `Authorization` header in your apps. The HAProxy log line leaves query strings out of every line, refusals included.
 
 
 ## Limits at a glance
 
-The configuration above is the consumer profile. Edit the `rate=` values in the zones and the `burst=` values in the locations for the others.
+The configuration above is the consumer profile. Edit the `rate=` values in the zones and the `burst=` values in the locations for the others. With HAProxy, each limit is the rate over its table's window plus the burst (`10r/m, burst 10` is "more than 20 in one minute"; `50r/s, burst 500` on a 10-second window is "more than 1000"); the connection cap is the same number.
 
 | Setting | Consumer health app | B2B research consortium | Hospital deployment |
 |---|---|---|---|
@@ -621,6 +923,8 @@ Origin: https://core.example.com
 # expect something like: { "401": 10, "429": 140 }  (404 instead of 401 if the user does not exist)
 ```
 
+With HAProxy, the first 15 requests of the minute reach Pryv and every later one in the run is refused (refused requests count in the window): about 15 answered by Pryv (`401`, or Pryv's own `429` once the account's delay has started) and 135 `429` from HAProxy, whose log shows `lr=REJECTED zone=pryv_login` for its own.
+
 **2. Write limit, per token.** The token does not have to be valid: nginx counts it before Pryv checks it, and an invalid token creates no data. 30 writes per second for 10 seconds against `5r/s, burst 20`: about 70 reach Pryv (and are refused by it with `403 invalid-access-token`), about 230 get `429`.
 
 ```bash
@@ -634,11 +938,11 @@ Authorization: rate-limit-test-token
 # expect something like: { "403": 70, "429": 230 }
 ```
 
-Run it a second time with `?auth=rate-limit-test-token` in the URL and no `Authorization` header: the counts must be the same, which proves the query-string token is keyed too.
+Run it a second time with `?auth=rate-limit-test-token` in the URL and no `Authorization` header: the counts must be the same, which proves the query-string token is keyed too. HAProxy gives the same counts (70 is the limit of its 10-second window); for a second run wait 10 seconds, or the per-IP backstop (300 in 10 seconds) is already spent.
 
 With a **valid** token and slow calls, from the release after 2.0.0-rc.87, Pryv may refuse some calls itself: past 32 calls in progress on one access (64 on one account) a worker answers `429 too-many-requests` without running the call. The body is the same as nginx's; tell them apart by the access log, where nginx's refusals show `lr=REJECTED` and Pryv's show `lr=PASSED`.
 
-**3. The jails.** Check each filter against the real logs, then watch a ban happen:
+**3. The jails.** fail2ban never bans the addresses of the host it runs on (`ignoreself = true`, the default): run the test from another machine, or set `ignoreself = false` in the jail file while testing. Check each filter against the real logs (with HAProxy, the `pryv-haproxy-*` filters against `/var/log/haproxy.log`), then watch a ban happen:
 
 ```bash
 fail2ban-regex /var/log/nginx/pryv-access.log /etc/fail2ban/filter.d/pryv-auth-login-fail.conf
