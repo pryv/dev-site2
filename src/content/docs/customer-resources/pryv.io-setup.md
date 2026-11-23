@@ -100,6 +100,22 @@ The default auth web app is [`pryv/app-web-user-account`](https://github.com/pry
 
 Make sure to apply the [fork change for GitHub Pages](https://github.com/pryv/app-web-user-account/blob/master/README.md#fork-repository-for-github-pages).
 
+### Restrict where access requests return (optional)
+
+An app creating an access request (`POST /reg/access`) may give a `returnURL`, where the auth page sends the user once they accept or refuse. The core always refuses a `returnURL` that is not an absolute URL, carries a `user:password@` part, or uses a `javascript:`, `data:`, `vbscript:` or `blob:` scheme. To also bind apps to their own origins, list them in `access.returnOrigins`, with the grammar of `auth.trustedApps`:
+
+```yaml
+access:
+  returnOrigins: "my-app@https://app.example.com, my-app@https://*.example.org, dev-app@http://localhost:*"
+```
+
+- An app id is bound when an entry names it; a `*@...` entry binds every app id, and `<appId>@*` exempts one. A bound app's request whose `returnURL` is on no listed origin (scheme, host and port; the path is free) is refused with `400 invalid-parameters` before anyone signs in. Unbound apps, and every app when the key is unset, are not restricted: app ids are matched exactly, so only a `*@...` entry closes the registry to ids you did not list. Only the origin of an entry counts (a path in it is ignored). A malformed entry stops the core at boot (`bin/check-config.js` reports it beforehand).
+- Set the same value on every core: access requests are created on the core that answers.
+- A mobile app may register a custom scheme as `<scheme>://<host>` (e.g. `mobile-app@myapp://callback`); write the host exactly as the app sends it (its case counts).
+- Migration: list each app with the origins it is served from (apps built on `lib-js` return to their own page, so the app's origin is the value), including development origins such as `http://localhost:*`; add a `*@...` entry only once every app id in use is covered.
+
+This is redirect hygiene, not client authentication: whoever creates a request can still read its outcome by polling, whatever the `returnURL`. Apps that need their redirect bound to the client should use the [OAuth2 flow](/customer-resources/auth-oauth2/).
+
 
 ## Set up email sending
 

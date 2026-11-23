@@ -1411,6 +1411,11 @@ module.exports = exports =
             optional: true
             description: """
                         An optional URL to redirect the user to after accepting or refusing.
+                        Absent, `false` or `"false"` means no redirect (the app polls). Otherwise an absolute URL with no
+                        `user:password@` part and a scheme other than `javascript:`, `data:`, `vbscript:` or
+                        `blob:`; when the platform binds the requesting app to its origins (`access.returnOrigins`), it
+                        must also be on one of them. A refused value answers `400 invalid-parameters` with
+                        `data.param: "returnURL"`, before any request is created.
                         """
           ,
             key: "clientData"

@@ -367,7 +367,7 @@
                     "key": "returnURL",
                     "type": "string",
                     "optional": true,
-                    "description": "The URL to redirect the user to after authentication completes.\nRequired if you are not using polling to retrieve the authentication result (see Result below)."
+                    "description": "The URL to redirect the user to after authentication completes.\nRequired if you are not using polling to retrieve the authentication result (see Result below).\nMust be an absolute URL (no `javascript:`, `data:`, `vbscript:` or `blob:` scheme, no\n`user:password@` part), and, when the platform registers your app's origins\n(`access.returnOrigins`), on one of them: otherwise the request is refused with\n`400 invalid-parameters` (`data.param: \"returnURL\"`)."
                   },
                   {
                     "key": "clientData",
@@ -9528,7 +9528,7 @@
                       "key": "returnURL",
                       "type": "string",
                       "optional": true,
-                      "description": "An optional URL to redirect the user to after accepting or refusing."
+                      "description": "An optional URL to redirect the user to after accepting or refusing.\nAbsent, `false` or `\"false\"` means no redirect (the app polls). Otherwise an absolute URL with no\n`user:password@` part and a scheme other than `javascript:`, `data:`, `vbscript:` or\n`blob:`; when the platform binds the requesting app to its origins (`access.returnOrigins`), it\nmust also be on one of them. A refused value answers `400 invalid-parameters` with\n`data.param: \"returnURL\"`, before any request is created."
                     },
                     {
                       "key": "clientData",

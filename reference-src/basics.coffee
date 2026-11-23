@@ -656,6 +656,10 @@ module.exports = exports =
           description: """
                        The URL to redirect the user to after authentication completes.
                        Required if you are not using polling to retrieve the authentication result (see Result below).
+                       Must be an absolute URL (no `javascript:`, `data:`, `vbscript:` or `blob:` scheme, no
+                       `user:password@` part), and, when the platform registers your app's origins
+                       (`access.returnOrigins`), on one of them: otherwise the request is refused with
+                       `400 invalid-parameters` (`data.param: "returnURL"`).
                        """
         ,
           key: "clientData"
