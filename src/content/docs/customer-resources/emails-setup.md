@@ -117,6 +117,8 @@ One config-only predicate backs the boot check, `bin/check-config.js`, the runti
 
 A value counts as missing when it is unset, empty or a placeholder (such as `REPLACE ME` or an unresolved `${VAR}`), as in a freshly generated configuration.
 
+**Mandrill templates.** From the release after open-pryv.io 2.0.0-rc.87, `services.email.mergeLanguage` sets the merge-tag language Mandrill fills the variables with (sent as `merge_language`). Set `handlebars` and write the Mandrill templates with `{{VAR}}`: Mandrill HTML-escapes those values (names, links, an administrator's reason). Unset, Mandrill uses its account default, Mailchimp `*|VAR|*` tags, whose escaping its documentation does not state, and the core logs a warning at boot; `mailchimp` keeps `*|VAR|*` templates without the warning. Any other value refuses the boot.
+
 `services.email.from.name` and `.address` are deliberately **not** required: the transport omits the header when they are unset, so a deployment that has been sending mail without a configured sender keeps working. Set them anyway, since some relays reject sender-less messages.
 
 ### Without an SMTP host
