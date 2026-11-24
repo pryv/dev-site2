@@ -15,6 +15,8 @@ Audit data can be written to any or both of the following:
 - in a dedicated **storage** where it will be indexed for [querying through the Events API](/guides/audit-logs/) (engine-pluggable; default `auditStorage` engine is SQLite)
 - in the host machine's **syslog** to which you can setup your own listeners
 
+The audit record of a call is written after the call has taken effect, on every transport (HTTP, batch calls, socket.io). If that write fails (for example the audit database is unreachable), the call keeps its answer and the core logs the failure at `error` level with its stack: `Failed to audit a batched call` for a call inside a batch, `result onEnd callback failed` for a single HTTP call, `[socket.io audit]` for socket.io. Alert on these lines: they are the record of an audit row that could not be written.
+
 
 ## Filtering
 
