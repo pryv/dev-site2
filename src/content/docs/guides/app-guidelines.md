@@ -44,6 +44,18 @@ If multiple parameters are provided, the following order of priority should be u
 2. `pryvApiEndpoint` as query parameter
 3. `pryvServiceInfoUrl` as default value
 
+**Security**
+
+A `pryvServiceInfoUrl` in the page address lets whoever wrote the link choose the platform: its sign-in page, the account the app then works with, and the stylesheet of the sign-in button. An app that serves known platforms should accept only these. With [lib-js](/libraries/lib-js/) (from 3.20):
+
+```js
+const serviceInfoUrl = pryv.Browser.serviceInfoFromUrl(null, {
+  allowedServiceInfoUrls: ['https://reg.pryv.me/service/info']
+}) || 'https://reg.pryv.me/service/info';
+```
+
+Without the option, any http(s) URL is accepted. Never write text or HTML that comes from a service (its name, messages or assets) into the page with `innerHTML`.
+
 # Authorization
 
 Using a `pryvApiEndpoint` to load an app allows to load data directly as it usually contains credentials. For cases where you require authentication, it is preferred to use `pryvServiceInfoUrl`:

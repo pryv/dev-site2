@@ -136,6 +136,15 @@ controller your own button creates) offers:
 - `switchTo(username)`, `addAccount()`, `profiles()`, `currentProfile()`: see
   [Several accounts](#several-accounts) below.
 
+### Custom button HTML
+
+The HTML of the built-in button comes from the service's assets (`lib-js.buttonSignIn.html`) and
+must hold an element with the id `pryv-access-btn-text`. From lib-js 3.20 it is filtered: the
+elements `div span p br b i strong em small img a button`, classes, styles, `aria-*` attributes,
+ids starting with `pryv-access-btn` and absolute http(s) images are kept; scripts, event handlers, links, inline SVG
+and embedded content are removed (elements with their content), with a warning in the console. Without a usable text element,
+a built-in button is shown. Use an image or a CSS background for a logo.
+
 ### Custom buttons
 
 A custom button (the fourth argument of `setupAuth`) may implement an optional
