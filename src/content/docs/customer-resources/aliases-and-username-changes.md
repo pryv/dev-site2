@@ -11,6 +11,8 @@ This guide is for operators. It covers two account features that give an account
 
 Both kinds of names (access aliases and former usernames) are held platform-wide by the account: nobody else can register them or take them with a change.
 
+The reference account app, [app-web-user-account](https://github.com/pryv/app-web-user-account), offers both to account holders: its profile shows the changes left and changes the username, and its connected-apps list marks the accesses that know the account by an alias.
+
 ## Configuration
 
 Both settings are per core, in your override configuration.
