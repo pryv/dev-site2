@@ -15,7 +15,29 @@ Audit data can be written to any or both of the following:
 - in a dedicated **storage** where it will be indexed for [querying through the Events API](/guides/audit-logs/) (engine-pluggable; default `auditStorage` engine is SQLite)
 - in the host machine's **syslog** to which you can setup your own listeners
 
-The audit record of a call is written after the call has taken effect, on every transport (HTTP, batch calls, socket.io). If that write fails (for example the audit database is unreachable), the call keeps its answer and the core logs the failure at `error` level with its stack: `Failed to audit a batched call` for a call inside a batch, `result onEnd callback failed` for a single HTTP call, `[socket.io audit]` for socket.io. Alert on these lines: they are the record of an audit row that could not be written.
+The audit record of a call is written after the call has taken effect, on every transport (HTTP, batch calls, socket.io). If that write fails (for example the audit database is unreachable), the call keeps its answer and the core logs the failure at `error` level with its stack: `Failed to audit a batched call` for a call inside a batch, `result onEnd callback failed` for a single HTTP call, `[socket.io audit]` for socket.io. From the release after 2.0.0-rc.87 two more lines come from the audit itself: `Failed to send an audit record to syslog` and `No audit storage: audit records are not stored` (once per worker). Alert on these lines: they are the record of an audit row that could not be written.
+
+Some calls are made by the core itself, for a flow: a delivery to an account of the same core, the one-time secret of a credential hand-off or of a third-party sign-in, the writes of an OAuth consent. From the release after 2.0.0-rc.87 they leave the same record as over HTTP, success or refusal, with the flow in `source.name` (`local-delivery`, `credential-handoff`, `sso`, `oauth2`) and no `source.ip`: no client connection made them. The lookups the core makes for itself during these flows are not recorded.
+
+### Records that could not be written
+
+From the release after 2.0.0-rc.87 the core also counts them, so that you can alert without reading logs:
+
+- `GET /system/audit-status` (admin key) answers the number of records the core could not write since it started, by kind and by cause ([reference](/reference-admin/#audit-status)). Poll every core: each one counts its own. Take the answer only when `scope` is `core`: `process`, on a core started with `bin/master.js`, means that the master did not answer in time and that only one worker was counted; ask again. The count starts again when the core restarts; `since` says when.
+- With [telemetry](/customer-resources/observability/) enabled, the metric `audit.records.lost` carries the same events per reporting interval.
+
+| Cause | What happened |
+|---|---|
+| `storage-write-failed` | the audit storage refused or failed the write |
+| `storage-unavailable` | no audit storage is available |
+| `invalid-record` | the record could not be built, or is not valid |
+| `syslog-failed` | the record was not handed to syslog; it is in the audit storage when its method is stored there too |
+
+Expect zero, and alert on anything above. The counts carry no account, method or message. The `error` log lines carry the failure itself; they do not name the record for every cause. A lost record is not written again later.
+
+Not counted: a process stopped between answering a call and writing its record; a write that never ends (a storage that hangs); a syslog delivery error reported after the call (logged as `audit syslog dropped`); what a command-line tool could not write. A restart sets the count of the status back to zero: after an audit storage outage, read the log as well.
+
+With `audit.onUserDelete: erase` (the default), a record refused because its account was erased while the call was running is not a lost record: the erasure exists to remove it. It is logged at `warn` (`Audit record not written`). With the audit storage on PostgreSQL and the base storage on SQLite the record is not refused, and may stay.
 
 
 ## Filtering

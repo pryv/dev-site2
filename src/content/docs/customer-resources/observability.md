@@ -27,11 +27,13 @@ This is the complete list. There is no "and other diagnostic data".
 | `api.method.calls` | `method.id`, `status.class` |
 | `api.method.duration` (histogram, ms) | `method.id`, `status.class` |
 | `api.method.errors` | `method.id`, `error.code` |
+| `audit.records.lost` (from the release after 2.0.0-rc.87) | `audit.record.kind`, `audit.loss.reason` |
 | `telemetry.dropped` | `reason` |
 
 - `method.id` is an API method identifier taken from the core's own method registry (for example `events.get`, `auth.login`). It is re-checked against that registry before every emission, so a value that is not a registered method id cannot be sent.
 - `status.class` is one of `2xx`, `3xx`, `4xx`, `5xx`.
 - `error.code` is one of the API's documented error ids (for example `invalid-access-token`), or `unknown`.
+- `audit.records.lost` counts [audit records that could not be written](/customer-resources/audit-setup/#records-that-could-not-be-written). `audit.record.kind` is one of `valid` (record of a call that succeeded), `error` (of a call that failed), `event` (any other record); `audit.loss.reason` is one of `storage-write-failed`, `storage-unavailable`, `invalid-record`, `syslog-failed`. It does not say which method or account. Nothing is sent when nothing was lost, so alert on any value above zero.
 - `telemetry.dropped` counts datapoints the emitter refused. A non-zero value means something tried to emit outside the vocabulary and was stopped; it is worth alerting on.
 
 **Process identity**, attached to every batch: service name (the label you set), service version, the **machine hostname**, and a worker index.
@@ -155,7 +157,7 @@ Then rolling-restart. For an immediate local kill switch that does not depend on
 - **Metrics are delta-reported per interval**, so a backend configured to expect cumulative values will need its usual OTLP delta handling.
 - **Aggregation trades detail for privacy**, by decision. If you need the exact sequence of an incident, the source is your own logs, not this telemetry.
 - **A failing backend never affects the API.** Send failures are counted and logged locally; buffers are bounded and drop rather than grow.
-- **Up to one interval of telemetry is lost on restart.** Whatever has been aggregated but not yet sent is discarded when a worker stops, so a rolling restart leaves a gap of up to one reporting interval. Deliberate: buffered telemetry is not worth delaying a shutdown for.
+- **Telemetry is sent when a core stops** (from the release after 2.0.0-rc.87). On a normal stop (SIGTERM) each API worker sends what it has aggregated, within 2 seconds. Still lost: up to one reporting interval when a worker is killed or crashes, or when the endpoint does not answer in that time. Earlier releases lost that interval at every restart.
 - **Third-party processing.** Understand your jurisdiction's requirements before shipping metadata to a vendor cloud, and prefer a self-hosted collector if you would rather not add a processor at all.
 - **Ingested telemetry usually cannot be deleted on demand.** Most vendors have no self-service purge; data expires with the account's retention window. Worth knowing before enabling, because a misconfiguration cannot be taken back.
 - **Earlier versions behaved differently.** Releases before this one used an in-process vendor agent, and a configuration defect meant that agent ran on its own defaults: request URLs, the `Host` header, route parameters carrying the username, and forwarded application log records all reached the vendor. If you enabled observability on an earlier version, assume that was the case for as long as it was on, and check what your account holds.

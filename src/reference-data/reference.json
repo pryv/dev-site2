@@ -8737,6 +8737,7 @@
                                 "deleteAttachments",
                                 "deleteAuditDataStorage",
                                 "deleteUser",
+                                "deleteAuditDataStorageAgain",
                                 "deleteAuditData",
                                 "dropHFDataAgain"
                               ],
@@ -8830,6 +8831,7 @@
                                 "deleteAttachments",
                                 "deleteAuditDataStorage",
                                 "deleteUser",
+                                "deleteAuditDataStorageAgain",
                                 "deleteAuditData",
                                 "dropHFDataAgain"
                               ],

@@ -140,7 +140,7 @@ See the [Consent implementation](/guides/consent/) guide for the detailed walkth
 When an auditor asks "show me what's privacy-protective by default", point at this catalogue:
 
 - **Default-deny on permissions.** Every access starts with empty `permissions: []`. You explicitly grant scope; nothing is read by default.
-- **Audit-on by default.** The audit primitive is invariant — no config flag turns it off. Every API call against every subject's account is captured at write time.
+- **Audit-on by default.** With the default configuration, the API calls made on a subject's account (over HTTP, in a batch or over socket.io) are recorded in that account's audit log, with nothing to set up. The operator can switch it off (`audit.active`) or filter it, so state your setting. Outside the account's log: calls with no user, such as a registration or an administration call, which are recorded only in the syslog mirror (off by default, see [Audit setup](/customer-resources/audit-setup/)), and high-frequency series and image preview calls, which are not audited.
 - **TLS enforced.** Let's Encrypt integration makes HTTPS the default. HTTP-only is a deliberate dev-mode opt-in.
 - **Hosting region pinned per user.** Once a subject is assigned to a core, all their event data lives on that core exclusively. Residency is architectural, not configurable per event.
 - **Stream-permission granularity.** Permissions are per-stream-subtree. There is no "public" tier — sensitive data can't be accidentally exposed to a world-readable surface that doesn't exist.

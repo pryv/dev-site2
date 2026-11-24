@@ -732,7 +732,7 @@ module.exports = exports =
                 deletedAt: 1793640004210
                 trigger: "holder"
                 coreId: "core-1"
-                stepsCompleted: ["deleteUserFiles", "deleteHFData", "deleteAttachments", "deleteAuditDataStorage", "deleteUser", "deleteAuditData", "dropHFDataAgain"]
+                stepsCompleted: ["deleteUserFiles", "deleteHFData", "deleteAttachments", "deleteAuditDataStorage", "deleteUser", "deleteAuditDataStorageAgain", "deleteAuditData", "dropHFDataAgain"]
                 auditMode: "erase"
                 attempts: 1
                 serverVersion: "2.0.0"
@@ -816,7 +816,7 @@ module.exports = exports =
                 deletedAt: 1793640004210
                 trigger: "holder"
                 coreId: "core-1"
-                stepsCompleted: ["deleteUserFiles", "deleteHFData", "deleteAttachments", "deleteAuditDataStorage", "deleteUser", "deleteAuditData", "dropHFDataAgain"]
+                stepsCompleted: ["deleteUserFiles", "deleteHFData", "deleteAttachments", "deleteAuditDataStorage", "deleteUser", "deleteAuditDataStorageAgain", "deleteAuditData", "dropHFDataAgain"]
                 auditMode: "erase"
                 attempts: 1
                 serverVersion: "2.0.0"

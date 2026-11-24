@@ -23,6 +23,8 @@ Replace the following variables in the commands below:
 - `${REG_URL}` — the base URL for registration endpoints:
   - single-core / dnsLess: `https://${DOMAIN}/reg`
   - multi-core: any core's URL, e.g. `https://core-a.${DOMAIN}/reg`
+- `${CORE_URL}`, for the last check: the base URL of one core (`https://${DOMAIN}` on a single core, e.g. `https://core-a.${DOMAIN}` in multi-core mode).
+- `${ADMIN_KEY}`, for the last check: the core's `auth.adminAccessKey`. Keep it out of shared dashboards.
 
 
 ## Tools
@@ -124,6 +126,16 @@ curl -i -X OPTIONS -H 'Authorization: ${ACCESS_TOKEN}' \
 ```
 
 **Expected:** `HTTP/1.1 2xx` or a documented 4xx from the HFS stack (a 502/504 would indicate the HFS worker is down or unreachable from the proxy). See [INSTALL — HFS Host header](https://github.com/pryv/open-pryv.io/blob/master/INSTALL.md#important-nginx-notes) for the one NGINX pitfall to watch out for.
+
+### 5. Audit records written
+
+From the release after 2.0.0-rc.87, with the admin key:
+
+```bash
+curl -fsS -H "Authorization: ${ADMIN_KEY}" "${CORE_URL}/system/audit-status" | jq -e '.audit.scope == "core" and .audit.lost.total == 0'
+```
+
+**Expected:** `true` on every core. `false` with a `lost.total` above 0 means audit records could not be written since the core started; with a `scope` of `process`, that only one worker was counted: ask again. See [records that could not be written](/customer-resources/audit-setup/#records-that-could-not-be-written).
 
 
 If you need per-worker or per-process checks, get in touch with your Pryv tech contact — there is currently no public per-worker status endpoint.
