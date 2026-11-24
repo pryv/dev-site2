@@ -1,10 +1,10 @@
 ---
 title: 'Rate limiting and DoS protection'
-description: Reference nginx, HAProxy and fail2ban configuration for rate limiting a Pryv deployment, keyed on the routes that matter, with per-workload limits and a load test to prove the limits fire.
+description: Reference nginx, HAProxy, Traefik, Caddy and fail2ban configuration for rate limiting a Pryv deployment, keyed on the routes that matter, with per-workload limits and a load test to prove the limits fire.
 ---
 
 
-This page gives operators a reference **nginx** or **HAProxy** setup, with **fail2ban**, that throttles abusive traffic before it reaches Pryv: per-IP limits on the unauthenticated surfaces (login, registration, password reset, access requests), per-token limits on data reads and writes, connection caps, body size limits and slow-client timeouts, plus fail2ban jails that ban the source addresses.
+This page gives operators a reference **nginx**, **HAProxy**, **Traefik** or **Caddy** setup, with **fail2ban**, that throttles abusive traffic before it reaches Pryv: per-IP limits on the unauthenticated surfaces (login, registration, password reset, access requests), per-token limits on data reads and writes, connection caps, body size limits and slow-client timeouts, plus fail2ban jails that ban the source addresses.
 
 Every number in it is a starting point. Read the [limits at a glance](#limits-at-a-glance) table for your workload, then [verify](#verify-the-limits-fire) that the limits fire before you rely on them.
 
@@ -455,7 +455,7 @@ The usual shape is one nginx per core, each with this configuration. Per-token l
 
 With the embedded DNS (`dns.active`), from the release after 2.0.0-rc.87, each core answers at most 20 UDP queries a second that need a platform lookup per client network (/24 IPv4, /56 IPv6), and at most 100 lookups a second of unknown names in all. A public resolver sending many clients' queries from one network meets the per-network limit first: it then retries the truncated answers over TCP, so size `dns.responseRateLimit.perSecond` and `dns.tcpMaxConnections` for your traffic, and watch the core log for "refused by dns.responseRateLimit". During a flood of random names, an account the DNS has not resolved in the last 30 s also falls back to TCP. Core names, an account's core, the service names and hosted sites are answered from the core list the DNS re-reads every 30 s, so a core change reaches the DNS within 30 s.
 
-HAProxy has [its own configuration](#haproxy-configuration) below. Other proxies (Traefik or Caddy rate-limit middlewares, a CDN's rate-limiting rules) apply the same route table with the same keys.
+[HAProxy](#haproxy-configuration), [Traefik](#traefik-configuration) and [Caddy](#caddy-configuration) have their own configurations below. A CDN's rate-limiting rules apply the same route table with the same keys.
 
 
 ## HAProxy configuration
@@ -718,12 +718,510 @@ Check the file with `haproxy -c -f /etc/haproxy/haproxy.cfg` and apply it with `
 **Multi-core deployments.** The notes for nginx hold as they are: one HAProxy per core keeps the per-token limits exact; registration, lookups and access requests spread over N cores get N times the per-IP budget, unless one edge sees all cores. HAProxy can share its tables between several HAProxy instances (`peers` section), which gives one count per client across them.
 
 
+## Traefik configuration
+
+The same routes, keys and limits as the nginx configuration above (consumer health app profile), for Traefik v3 with its file provider: a static file and a dynamic file. It was verified with Traefik 3.8 in front of an open-pryv.io 2.0.0-rc.87 core in DNSless mode, with the same assumptions as for nginx: Traefik terminates TLS, and Pryv listens on plain HTTP on `127.0.0.1:3000` (API) and `127.0.0.1:4000` (HFS), so the default `http.trustedProxies` (`['loopback']`) covers it. When Traefik reaches Pryv over a Docker network instead, Pryv sees the address of Traefik's container: list it in `http.trustedProxies` (`uniquelocal` covers the private ranges Docker uses).
+
+What differs from nginx:
+
+- **Counters per router.** Traefik keeps a limit's counters per router: the routes of one router share a budget, but a middleware used by two routers counts twice. The configuration below has one router per budget of the nginx configuration, so login and MFA share one budget as they do with nginx. The per-IP backstop (`pryv-ip`) and the in-flight cap (`pryv-conn`) are attached to several routers and are therefore counted per router: a client spreading its calls over the data, HFS and socket.io routers gets that many times the backstop. To keep one counter per client across routers (and across several Traefik instances), give those middlewares a `redis` block (`rateLimit.redis.endpoints`): Traefik then keys them on the middleware name and shares them.
+- **The token as sent.** Traefik keys a limit on a header as it was sent and cannot read a query parameter. `Bearer <token>`, the bare token and Basic credentials are therefore three buckets for one token. A token sent as `?auth=`, or with a trailing caller id, only meets the per-IP backstop: the per-token routers only take an `Authorization` header holding one token, with or without its scheme. Your apps should send the header (lib-js does).
+- **Requests in progress, not connections.** `inFlightReq` counts the requests in progress per address (a WebSocket holds one while it is open), 30 per router; an idle keep-alive connection is not counted.
+- **Plain-text refusals.** Traefik answers `429` with the body `Too Many Requests` and a `Retry-After` header, without CORS headers, so a browser app sees the refusal as a network error. Traefik's `errors` middleware could serve a JSON body, but it would also replace Pryv's own 429s.
+- **Body size on writes only.** The `buffering` middleware refuses a request body over 51 MiB with `413`, chunked bodies included. It holds the body before passing it on, so it is attached to the routers that take writes.
+- **Whole-request read timeout.** `readTimeout` bounds the time to receive the whole request, body included: raise it if your users upload large files over slow links.
+- **Logs.** The access log is JSON, the path is logged without its query string, `RouterName` names the limit's router and `OriginStatus` is `0` when Traefik refused the request itself. The [fail2ban filters for Traefik](#traefik-filters) read it.
+
+```yaml
+# /etc/traefik/traefik.yml  (static configuration)
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      aliasHeadersStrategy: delete
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    http:
+      # Drop a header whose name only aliases one Traefik sets
+      # (X_Forwarded_For for X-Forwarded-For).
+      aliasHeadersStrategy: delete
+    transport:
+      respondingTimeouts:
+        # The whole request, body included, must arrive within this time
+        # (slow-loris protection; also the longest upload a client may take).
+        readTimeout: 60s
+        idleTimeout: 65s
+
+providers:
+  file:
+    filename: /etc/traefik/pryv.yml
+    watch: true
+
+# ---------- Access log without query strings or headers ----------
+# Only the fields below are written, and the query string is cut from the
+# path: it can carry `auth=<token>`, which must not land in a log file.
+# RouterName names the route class; OriginStatus is Pryv's status, 0 when
+# Traefik answered itself (a limit refused the request). The fail2ban
+# filters read this file.
+accessLog:
+  filePath: /var/log/traefik/pryv-access.log
+  format: json
+  fields:
+    defaultMode: drop
+    names:
+      StartUTC: keep
+      ClientHost: keep
+      RequestMethod: keep
+      RequestPath: keep
+      RouterName: keep
+      OriginStatus: keep
+      DownstreamStatus: keep
+      Duration: keep
+    headers:
+      defaultMode: drop
+    queryParameters:
+      defaultMode: drop
+
+log:
+  level: INFO
+```
+
+```yaml
+# /etc/traefik/pryv.yml  (dynamic configuration, file provider)
+
+http:
+  services:
+    pryv-api:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3000
+    pryv-hfs:
+      loadBalancer:
+        # Host is the worker's own address (see the HFS note for nginx).
+        passHostHeader: false
+        servers:
+          - url: http://127.0.0.1:4000
+
+  middlewares:
+    # ---------- Limits (consumer health app profile) ----------
+    # Token buckets: `average` requests per `period` sustained, `burst` on top,
+    # the same numbers as the nginx zones. Without `sourceCriterion` a limit
+    # is keyed on the client address.
+    pryv-login:
+      rateLimit: { average: 10, period: 1m, burst: 5 }
+    pryv-signup:
+      rateLimit: { average: 3, period: 1m, burst: 3 }
+    pryv-lookup:
+      rateLimit: { average: 1, period: 1s, burst: 20 }
+    pryv-access-create:
+      rateLimit: { average: 6, period: 1m, burst: 5 }
+    pryv-poll:
+      rateLimit: { average: 3, period: 1s, burst: 10 }
+    pryv-oauth-token:
+      rateLimit: { average: 60, period: 1m, burst: 10 }
+    pryv-oauth-auth:
+      rateLimit: { average: 300, period: 1m, burst: 30 }
+    pryv-admin:
+      rateLimit: { average: 30, period: 1m, burst: 20 }
+    pryv-ip:
+      rateLimit: { average: 20, period: 1s, burst: 100 }
+    # Per token: keyed on the Authorization header as sent.
+    pryv-tok-write:
+      rateLimit: { average: 5, period: 1s, burst: 20, sourceCriterion: { requestHeaderName: Authorization } }
+    pryv-tok-read:
+      rateLimit: { average: 10, period: 1s, burst: 40, sourceCriterion: { requestHeaderName: Authorization } }
+    pryv-hfs:
+      rateLimit: { average: 5, period: 1s, burst: 20, sourceCriterion: { requestHeaderName: Authorization } }
+    # 30 requests in progress per address (a WebSocket holds one while open).
+    pryv-conn:
+      inFlightReq: { amount: 30, sourceCriterion: { ipStrategy: { depth: 0 } } }
+    # Request body cap: Pryv's uploads.maxSizeMb (50) plus 1 MiB (413 above).
+    pryv-body:
+      buffering: { maxRequestBodyBytes: 53477376, memRequestBodyBytes: 2097152 }
+
+  routers:
+    # Pryv matches paths regardless of letter case and with or without a
+    # trailing slash: every pattern is case-insensitive ((?i)) and ends in
+    # "/?$". Higher priority is tried first.
+    pryv-login:
+      rule: 'PathRegexp(`(?i)^(/[^/]+)?/(auth/login|mfa/(challenge|verify|confirm|recover|activate|deactivate))/?$`)'
+      priority: 100
+      middlewares: [pryv-conn, pryv-login, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-signup:
+      rule: 'PathRegexp(`(?i)^(/[^/]+)?/account/(request-password-reset|reset-password|verify-email)/?$`) || PathRegexp(`(?i)^(/reg)?/(users?|email-challenge(/verify)?|access/invitationtoken/check)/?$`)'
+      priority: 99
+      middlewares: [pryv-conn, pryv-signup, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-access-create:
+      rule: 'PathRegexp(`(?i)^/reg/access/?$`) && Method(`POST`)'
+      priority: 98
+      middlewares: [pryv-conn, pryv-access-create, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-access:
+      rule: 'PathRegexp(`(?i)^/reg/access(/|$)`)'
+      priority: 97
+      middlewares: [pryv-conn, pryv-poll, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-admin-exempt:
+      rule: 'PathRegexp(`(?i)^/(system|reg/admin)(/|$)`) && (ClientIP(`127.0.0.1`) || ClientIP(`::1`) || ClientIP(`10.0.0.0/8`))'
+      priority: 96
+      middlewares: [pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-admin:
+      rule: 'PathRegexp(`(?i)^/(system|reg/admin)(/|$)`)'
+      priority: 95
+      middlewares: [pryv-conn, pryv-admin, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-lookup:
+      rule: 'PathRegexp(`(?i)^(/[^/]+)?/shared-secrets/retrieve/?$`) || PathRegexp(`(?i)^/reg(/|$)`) || PathRegexp(`(?i)^/auth/sso(/|$)`)'
+      priority: 94
+      middlewares: [pryv-conn, pryv-lookup, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-oauth-token:
+      rule: 'PathRegexp(`(?i)^/oauth2/(token|introspect|revoke)/?$`)'
+      priority: 93
+      middlewares: [pryv-conn, pryv-oauth-token, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-oauth-auth:
+      rule: 'PathRegexp(`(?i)^/oauth2/authorize(/|$)`)'
+      priority: 92
+      middlewares: [pryv-conn, pryv-oauth-auth, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-hfs-token:
+      rule: 'PathRegexp(`(?i)^/[^/]+/(events/[^/]+/series|series/batch)(/|$)`) && HeaderRegexp(`Authorization`, `^(?:(?i:bearer|basic) +)?[^ ]+$`)'
+      priority: 91
+      middlewares: [pryv-conn, pryv-ip, pryv-hfs, pryv-body]
+      service: pryv-hfs
+      tls: {}
+    pryv-hfs:
+      rule: 'PathRegexp(`(?i)^/[^/]+/(events/[^/]+/series|series/batch)(/|$)`)'
+      priority: 90
+      middlewares: [pryv-conn, pryv-ip, pryv-body]
+      service: pryv-hfs
+      tls: {}
+    pryv-socket:
+      rule: 'PathPrefix(`/socket.io/`)'
+      priority: 89
+      middlewares: [pryv-conn, pryv-ip]
+      service: pryv-api
+      tls: {}
+    pryv-read-token:
+      rule: 'HeaderRegexp(`Authorization`, `^(?:(?i:bearer|basic) +)?[^ ]+$`) && (Method(`GET`) || Method(`HEAD`) || Method(`OPTIONS`))'
+      priority: 20
+      middlewares: [pryv-conn, pryv-ip, pryv-tok-read]
+      service: pryv-api
+      tls: {}
+    pryv-write-token:
+      rule: 'HeaderRegexp(`Authorization`, `^(?:(?i:bearer|basic) +)?[^ ]+$`)'
+      priority: 19
+      middlewares: [pryv-conn, pryv-ip, pryv-tok-write, pryv-body]
+      service: pryv-api
+      tls: {}
+    pryv-read:
+      rule: 'PathPrefix(`/`) && (Method(`GET`) || Method(`HEAD`) || Method(`OPTIONS`))'
+      priority: 2
+      middlewares: [pryv-conn, pryv-ip]
+      service: pryv-api
+      tls: {}
+    pryv-write:
+      rule: 'PathPrefix(`/`)'
+      priority: 1
+      middlewares: [pryv-conn, pryv-ip, pryv-body]
+      service: pryv-api
+      tls: {}
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/fullchain.pem
+      keyFile: /etc/traefik/certs/privkey.pem
+```
+
+Traefik reports configuration errors in its own log, at start and whenever the dynamic file changes (it is watched, so editing it applies it). Traefik 3.8 also logs that it may reject some encoded characters in request paths; keep that default, Pryv's routes need none of them.
+
+**Username-in-host deployments.** The three changes listed for nginx apply: a wildcard certificate, the shorter paths on the reserved hosts `reg.`, `access.` and `mfa.` (add `Host(...)` to the routers that match `/reg/...` and give them the shorter paths), and the HFS paths of a user host sent to `pryv-api` (the core forwards them to the HFS worker). This shape was not part of the verified setup.
+
+**Multi-core deployments.** The notes for nginx hold: one Traefik per core keeps the per-token limits exact. The `redis` option above also lets several Traefik instances share their counters.
+
+
+## Caddy configuration
+
+The same routes, keys and limits as the nginx configuration above (consumer health app profile), in one `Caddyfile`. Caddy has no rate limiting in its standard build: it needs the [caddy-ratelimit](https://github.com/mholt/caddy-ratelimit) module, a third-party module by Caddy's author, built in with `xcaddy build --with github.com/mholt/caddy-ratelimit` or with Caddy's builder image:
+
+```dockerfile
+FROM caddy:2.11-builder AS builder
+RUN xcaddy build --with github.com/mholt/caddy-ratelimit
+FROM caddy:2.11
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+```
+
+It was verified with Caddy 2.11.9 in front of an open-pryv.io 2.0.0-rc.87 core in DNSless mode, with the same assumptions as for nginx: Caddy terminates TLS, and Pryv listens on plain HTTP on `127.0.0.1:3000` (API) and `127.0.0.1:4000` (HFS).
+
+What differs from nginx:
+
+- **Windows instead of buckets.** A zone allows at most `events` requests in any `window`. Each limit below is the nginx burst over the time the nginx rate takes to refill it: `10r/m, burst 5` becomes "5 in 30 seconds". Refused requests are not counted, so a client that keeps sending gets through again as soon as its oldest request leaves the window.
+- **One class per request.** Caddy gives each request a route class once (the second `map`), and every zone matches on that class. Zones are shared by name, so the per-IP backstop is one counter for data, HFS and socket.io traffic.
+- **The token read the way Pryv reads it**, header first then `?auth=`, as with nginx: a token sent bare, as `Bearer`, with a trailing caller id, or as `?auth=` counts against one bucket (Basic, keyed on the encoded credentials, gets its own). A request without a token only meets the per-IP backstop.
+- **No connection cap.** Caddy has no per-address limit on concurrent connections or requests. Pryv's own ceilings apply (calls in progress per account and per access, socket.io connections per access); a host firewall can cap connections per address (for example an nftables rule with `ct count`).
+- **Body size.** `request_body` refuses a request body over 51 MiB with `413`, chunked bodies included.
+- **Logs.** The access log is JSON, the URI is logged without its query string, and Caddy writes the `Authorization` header as `REDACTED`. A request refused by a limit carries `"lr":"REJECTED"` and the zone's name; the [fail2ban filters for Caddy](#caddy-filters) read it.
+
+```text
+# /etc/caddy/Caddyfile  (Caddy 2.10 or later, built with caddy-ratelimit)
+{
+	servers {
+		timeouts {
+			# A client must send its whole request head within 15 s (slow-loris).
+			read_header 15s
+			idle 65s
+		}
+	}
+}
+
+core.example.com {
+	tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
+
+	# ---------- Access log without query strings ----------
+	# The query string can carry `auth=<token>`, which must not land in a log
+	# file: it is cut from the logged URI. Caddy already writes the
+	# Authorization header as REDACTED. A request refused by a limit below
+	# carries `"lr":"REJECTED"` and the name of the limit in `zone`; the
+	# fail2ban filters read this file.
+	log {
+		output file /var/log/caddy/pryv-access.log
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ""
+			}
+		}
+	}
+
+	# ---------- Bodies ----------
+	# Pryv's uploads.maxSizeMb (default 50) caps each uploaded file and the
+	# JSON body; Caddy caps the whole request at the Pryv limit plus 1 MiB of
+	# multipart overhead (413 above it).
+	request_body {
+		max_size 51MiB
+	}
+
+	# ---------- The access token, read the way Pryv reads it ----------
+	# Header first: "Bearer <t>", "Basic <b64>", or the bare token (a trailing
+	# " <callerId>" is ignored). Otherwise the `auth` query parameter. Basic is
+	# keyed on the encoded credentials: still one bucket per token, but not
+	# the same bucket as the bare token.
+	map {header.Authorization} {pryv_tok} {
+		~(?i)^(?:bearer|basic)\s+(\S+) "${1}"
+		~^(\S+) "${1}"
+		default {query.auth}
+	}
+
+	# ---------- Route classes ----------
+	# Pryv matches paths regardless of letter case and with or without a
+	# trailing slash, so every pattern is case-insensitive ((?i)) and ends in
+	# "/?$": /alice/Auth/Login/ must not escape the login limit. The first
+	# line that matches gives the class.
+	map {method}{path} {pryv_class} {
+		~(?i)^[A-Z]+(/[^/]+)?/(auth/login|mfa/(challenge|verify|confirm|recover|activate|deactivate))/?$ login
+		~(?i)^[A-Z]+(/[^/]+)?/account/(request-password-reset|reset-password|verify-email)/?$ signup
+		~(?i)^[A-Z]+(/reg)?/(users?|email-challenge(/verify)?|access/invitationtoken/check)/?$ signup
+		~(?i)^[A-Z]+(/[^/]+)?/shared-secrets/retrieve/?$ lookup
+		~(?i)^POST/reg/access/?$ access_create
+		~(?i)^[A-Z]+/reg/access(/|$) access
+		~(?i)^[A-Z]+/(system|reg/admin)(/|$) admin
+		~(?i)^[A-Z]+/reg(/|$) lookup
+		~(?i)^[A-Z]+/oauth2/(token|introspect|revoke)/?$ oauth_token
+		~(?i)^[A-Z]+/oauth2/authorize(/|$) oauth_auth
+		~(?i)^[A-Z]+/auth/sso(/|$) lookup
+		~(?i)^[A-Z]+/[^/]+/(events/[^/]+/series|series/batch)(/|$) hfs
+		~(?i)^[A-Z]+/socket\.io/ socket
+		~^(GET|HEAD|OPTIONS)/ data_read
+		default data_write
+	}
+
+	# ---------- Limits (consumer health app profile) ----------
+	# A sliding window: at most `events` requests in any `window`. Each limit
+	# is the nginx burst over the time the nginx rate takes to refill it, so
+	# "10r/m, burst 5" is 5 in 30 s. Refused requests are not counted.
+	# Zones are keyed on the client address unless `key` names the token.
+	rate_limit {
+		zone pryv_login {
+			match {
+				vars {pryv_class} login
+			}
+			key {client_ip}
+			events 5
+			window 30s
+		}
+		zone pryv_signup {
+			match {
+				vars {pryv_class} signup
+			}
+			key {client_ip}
+			events 3
+			window 1m
+		}
+		zone pryv_lookup {
+			match {
+				vars {pryv_class} lookup
+			}
+			key {client_ip}
+			events 20
+			window 20s
+		}
+		zone pryv_access_create {
+			match {
+				vars {pryv_class} access_create
+			}
+			key {client_ip}
+			events 5
+			window 50s
+		}
+		zone pryv_poll {
+			match {
+				vars {pryv_class} access access_create
+			}
+			key {client_ip}
+			events 10
+			window 3s
+		}
+		# Hosts exempt from the admin limit: your cores (they call each other's
+		# /system routes) and your administration hosts. Replace the example range.
+		zone pryv_admin {
+			match {
+				vars {pryv_class} admin
+				not client_ip 127.0.0.1 ::1 10.0.0.0/8
+			}
+			key {client_ip}
+			events 20
+			window 40s
+		}
+		zone pryv_oauth_token {
+			match {
+				vars {pryv_class} oauth_token
+			}
+			key {client_ip}
+			events 10
+			window 10s
+		}
+		zone pryv_oauth_auth {
+			match {
+				vars {pryv_class} oauth_auth
+			}
+			key {client_ip}
+			events 30
+			window 6s
+		}
+		# Per IP (backstop, also covers requests without a token), and per
+		# token with separate read and write budgets. A batch call
+		# (POST /{username}/) counts as one write however many methods it carries.
+		zone pryv_ip {
+			match {
+				vars {pryv_class} data_read data_write hfs socket
+			}
+			key {client_ip}
+			events 100
+			window 5s
+		}
+		zone pryv_tok_read {
+			match {
+				vars {pryv_class} data_read
+				not vars {pryv_tok} ""
+			}
+			key {pryv_tok}
+			events 40
+			window 4s
+		}
+		zone pryv_tok_write {
+			match {
+				vars {pryv_class} data_write
+				not vars {pryv_tok} ""
+			}
+			key {pryv_tok}
+			events 20
+			window 4s
+		}
+		zone pryv_hfs {
+			match {
+				vars {pryv_class} hfs
+				not vars {pryv_tok} ""
+			}
+			key {pryv_tok}
+			events 20
+			window 4s
+		}
+	}
+
+	# ---------- Refusal ----------
+	# A JSON 429 shaped like Pryv's own errors, readable by browser apps.
+	# Pryv's own 429s (MFA backoff, access-request ceiling, calls in progress
+	# per account or access) pass through untouched: they are responses, not
+	# Caddy errors.
+	handle_errors 429 {
+		log_append lr REJECTED
+		log_append zone {http.rate_limit.exceeded.name}
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Expose-Headers "Retry-After"
+		header Content-Type application/json
+		respond `{"error":{"id":"too-many-requests","message":"Rate limit reached, retry later."}}` 429
+	}
+
+	# ---------- Headers and upstreams ----------
+	# Caddy sets X-Forwarded-For to the client address (a client's own value
+	# is dropped, as no proxy in front is trusted), X-Forwarded-Host to the
+	# Host received and X-Forwarded-Proto: what Pryv expects. Host is passed
+	# as received (hosted sites and user subdomains are recognised by it).
+	@hfs vars {pryv_class} hfs
+	handle @hfs {
+		# High-frequency series (HFS worker). Host is the worker's own address
+		# (see the HFS note for nginx).
+		reverse_proxy 127.0.0.1:4000 {
+			header_up Host 127.0.0.1:4000
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000 {
+			# Idle time between two reads from Pryv; large event queries
+			# stream, which keeps the timer fed. From the release after
+			# 2.0.0-rc.87 the core itself also closes a connection idle either
+			# way for http.responseIdleTimeoutMs (120 s): keep both above
+			# your slowest call.
+			transport http {
+				read_timeout 120s
+			}
+		}
+	}
+}
+```
+
+Check the file with `caddy validate --config /etc/caddy/Caddyfile` and apply it with `systemctl reload caddy` (or `caddy reload --config /etc/caddy/Caddyfile`). Caddy obtains and renews certificates itself when the `tls` line is left out, see [composing with TLS](#composing-with-tls).
+
+**Username-in-host deployments.** The three changes listed for nginx apply: a wildcard certificate, the shorter paths on the reserved hosts `reg.`, `access.` and `mfa.` (a second site block for those names, with the same zones and the shorter paths in its class map), and the HFS paths of a user host sent to `127.0.0.1:3000` (the core forwards them to the HFS worker). This shape was not part of the verified setup.
+
+**Multi-core deployments.** The notes for nginx hold: one Caddy per core keeps the per-token limits exact. The module's `distributed` option shares its counters between Caddy instances that use the same storage (not part of the verified setup).
+
+
 ## Composing with TLS
 
 **nginx terminates TLS (the configuration above).** Pryv runs on plain HTTP (`http.port: 3000`, no `http.ssl` block). You can still let Pryv manage the certificate:
 
 - Keep `letsEncrypt.enabled: true`. The renewer writes the certificate to `var-pryv/tls/<hostname>/fullchain.pem` and `privkey.pem` (under `letsEncrypt.tlsDir`); point `ssl_certificate` and `ssl_certificate_key` there, and set `letsEncrypt.onRotateScript` to a script running `nginx -t && nginx -s reload` (see [SSL certificate](/customer-resources/ssl-certificate/#strategy-a--built-in-auto-renewal-recommended)).
 - With HAProxy, `crt` names one file holding the chain followed by the key: have the `onRotateScript` write it (`cat fullchain.pem privkey.pem > /etc/haproxy/certs/core.example.com.pem`), then run `haproxy -c -f /etc/haproxy/haproxy.cfg && systemctl reload haproxy`.
+- Traefik and Caddy can obtain and renew certificates themselves instead (Traefik's ACME certificate resolvers; Caddy's automatic HTTPS, when the site block has no `tls` line), which needs ports 80 and 443 to reach the proxy for HTTP-01: then leave `letsEncrypt.enabled: false` in Pryv. Pointing them at the files of Pryv's renewer works as for nginx (Traefik's `tls.certificates`, Caddy's `tls` line, an `onRotateScript` that reloads the proxy), but was not part of the verified setup.
 - With **DNS-01** (wildcard, username-in-host deployments) nothing else changes.
 - With **HTTP-01** (single host name), Pryv answers the challenge on its own listener bound to port 80. nginx must then not listen on port 80: drop the redirect server block (with HAProxy, the `bind :80` line). Pryv's port-80 listener answers 404 to everything but the challenge, so plain-HTTP clients get no redirect to HTTPS. If you need that redirect, issue the certificate outside Pryv instead (certbot, or an ACME-capable proxy) and leave `letsEncrypt.enabled: false`.
 
@@ -736,7 +1234,7 @@ Check the file with `haproxy -c -f /etc/haproxy/haproxy.cfg` and apply it with `
 
 ## fail2ban
 
-Three jails, all reading the proxy's logs (Pryv's own logs are not involved). Install the filters, then the jail file, then `fail2ban-client reload`. The filters and jails below read nginx's logs; with HAProxy, use the [HAProxy filters](#haproxy-filters) instead.
+Three jails, all reading the proxy's logs (Pryv's own logs are not involved). Install the filters, then the jail file, then `fail2ban-client reload`. The filters and jails below read nginx's logs; with HAProxy, Traefik or Caddy, use the [HAProxy filters](#haproxy-filters), [Traefik filters](#traefik-filters) or [Caddy filters](#caddy-filters) instead.
 
 ### Filters
 
@@ -862,19 +1360,93 @@ ignoreregex =
 
 In the jail file above, name these filters (`filter = pryv-haproxy-auth-login-fail`, ...) and read `/var/log/haproxy.log` for all three (`logpath`).
 
-If nginx runs in Docker with published ports, bans must go to the `DOCKER-USER` chain (for example `banaction = iptables-multiport` with `chain = DOCKER-USER`), or they never see the traffic.
+### Traefik filters
+
+The same three jails, reading the JSON access log of the [Traefik configuration](#traefik-configuration). There is no error log to read: the excess-rate filter counts the refusals Traefik answered itself (`OriginStatus` 0) on the routers of unauthenticated surfaces.
+
+```ini
+# /etc/fail2ban/filter.d/pryv-traefik-auth-login-fail.conf
+# Same statuses as pryv-auth-login-fail above.
+[Definition]
+failregex = ^\{"ClientHost":"<HOST>","DownstreamStatus":(?:401|404),[^}]*"RequestMethod":"POST","RequestPath":"(?i:(?:/[^/"]+)?/auth/login/?)",
+            ^\{"ClientHost":"<HOST>","DownstreamStatus":(?:400|401|404),[^}]*"RequestMethod":"POST","RequestPath":"(?i:(?:/[^/"]+)?/mfa/(?:verify|confirm|recover)/?)",
+ignoreregex =
+datepattern = "time":"%%Y-%%m-%%dT%%H:%%M:%%S%%z"
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-traefik-excess-rate.conf
+# Refusals by Traefik itself (OriginStatus 0) on the routers of
+# unauthenticated surfaces: an app exceeding its per-token budget gets 429s,
+# not an IP ban.
+[Definition]
+failregex = ^\{"ClientHost":"<HOST>","DownstreamStatus":429,[^}]*"OriginStatus":0,[^}]*"RouterName":"pryv-(?:login|signup|lookup|access-create|oauth-token|oauth-auth|admin)@file"
+ignoreregex =
+datepattern = "time":"%%Y-%%m-%%dT%%H:%%M:%%S%%z"
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-traefik-access-create-abuse.conf
+# Access-request creations (201) and refused creations (429, Pryv's or Traefik's).
+[Definition]
+failregex = ^\{"ClientHost":"<HOST>","DownstreamStatus":(?:201|429),[^}]*"RequestMethod":"POST","RequestPath":"(?i:(?:/reg)?/access/?)",
+ignoreregex =
+datepattern = "time":"%%Y-%%m-%%dT%%H:%%M:%%S%%z"
+```
+
+In the jail file above, name these filters (`filter = pryv-traefik-auth-login-fail`, ...) and read `/var/log/traefik/pryv-access.log` for all three (`logpath`).
+
+### Caddy filters
+
+The same three jails, reading the JSON access log of the [Caddy configuration](#caddy-configuration). The excess-rate filter counts the refusals Caddy logs with `"lr":"REJECTED"` and the name of a per-IP zone. Caddy writes its timestamps with more digits than fail2ban reads, which the filters allow for.
+
+```ini
+# /etc/fail2ban/filter.d/pryv-caddy-auth-login-fail.conf
+# Same statuses as pryv-auth-login-fail above.
+[Definition]
+_req = ^\{"level":"\w+",(?:"ts":)?[\d.]*,"logger":"[^"]*","msg":"handled request","request":\{"remote_ip":"[^"]*","remote_port":"[^"]*","client_ip":"<HOST>","proto":"[^"]*",
+failregex = %(_req)s"method":"POST","host":"[^"]*","uri":"(?i:(?:/[^/"]+)?/auth/login/?)",.*"status":(?:401|404),
+            %(_req)s"method":"POST","host":"[^"]*","uri":"(?i:(?:/[^/"]+)?/mfa/(?:verify|confirm|recover)/?)",.*"status":(?:400|401|404),
+ignoreregex =
+datepattern = "ts":{EPOCH}
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-caddy-excess-rate.conf
+# Refusals by Caddy's per-IP limits on unauthenticated surfaces: an app
+# exceeding its per-token budget gets 429s, not an IP ban.
+[Definition]
+_req = ^\{"level":"\w+",(?:"ts":)?[\d.]*,"logger":"[^"]*","msg":"handled request","request":\{"remote_ip":"[^"]*","remote_port":"[^"]*","client_ip":"<HOST>","proto":"[^"]*",
+failregex = %(_req)s.*"status":429,.*"zone":"pryv_(?:login|signup|lookup|access_create|oauth_token|oauth_auth|admin)","lr":"REJECTED"\}$
+ignoreregex =
+datepattern = "ts":{EPOCH}
+```
+
+```ini
+# /etc/fail2ban/filter.d/pryv-caddy-access-create-abuse.conf
+# Access-request creations (201) and refused creations (429, Pryv's or Caddy's).
+[Definition]
+_req = ^\{"level":"\w+",(?:"ts":)?[\d.]*,"logger":"[^"]*","msg":"handled request","request":\{"remote_ip":"[^"]*","remote_port":"[^"]*","client_ip":"<HOST>","proto":"[^"]*",
+failregex = %(_req)s"method":"POST","host":"[^"]*","uri":"(?i:(?:/reg)?/access/?)",.*"status":(?:201|429),
+ignoreregex =
+datepattern = "ts":{EPOCH}
+```
+
+In the jail file above, name these filters (`filter = pryv-caddy-auth-login-fail`, ...) and read `/var/log/caddy/pryv-access.log` for all three (`logpath`).
+
+If the proxy runs in Docker with published ports, bans must go to the `DOCKER-USER` chain (for example `banaction = iptables-multiport` with `chain = DOCKER-USER`), or they never see the traffic.
 
 Pryv's audit log also records the source IP of every audited API call, for your SIEM. fail2ban reads the nginx logs here because they cover requests that never reach Pryv, and failed logins for usernames that do not exist (which have no per-user audit log to write to).
 
 
 ## Logs are personal data
 
-IP addresses in the nginx logs and the fail2ban database are personal data in most regimes. Rotate them on a schedule you have documented (`logrotate`, `dbpurgeage` in `fail2ban.conf`), and keep them in the same region as the core they protect when you operate cores under different data-residency rules. The log format above leaves query strings out so that tokens passed as `?auth=` never reach the access log; the error log still records the full request line of a refused request, so prefer the `Authorization` header in your apps. The HAProxy log line leaves query strings out of every line, refusals included.
+IP addresses in the nginx logs and the fail2ban database are personal data in most regimes. Rotate them on a schedule you have documented (`logrotate`, `dbpurgeage` in `fail2ban.conf`), and keep them in the same region as the core they protect when you operate cores under different data-residency rules. The log format above leaves query strings out so that tokens passed as `?auth=` never reach the access log; the error log still records the full request line of a refused request, so prefer the `Authorization` header in your apps. The HAProxy log line, and the Traefik and Caddy access logs, leave query strings out of every line, refusals included; Traefik writes no request header, Caddy writes the `Authorization` header as `REDACTED`. Caddy rolls its log files itself (`roll_size`, `roll_keep` in the `output file` block); Traefik reopens its access log on `USR1`, which is what a `logrotate` postrotate step sends.
 
 
 ## Limits at a glance
 
-The configuration above is the consumer profile. Edit the `rate=` values in the zones and the `burst=` values in the locations for the others. With HAProxy, each limit is the rate over its table's window plus the burst (`10r/m, burst 10` is "more than 20 in one minute"; `50r/s, burst 500` on a 10-second window is "more than 1000"); the connection cap is the same number.
+The configuration above is the consumer profile. Edit the `rate=` values in the zones and the `burst=` values in the locations for the others. With HAProxy, each limit is the rate over its table's window plus the burst (`10r/m, burst 10` is "more than 20 in one minute"; `50r/s, burst 500` on a 10-second window is "more than 1000"); the connection cap is the same number. With Traefik, `average` and `burst` are the nginx rate and burst as they are, and `period` the unit of the rate. With Caddy, each limit is the burst over the time the rate takes to refill it (`10r/m, burst 10` is 10 in one minute; `50r/s, burst 500` is 500 in 10 seconds); Caddy has no connection cap.
 
 | Setting | Consumer health app | B2B research consortium | Hospital deployment |
 |---|---|---|---|
@@ -925,6 +1497,8 @@ Origin: https://core.example.com
 
 With HAProxy, the first 15 requests of the minute reach Pryv and every later one in the run is refused (refused requests count in the window): about 15 answered by Pryv (`401`, or Pryv's own `429` once the account's delay has started) and 135 `429` from HAProxy, whose log shows `lr=REJECTED zone=pryv_login` for its own.
 
+Traefik gives nginx's counts (about 10 and 140), its refusals logged with `"OriginStatus":0`. With Caddy, 5 requests reach Pryv (5 in any 30 seconds) and about 145 are refused, logged with `"zone":"pryv_login"`.
+
 **2. Write limit, per token.** The token does not have to be valid: nginx counts it before Pryv checks it, and an invalid token creates no data. 30 writes per second for 10 seconds against `5r/s, burst 20`: about 70 reach Pryv (and are refused by it with `403 invalid-access-token`), about 230 get `429`.
 
 ```bash
@@ -940,9 +1514,11 @@ Authorization: rate-limit-test-token
 
 Run it a second time with `?auth=rate-limit-test-token` in the URL and no `Authorization` header: the counts must be the same, which proves the query-string token is keyed too. HAProxy gives the same counts (70 is the limit of its 10-second window); for a second run wait 10 seconds, or the per-IP backstop (300 in 10 seconds) is already spent.
 
+Traefik gives nginx's counts with the header. With `?auth=` it does not key the token (see [Traefik configuration](#traefik-configuration)): only the per-IP backstop applies, and nearly all 300 requests reach Pryv. With Caddy, about 40 reach Pryv and 260 are refused, the same with `?auth=`: the token zone allows 20 in 4 seconds, and the per-IP backstop (100 in 5 seconds) counts the requests the token zone then refuses. Wait 5 seconds between two runs.
+
 With a **valid** token and slow calls, from the release after 2.0.0-rc.87, Pryv may refuse some calls itself: past 32 calls in progress on one access (64 on one account) a worker answers `429 too-many-requests` without running the call. The body is the same as nginx's; tell them apart by the access log, where nginx's refusals show `lr=REJECTED` and Pryv's show `lr=PASSED`.
 
-**3. The jails.** fail2ban never bans the addresses of the host it runs on (`ignoreself = true`, the default): run the test from another machine, or set `ignoreself = false` in the jail file while testing. Check each filter against the real logs (with HAProxy, the `pryv-haproxy-*` filters against `/var/log/haproxy.log`), then watch a ban happen:
+**3. The jails.** fail2ban never bans the addresses of the host it runs on (`ignoreself = true`, the default): run the test from another machine, or set `ignoreself = false` in the jail file while testing. Check each filter against the real logs (with HAProxy, the `pryv-haproxy-*` filters against `/var/log/haproxy.log`; with Traefik or Caddy, the `pryv-traefik-*` or `pryv-caddy-*` filters against their access log), then watch a ban happen:
 
 ```bash
 fail2ban-regex /var/log/nginx/pryv-access.log /etc/fail2ban/filter.d/pryv-auth-login-fail.conf
