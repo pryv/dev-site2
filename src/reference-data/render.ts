@@ -37,7 +37,7 @@ function templateEndpoints (json: string): string {
 
 // The "strip the wrapping <p>...</p>\n" hack the legacy mixins use for inline fragments.
 function stripParagraph (html: string): string {
-	return html.indexOf('<p>') === 0 ? html.substr(3, html.length - 8) : html;
+	return html.indexOf('<p>') === 0 ? html.slice(3, html.length - 5) : html;
 }
 
 function heading (level: number, title: string, raw = false): string {

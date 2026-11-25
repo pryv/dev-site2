@@ -6,7 +6,7 @@ import { assignHeadingIds } from './render';
 
 const md = new MarkdownIt({ typographer: true, html: true });
 const renderMd = (s?: string): string => (s ? md.render(s) : '');
-const stripParagraph = (h: string): string => (h.indexOf('<p>') === 0 ? h.substr(3, h.length - 8) : h);
+const stripParagraph = (h: string): string => (h.indexOf('<p>') === 0 ? h.slice(3, h.length - 5) : h);
 
 interface Ref { url?: string; description?: string; }
 interface Requirement { reqid: string; title?: string; description?: string; refs?: Ref[]; ignore?: boolean; }
