@@ -12,9 +12,10 @@ It describes what Audit Logs are, why to use them and how they were designed on 
 1. [Introduction](#introduction)
 2. [Audit Logs](#audit-logs)
   1. [What are Audit Logs?](#what-are-audit-logs)
-  2. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
-  3. [How to filter audit queries?](#how-to-filter-audit-queries)
-  4. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
+  2. [Accesses the server writes](#accesses-the-server-writes)
+  3. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
+  4. [How to filter audit queries?](#how-to-filter-audit-queries)
+  5. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
 3. [Why using Audit Logs on Pryv.io](#why-using-audit-logs-on-pryvio)
 
 ## Introduction
@@ -71,6 +72,44 @@ You can take a look on what an `Audit log` looks like on Pryv.io :
 As you may have recognized, it is an event of type `audit-log/pryv-api`. You can find its defails [here](/event-types/#audit-log).
 
 Audit logs are available through the [Events API](/reference/#get-events). However they are read only, thus cannot be modified.
+
+### Accesses the server writes
+
+From the release after 2.0.0-rc.87, every creation, change of permissions or expiry, and deletion of an **app** or **shared** access leaves a record that names the access in the trail of its account:
+
+- the `accesses.create`, `accesses.update` or `accesses.delete` record when an API client did it. The last two carry `content.record.accessId`, and `related`, the accesses deleted with it;
+- an `oauth.*` event with `accessId` when it is the issuance of an OAuth session;
+- otherwise an `accesses.created`, `accesses.changed` or `accesses.deleted` record written by the server, of type `audit-log/access`:
+
+```json
+{
+  "streamIds": [":_audit:access-cmr7f2k1x0001pdrt5a8d3h9q", ":_audit:action-accesses.deleted"],
+  "type": "audit-log/access",
+  "content": {
+    "action": "accesses.deleted",
+    "source": { "name": "oauth2" },
+    "record": {
+      "accessId": "cmr7f2k1x0001pdrt5a8d3h9q",
+      "accessType": "app",
+      "kind": "oauth-grant",
+      "cause": "refresh-token-reuse",
+      "related": ["cmr7f2k1x0002pdrt7c1e6m4v"]
+    }
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `source.name` | the part of the server: `oauth2`, `cmc`, `delegation`, `account`, `operator-cli`. No `ip`: no client connection made the write |
+| `record.accessId`, `accessType`, `kind` | the access, and what it is for when the server knows |
+| `record.cause` | why, for example `consent-subject-changed`, `grant-changed`, `client-revocation`, `refresh-token-reuse`, `address-alias-deleted`, `client-purged`, `plugin` |
+| `record.by` | the access of this account that asked for it, when one is known |
+| `record.related` | the accesses deleted with it; each is also on its own `access-` stream of the record |
+| `record.changed` | `permissions`, `expires` |
+| `record.grantId` | the grant whose change caused it |
+
+The `access-` stream of these records names the access that was written, not one that made a call. For a write of the cross-account messaging or delegation plugin, the access that asked is the one on the record of the triggering call, at the same second. Not recorded this way: personal accesses (the sign-in is their record), an access that ends by its own expiry, a session removed because its authorization code was never exchanged, and one-off upgrade tools.
 
 ### Who is allowed to audit what?
 

@@ -19,6 +19,8 @@ The audit record of a call is written after the call has taken effect, on every 
 
 Some calls are made by the core itself, for a flow: a delivery to an account of the same core, the one-time secret of a credential hand-off or of a third-party sign-in, the writes of an OAuth consent. From the release after 2.0.0-rc.87 they leave the same record as over HTTP, success or refusal, with the flow in `source.name` (`local-delivery`, `credential-handoff`, `sso`, `oauth2`) and no `source.ip`: no client connection made them. The lookups the core makes for itself during these flows are not recorded.
 
+The core also creates, changes and deletes accesses by itself, without an `accesses.*` call: a consent grant and its withdrawal, the collapse of an OAuth chain, sessions narrowed when their grant changes, a grant withdrawn with its address alias, an operator's `purge-grants`. From the release after 2.0.0-rc.87 each such write of an app or shared access leaves a record of type `audit-log/access`, action `accesses.created`, `accesses.changed` (permissions or expiry) or `accesses.deleted`, described in the [audit logs guide](/guides/audit-logs/#accesses-the-server-writes). **A filter that lists methods one by one does not include these actions until you add them; `accesses.all` does.** A filter entry that matches no method is reported at boot and by `bin/check-config.js`.
+
 ### Records that could not be written
 
 From the release after 2.0.0-rc.87 the core also counts them, so that you can alert without reading logs:
@@ -37,7 +39,7 @@ Expect zero, and alert on anything above. The counts carry no account, method or
 
 Not counted: a process stopped between answering a call and writing its record; a write that never ends (a storage that hangs); a syslog delivery error reported after the call (logged as `audit syslog dropped`); what a command-line tool could not write. A restart sets the count of the status back to zero: after an audit storage outage, read the log as well.
 
-With `audit.onUserDelete: erase` (the default), a record refused because its account was erased while the call was running is not a lost record: the erasure exists to remove it. It is logged at `warn` (`Audit record not written`). With the audit storage on PostgreSQL and the base storage on SQLite the record is not refused, and may stay.
+With `audit.onUserDelete: erase` (the default), a record refused because its account was erased while the call was running is not a lost record: the erasure exists to remove it. It is logged at `warn` (`Audit record not written`). With the audit storage on PostgreSQL and the base storage on SQLite, a record written in the last moment before the account is marked erased may stay; the server warns about this pairing at boot.
 
 
 ## Filtering
@@ -177,6 +179,8 @@ Audit event types emitted by the core:
 
 - `audit-log/pryv-api` — successful API call
 - `audit-log/pryv-api-error` — errored API call
+- `audit-log/oauth`, `audit-log/sso`, `audit-log/mfa`, `audit-log/external-id`, `audit-log/account-auto-deletion`: events of these parts of the server
+- `audit-log/access`: an access the server itself created, changed or deleted (from the release after 2.0.0-rc.87)
 
 You can define a dedicated template for either (the map key matches the part after `audit-log/`, e.g. `pryv-api-error`).
 
