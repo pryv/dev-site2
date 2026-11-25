@@ -96,7 +96,7 @@ const TYPE_TABLE: Record<string, () => Schema> = {
 	'`app`': () => enumOf('app'),
 	'`control`': () => enumOf('control'),
 	'`personal`|`app`|`shared`': () => enumOf('personal', 'app', 'shared'),
-	'`selfRevoke`|`secretSharing`|`webhooks`': () => enumOf('selfRevoke', 'secretSharing', 'webhooks'),
+	'`selfRevoke`|`secretSharing`|`webhooks`|`accessCreation`|`selfAudit`': () => enumOf('selfRevoke', 'secretSharing', 'webhooks', 'accessCreation', 'selfAudit'),
 	'`forbidden`|`allowed`': () => enumOf('forbidden', 'allowed'),
 	'`active`|`inactive`': () => enumOf('active', 'inactive'),
 	'`default`|`never`|`date`|`inactivity`': () => enumOf('default', 'never', 'date', 'inactivity'),

@@ -79,6 +79,7 @@ Accesses can be updated via [`accesses.update`](/reference/#methods-accesses-acc
 
 For security reason, unless explicitly indicated by the permission `{ "feature": "selfRevoke", "setting": "forbidden"}` all accesses can be used to revoke (delete) themselves. In very specific cases, for example when a token is distributed publicly the `selfRevoke` feature should be set to `forbidden`.  
 Likewise, `{ "feature": "webhooks", "setting": "forbidden" }` prevents an access, and every access it creates, from registering webhooks; set it on tokens that are distributed publicly.  
+Feature names form a closed set (`selfRevoke`, `secretSharing`, `webhooks`, `accessCreation`, `selfAudit`, described in the [access data structure](/reference/#data-structure-access)); an unknown name is refused.  
 
 
 ## Open-Pryv.io

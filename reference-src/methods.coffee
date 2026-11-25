@@ -2122,12 +2122,20 @@ module.exports = exports =
                      The specified token is invalid (e.g. it's a reserved word such as `null`).
                      """
       ,
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Among other format errors: a feature permission whose `feature` is not one of the known names (see [access](##{dataStructure.getDocId("access")})). The message names the entry and the known names; `data.feature` and `data.knownFeatures` give them too. Since the release after 2.0.0-rc.87.
+                     """
+      ,
         key: "invalid-operation"
         http: "400"
         description: """
                      With `randomAlias`: the account already holds `accesses.maxAliasesPerAccount` aliases (`data: { maxAliasesPerAccount }`). Delete the accesses the account no longer uses (an expired access keeps its alias until it is deleted), or create the access without `randomAlias`. No alias is reserved by a refused request.
 
                      Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold (`data.param` names the stream id): an unknown account stream, a hidden account stream, a level other than `read` or `none` on an account field or on the account root stream.
+
+                     Also answered, to a personal access, for a permission whose `streamId` is the name of an account field without its prefix (e.g. `email`, or `:local:email`), with a `defaultName`, when no stream with that id exists (`account-field-name-collision` message, since the release after 2.0.0-rc.87): it would create an ordinary, empty stream instead of giving access to the field. `data.param` is the id sent and `data.accountStreamId` the field's id (e.g. `:system:email`). Nothing is created. Use the prefixed id, or create the stream first with [create stream](##{_getDocId("streams", "streams.create")}).
                      """
       ]
       examples: [
@@ -2202,10 +2210,16 @@ module.exports = exports =
                      The provided composite `{id}` does not match the current head's serial. Refetch via `accesses.getOne` and retry.
                      """
       ,
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Among other format errors: `permissions` adds a feature permission whose `feature` is not one of the known names, as for [create access](##{_getDocId("accesses", "accesses.create")}). An unknown name the access already holds may stay, so permissions read from the access can be written back.
+                     """
+      ,
         key: "invalid-operation"
         http: "400"
         description: """
-                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections. Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold, as for [create access](##{_getDocId("accesses", "accesses.create")}).
+                     Chain rule violation. `data.offendingChildren` lists shared accesses that would be orphaned by a narrowing; `data.parentExpires` / `data.requestedExpires` are set for expiry-chain rejections. Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold, and for a permission named like an account field without its prefix (`account-field-name-collision`), as for [create access](##{_getDocId("accesses", "accesses.create")}).
                      """
       ,
         key: "forbidden"
@@ -2337,6 +2351,19 @@ module.exports = exports =
                        Set if an access already exists for the requesting app with matching permissions. The existing [access](##{dataStructure.getDocId("access")}).
                        """
         ]
+      errors: [
+        key: "invalid-parameters-format"
+        http: "400"
+        description: """
+                     Among other format errors: a feature permission whose `feature` is not one of the known names, as for [create access](##{_getDocId("accesses", "accesses.create")}). Since the release after 2.0.0-rc.87.
+                     """
+      ,
+        key: "invalid-operation"
+        http: "400"
+        description: """
+                     A requested `streamId` is the name of an account field without its prefix and no stream with that id exists (`account-field-name-collision`, `data.param` and `data.accountStreamId` as for [create access](##{_getDocId("accesses", "accesses.create")})). Reported here, before the consent screen, since the release after 2.0.0-rc.87.
+                     """
+      ]
       examples: []
     ]
   ,

@@ -337,14 +337,18 @@ module.exports = exports =
                      """
       ,
         key: [ "feature"]
-        type: "`selfRevoke`|`secretSharing`|`webhooks`"
+        type: "`selfRevoke`|`secretSharing`|`webhooks`|`accessCreation`|`selfAudit`"
         description: """
                      To be used only with `setting` property.
                      - `selfRevoke`: with `forbidden`, the access cannot call `accesses.delete {id}` on itself (self revocation).
                      - `secretSharing`: with `forbidden`, the access cannot create one-time shared secrets.
                      - `webhooks`: with `forbidden`, the access cannot create, update or test webhooks, and the webhooks it owns do not fire.
+                     - `accessCreation`: with `forbidden`, the access cannot create accesses nor webhooks; it still manages the accesses it created.
+                     - `selfAudit`: with `forbidden`, the access has no read permission on its own audit stream (`:_audit:access-{id}`).
 
-                     An access carrying `secretSharing` or `webhooks` as `forbidden` passes the entry on to every access it creates; asking for `allowed` on such a child is refused.
+                     The set of names is closed. Since the release after 2.0.0-rc.87, any other name is refused where permissions are submitted ([create access](#methods-accesses-accesses-create), [update access](#methods-accesses-accesses-update), [check app authorization](#methods-accesses-accesses-checkApp), with `400 invalid-parameters-format`); an access that already holds such a name keeps it and works as before.
+
+                     An access carrying `secretSharing`, `webhooks` or `accessCreation` as `forbidden` passes the entry on to every access it creates; asking for `allowed` on such a child is refused.
                      """
       ,
         key: "setting"

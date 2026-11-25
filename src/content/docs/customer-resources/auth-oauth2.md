@@ -58,7 +58,7 @@ The issuer is the core's own URL unless the operator sets `oauth.issuer` (for in
 
 ## Scopes
 
-There are no coarse wildcard scopes: every grant is an explicit, granular permission set — the same expressiveness as a native `accesses.create` permissions array, including per-stream levels (`read`, `contribute`, `manage`, `create-only`) and feature permissions such as `{"feature": "selfRevoke", "setting": "forbidden"}`.
+There are no coarse wildcard scopes: every grant is an explicit, granular permission set, with the same expressiveness as a native `accesses.create` permissions array, including per-stream levels (`read`, `contribute`, `manage`, `create-only`) and feature permissions such as `{"feature": "selfRevoke", "setting": "forbidden"}` (the feature names are a closed set, listed in the [access data structure](/reference/#data-structure-access)).
 
 The `scope` parameter carries exactly **one consent-offer reference**: `scope=cmc:<offer-name>`. The offer is a cross-account consent request your app account publishes once (with the permission list and the consent texts shown to the user); the platform operator registers it on your OAuth client under `<offer-name>`. At authorization time the server resolves the offer and the consent screen displays each permission.
 
