@@ -455,7 +455,7 @@ The usual shape is one nginx per core, each with this configuration. Per-token l
 
 With the embedded DNS (`dns.active`), from the release after 2.0.0-rc.87, each core answers at most 20 UDP queries a second that need a platform lookup per client network (/24 IPv4, /56 IPv6), and at most 100 lookups a second of unknown names in all. A public resolver sending many clients' queries from one network meets the per-network limit first: it then retries the truncated answers over TCP, so size `dns.responseRateLimit.perSecond` and `dns.tcpMaxConnections` for your traffic, and watch the core log for "refused by dns.responseRateLimit". During a flood of random names, an account the DNS has not resolved in the last 30 s also falls back to TCP. Core names, an account's core, the service names and hosted sites are answered from the core list the DNS re-reads every 30 s, so a core change reaches the DNS within 30 s.
 
-[HAProxy](#haproxy-configuration), [Traefik](#traefik-configuration) and [Caddy](#caddy-configuration) have their own configurations below. A CDN's rate-limiting rules apply the same route table with the same keys.
+[HAProxy](#haproxy-configuration), [Traefik](#traefik-configuration) and [Caddy](#caddy-configuration) have their own configurations below. A CDN's rate-limiting rules apply the same route table with the same keys; see [Cloudflare in front](#cloudflare-in-front).
 
 
 ## HAProxy configuration
@@ -1213,6 +1213,45 @@ Check the file with `caddy validate --config /etc/caddy/Caddyfile` and apply it 
 **Username-in-host deployments.** The three changes listed for nginx apply: a wildcard certificate, the shorter paths on the reserved hosts `reg.`, `access.` and `mfa.` (a second site block for those names, with the same zones and the shorter paths in its class map), and the HFS paths of a user host sent to `127.0.0.1:3000` (the core forwards them to the HFS worker). This shape was not part of the verified setup.
 
 **Multi-core deployments.** The notes for nginx hold: one Caddy per core keeps the per-token limits exact. The module's `distributed` option shares its counters between Caddy instances that use the same storage (not part of the verified setup).
+
+
+## Cloudflare in front
+
+Unlike the configurations above, this section was not tested in front of a core: it follows Cloudflare's documentation as of November 2026. Check it against your plan before relying on it.
+
+**What a plan allows.** Cloudflare's [rate limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/) count requests per client IP on every plan, with 1 rule and a 10-second period on Free, 2 rules on Pro and 5 on Business. Regular expressions (the `matches` operator) need Business or Enterprise. Counting per request header or query parameter, which is what per-token limits need (the `Authorization` header or the `auth` parameter), needs Enterprise with Advanced Rate Limiting. So on most plans Cloudflare carries the per-IP limits of the unauthenticated routes, and the per-token limits stay on a proxy behind it (any of the configurations above) or with Pryv's in-process limits only.
+
+**The client address.** Cloudflare reaches your origin from [its published ranges](https://www.cloudflare.com/ips/), sends the client's address in `CF-Connecting-IP`, and appends the address it saw to `X-Forwarded-For`.
+
+- With a proxy behind Cloudflare, have it restore the client address from Cloudflare's ranges only: for nginx, one `set_real_ip_from` line per range and `real_ip_header CF-Connecting-IP;`, then overwrite `X-Forwarded-For` toward the core as shown above.
+- With Cloudflare straight to the core, list Cloudflare's ranges in `http.trustedProxies`. Pryv reads `X-Forwarded-For` from the right, so the last address, appended by Cloudflare, is the client even when the client sent a header of its own.
+- Either way, firewall the origin so that it accepts connections from Cloudflare's ranges only, or clients bypass Cloudflare and its limits. Keep the list current: Cloudflare changes its ranges from time to time.
+
+**Example rules** (Business plan, consumer profile, characteristic *IP*, period 60 seconds, action *Block*). Paths are lowered first, because Pryv matches them regardless of case and with or without a trailing slash. The optional first segment covers both URL shapes (username in the path or in the host).
+
+Login and MFA, 15 requests per period (nginx `10r/m, burst 5`):
+
+```txt
+http.request.method eq "POST" and lower(http.request.uri.path) matches "^/([^/]+/)?(auth/login|mfa/(challenge|verify|confirm|recover|activate|deactivate))/?$"
+```
+
+Registration and password reset, 6 requests per period (nginx `3r/m, burst 3`):
+
+```txt
+http.request.method eq "POST" and (
+  lower(http.request.uri.path) matches "^/(reg/)?(users|user|email-challenge(/verify)?)/?$"
+  or lower(http.request.uri.path) matches "^/([^/]+/)?account/(request-password-reset|reset-password|verify-email)/?$"
+  or lower(http.request.uri.path) matches "^/access/invitationtoken/check/?$"
+)
+```
+
+Access-request creation, 11 requests per period (nginx `6r/m, burst 5`):
+
+```txt
+http.request.method eq "POST" and lower(http.request.uri.path) matches "^/reg/access/?$"
+```
+
+On the reserved hosts of a username-in-host deployment (`reg.`, `access.`, `mfa.`), the `/reg` prefix is implied: add `http.host` conditions with the shorter paths. Requests Cloudflare refuses never reach the core, so they appear in Cloudflare's logs, not in Pryv's audit log.
 
 
 ## Composing with TLS

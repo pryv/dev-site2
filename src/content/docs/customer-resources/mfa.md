@@ -125,6 +125,21 @@ services:
 Wrong codes are limited twice. `perSession` wrong codes invalidate the pending MFA session, so the user logs in again. Failures also accrue on the account across logins (wrong [step-ups](#step-up) included): past `backoff.freeFailures` of them, each further failure delays the next attempt, doubling from `baseSeconds` up to `maxSeconds`. During a delay the MFA endpoints answer `429 too-many-attempts` with a `Retry-After` header and `error.data.retryAfterSeconds`, and a code sent then is not checked. This is a delay, never a lockout: someone who knows the password cannot lock the real user out, who waits at most `maxSeconds`, and a successful second factor clears the tally. The tally also resets on its own after `perAccountWindowSeconds` (900 s by default) without a failure, so a sender who pauses that long starts again with `backoff.freeFailures` free attempts; raise `perAccountWindowSeconds` to make that pause longer. The `attempts` block is platform-wide policy: set the same values on every core. Settings that cannot work (an unknown `defaultMethod`, a malformed `secretsKey`, out-of-range TOTP parameters, SMS without its endpoints) stop the core at boot with the key named.
 
 
+## Assurance level of each method
+
+What each method brings, read against [NIST SP 800-63B](https://pages.nist.gov/800-63-3/sp800-63b.html) authenticator assurance levels (AAL). The second factor always comes on top of the account password.
+
+| Method | Level reached | Why |
+|---|---|---|
+| Authenticator app (TOTP) | **AAL2** | Password plus a single-factor OTP device. Codes are verified in-process, with a drift window and a used-step guard (no replay); the secret is stored encrypted at rest. |
+| SMS, or another message channel | **AAL1** in practice | SMS (PSTN) is a *restricted* authenticator under NIST SP 800-63B: phone numbers can be ported or intercepted, and a relying party may only use it after assessing that risk. Treat an SMS-only deployment as AAL1. A provider that sends over a stronger channel (an app push, for example) is still seen by Pryv.io as a code sent and verified, so its level is the provider's to establish. |
+| AAL3 | not reached | AAL3 needs a hardware-based cryptographic authenticator that resists verifier impersonation (a security key, for example). No such method ships today. |
+
+The level is about the authenticators. The other AAL2 requirements belong to the deployment: TLS on every route, reauthentication rules for long sessions, and limits on failed attempts (the per-session and per-account limits above cover the MFA step; see [rate limiting](/customer-resources/rate-limiting/) for the password step).
+
+The two methods are built into the core; adding a third one (WebAuthn, for example) is a change to open-pryv.io itself, described next to the code in `components/business/src/mfa/README.md`.
+
+
 ## Configuration
 
 ### Enabling MFA
