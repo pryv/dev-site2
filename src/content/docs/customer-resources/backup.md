@@ -148,7 +148,15 @@ Useful restore flags:
 
 Each run's `manifest.json` lists every file of the run with its size and hash; a signed run also has a `manifest.sig`.
 
-It does **not** export: sessions and password-reset tokens (add `--include-ephemeral` if you want them), rqlite platform-DB state (see below), user-level webhooks' ephemeral queue, or your YAML configuration files.
+A backup of the whole core (no `--user`) also exports, from the platform database:
+
+- the unique and indexed account-field rows of **every core of the platform**, as they are stored: with `platform.piiMode: hashed` (the default), usernames and unique values are keyed hashes; indexed values are as given;
+- the [external-id](/customer-resources/external-ids/) namespaces, with their salts;
+- the [erasure ledger](#proof-of-erasure-the-erasure-ledger) (from the release after 2.0.0-rc.87).
+
+A restore writes the rows of the accounts it restores and leaves those of the others as they are; it adds the missing external-id namespaces and keeps a live one whose salt differs (reported); the ledger is merged, nothing is removed from it. A backup of a single account (`--user`) carries no platform rows: its restore derives them from the account.
+
+It does **not** export: sessions and password-reset tokens (add `--include-ephemeral` if you want them), the rest of the platform database (certificates and ACME account, DNS records, mail templates, the list of cores, invitation tokens, OAuth clients, observability settings: see [What to back up](#what-to-back-up)), user-level webhooks' ephemeral queue, or your YAML configuration files.
 
 ## Erased accounts on disk and in the database
 
