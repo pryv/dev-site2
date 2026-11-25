@@ -191,7 +191,9 @@ load. Add `switch` to `menu.hide` to hide the switcher.
 
 The built-in button keeps the active account in its usual cookie (`pryv-libjs-<appId>`)
 and the remembered accounts in a second one (`pryv-libjs-<appId>-profiles`), so a version
-of lib-js without account switching reads only the active account.
+of lib-js without account switching reads only the active account. From lib-js 3.20 the
+stored sign-in is tied to the service information URL it was made with: under another URL
+the app starts signed out.
 
 ## Full documentation
 

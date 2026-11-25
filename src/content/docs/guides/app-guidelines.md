@@ -54,7 +54,7 @@ const serviceInfoUrl = pryv.Browser.serviceInfoFromUrl(null, {
 }) || 'https://reg.pryv.me/service/info';
 ```
 
-Without the option, any http(s) URL is accepted. Never write text or HTML that comes from a service (its name, messages or assets) into the page with `innerHTML`.
+Without the option, any http(s) URL is accepted. From lib-js 3.20 a stored sign-in is tied to the service information URL it was made with, so a link naming another platform starts the app signed out; an app that stores the sign-in itself should store its platform with it. Never write text or HTML that comes from a service (its name, messages or assets) into the page with `innerHTML`.
 
 # Authorization
 
