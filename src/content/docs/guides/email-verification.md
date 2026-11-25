@@ -48,7 +48,7 @@ Content-Type: application/json
 { "sent": true }
 ```
 
-The core mails a 10-character code, shown to the holder as `XXXXX-XXXXX` (8 characters, `XXXX-XXXX`, before the release after 2.0.0-rc.87: a code field must accept 10). It is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address.
+The core mails a 10-character code, shown to the holder as `XXXXX-XXXXX` (8 characters, `XXXX-XXXX`, before the release after 2.0.0-rc.88: a code field must accept 10). It is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address.
 
 What can come back instead:
 
@@ -190,7 +190,7 @@ An account holds at most `account.maxEmails` addresses (an operator setting, wit
 
 ## When a consent requires a verified address
 
-A [cross-account consent offer](/guides/cross-account-messaging/#requiring-a-verified-email) can require a proved primary address (from the release after open-pryv.io 2.0.0-rc.87). The core of the accepting account refuses the accept until the address is proved, so a consent page should help the person get there. The reference page, [app-web-user-account](/apps/app-web-user-account/), does it on both of its consent screens (the sign-in screen with consent invites, and the accept hand-off):
+A [cross-account consent offer](/guides/cross-account-messaging/#requiring-a-verified-email) can require a proved primary address (from open-pryv.io 2.0.0-rc.88). The core of the accepting account refuses the accept until the address is proved, so a consent page should help the person get there. The reference page, [app-web-user-account](/apps/app-web-user-account/), does it on both of its consent screens (the sign-in screen with consent invites, and the accept hand-off):
 
 - Approve is not available until the primary address is proved; Decline always is.
 - An address already on the account gets a "send the verification email" action (`emails.resend`). An account without one gets a field to add it (`emails.add`); the page makes it primary once proved (`emails.setPrimary`).

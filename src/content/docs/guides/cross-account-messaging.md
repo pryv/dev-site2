@@ -65,7 +65,7 @@ without running a backend: see [Group accounts](/guides/group-accounts/).
 
 ### Requiring a verified email
 
-A requester that must be able to reach the person can make a proved email address a condition of the consent, by setting `request.requireVerifiedEmail: true` on the offer (default `false`; from the release after open-pryv.io 2.0.0-rc.87):
+A requester that must be able to reach the person can make a proved email address a condition of the consent, by setting `request.requireVerifiedEmail: true` on the offer (default `false`; from open-pryv.io 2.0.0-rc.88):
 
 ```jsonc
 { "type": "consent/request-cmc",

@@ -71,15 +71,15 @@ Safeguards:
 - **`maxDeletionsPerPass`** (default 20) caps the deletions of one pass; the rest wait for the next. It limits the damage of a configuration mistake.
 - A pass still running when the next is due is not doubled.
 - An erasure interrupted halfway (a crash, a failed step) is completed at the next pass.
-- Each deletion is logged at warning level before it starts and once it is done (username, trigger, whether the policy was the holder's or the platform's, deadline, when the notices were sent; never an email address). With `audit.onUserDelete: keep`, an audit record of the deletion is kept as well. From the release after 2.0.0-rc.87, every deletion also leaves a durable record without personal content (the trigger `date`, `inactivity` or `transfer-fallback` included), kept after the account is gone: see [the erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger).
+- Each deletion is logged at warning level before it starts and once it is done (username, trigger, whether the policy was the holder's or the platform's, deadline, when the notices were sent; never an email address). With `audit.onUserDelete: keep`, an audit record of the deletion is kept as well. From the release after 2.0.0-rc.88, every deletion also leaves a durable record without personal content (the trigger `date`, `inactivity` or `transfer-fallback` included), kept after the account is gone: see [the erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger).
 
 There is no grace period after the deadline: the 1-day last notice, the minimum notice, the per-pass cap and the dry run are the safeguards. A holder who comes back before the deadline only needs to sign in.
 
-From the release after 2.0.0-rc.87, a pass never acts on a schedule changed while it checks the account: it reads the holder's setting, the schedule and the transfer again right before it erases, opens or ends a claim window, and a last time once the erasure is recorded as in progress. A change made meanwhile (the holder moving their date, a support reset, a claim) leaves the account to the next pass.
+From the release after 2.0.0-rc.88, a pass never acts on a schedule changed while it checks the account: it reads the holder's setting, the schedule and the transfer again right before it erases, opens or ends a claim window, and a last time once the erasure is recorded as in progress. A change made meanwhile (the holder moving their date, a support reset, a claim) leaves the account to the next pass.
 
 ### Stopping a pending deletion (support)
 
-For a holder who cannot sign in in time (in hospital, travelling), call [Stop a pending deletion](/reference-system/#stop-a-pending-deletion) (`POST /system/admin/auto-deletion/clear`, admin key, from the release after 2.0.0-rc.87) on the core that hosts the account, with the `username` and a `reason`:
+For a holder who cannot sign in in time (in hospital, travelling), call [Stop a pending deletion](/reference-system/#stop-a-pending-deletion) (`POST /system/admin/auto-deletion/clear`, admin key, from the release after 2.0.0-rc.88) on the core that hosts the account, with the `username` and a `reason`:
 
 - **By default the schedule restarts**: its clock starts again from now, as a sign-in would, with its full period and reminders. Your preset or the holder's own period still applies. A holder's own **date** has no clock: it is refused.
 - **`removeSetting: true` removes the holder's own schedule** (a date or a period); your preset, if any, then applies from now. The holder's schedule is their own erasure request: remove it only on their verified request. A `never` setting is never removed.
@@ -209,7 +209,7 @@ The templates get these variables:
 | `FALLBACK_DELETE`, `FALLBACK_KEEP`, `IDENTITY_GIVEN`, `NOTIFY_AT_SETUP` | `'true'` or `''` |
 | `BY_OPERATOR`, `OPERATOR_REASON` | in the confirmation: `'true'` and the support's reason when the support reset the schedule, else `''` |
 
-The transfer mails also get `OPERATOR_NAME` (`service.name`), `TO_BENEFICIARY` (`'true'` in the beneficiary's copy), `CLAIM_LINK` and `DECLINE_LINK` (pages of the account app, `''` when not usable), `WINDOW_END` and `WINDOW_DAYS`, `CLAIMANT` (the account that claimed it), and `REASON` (`declined`, `owner-activity`, `delegate-activity`, `owner-change`, and `operator` for a support reset, from the release after 2.0.0-rc.87) with one flag each (`REASON_DECLINED`, ...; `operator` has none: the bundled template uses its generic "cancelled" line).
+The transfer mails also get `OPERATOR_NAME` (`service.name`), `TO_BENEFICIARY` (`'true'` in the beneficiary's copy), `CLAIM_LINK` and `DECLINE_LINK` (pages of the account app, `''` when not usable), `WINDOW_END` and `WINDOW_DAYS`, `CLAIMANT` (the account that claimed it), and `REASON` (`declined`, `owner-activity`, `delegate-activity`, `owner-change`, and `operator` for a support reset, from the release after 2.0.0-rc.88) with one flag each (`REASON_DECLINED`, ...; `operator` has none: the bundled template uses its generic "cancelled" line).
 
 **Existing platforms must add the templates.** The bundled templates (en, fr) are seeded only into an empty PlatformDB, on a platform's first boot. A platform seeded before this feature adds them with `bin/mail.js templates set` (or the admin API), per language and part; the bundled sources are in `components/mail/templates/` of open-pryv.io:
 

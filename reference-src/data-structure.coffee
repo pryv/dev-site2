@@ -346,7 +346,7 @@ module.exports = exports =
                      - `accessCreation`: with `forbidden`, the access cannot create accesses nor webhooks; it still manages the accesses it created.
                      - `selfAudit`: with `forbidden`, the access has no read permission on its own audit stream (`:_audit:access-{id}`).
 
-                     The set of names is closed. Since the release after 2.0.0-rc.87, any other name is refused where permissions are submitted ([create access](#methods-accesses-accesses-create), [update access](#methods-accesses-accesses-update), [check app authorization](#methods-accesses-accesses-checkApp), with `400 invalid-parameters-format`); an access that already holds such a name keeps it and works as before.
+                     The set of names is closed. Since the release after 2.0.0-rc.88, any other name is refused where permissions are submitted ([create access](#methods-accesses-accesses-create), [update access](#methods-accesses-accesses-update), [check app authorization](#methods-accesses-accesses-checkApp), with `400 invalid-parameters-format`); an access that already holds such a name keeps it and works as before.
 
                      An access carrying `secretSharing`, `webhooks` or `accessCreation` as `forbidden` passes the entry on to every access it creates; asking for `allowed` on such a child is refused.
                      """

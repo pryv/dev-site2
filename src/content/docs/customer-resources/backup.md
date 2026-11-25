@@ -126,7 +126,7 @@ Restoring a chain applies the full backup, then every incremental run in order: 
 - `--through-run <runId>` restores the chain up to that run (the state as of that run; `--inspect` lists the run ids). It is also the way to restore an account as of the last run that held it.
 - A run missing from the chain refuses the restore, naming the run and the `--through-run` that stops before it.
 
-From the release after 2.0.0-rc.87, a restore does not bring back an account that was erased after the backup was taken: it checks the [erasure ledger](#proof-of-erasure-the-erasure-ledger) and lists such accounts under "Erased after this backup". `--restore-erased` restores them anyway. Two new exit codes: `3` (nothing restored, every account was erased after the backup) and `4` (restored with `--restore-erased`, but an erasure record could not be marked restored).
+From the release after 2.0.0-rc.88, a restore does not bring back an account that was erased after the backup was taken: it checks the [erasure ledger](#proof-of-erasure-the-erasure-ledger) and lists such accounts under "Erased after this backup". `--restore-erased` restores them anyway. Two new exit codes: `3` (nothing restored, every account was erased after the backup) and `4` (restored with `--restore-erased`, but an erasure record could not be marked restored).
 
 Useful restore flags:
 
@@ -152,7 +152,7 @@ A backup of the whole core (no `--user`) also exports, from the platform databas
 
 - the unique and indexed account-field rows of **every core of the platform**, as they are stored: with `platform.piiMode: hashed` (the default), usernames and unique values are keyed hashes; indexed values are as given;
 - the [external-id](/customer-resources/external-ids/) namespaces, with their salts;
-- the [erasure ledger](#proof-of-erasure-the-erasure-ledger) (from the release after 2.0.0-rc.87).
+- the [erasure ledger](#proof-of-erasure-the-erasure-ledger) (from the release after 2.0.0-rc.88).
 
 A restore writes the rows of the accounts it restores and leaves those of the others as they are; it adds the missing external-id namespaces and keeps a live one whose salt differs (reported); the ledger is merged, nothing is removed from it. A backup of a single account (`--user`) carries no platform rows: its restore derives them from the account.
 
@@ -160,7 +160,7 @@ It does **not** export: sessions and password-reset tokens (add `--include-ephem
 
 ## Erased accounts on disk and in the database
 
-From the release after 2.0.0-rc.87, work still running for an account while it is erased (a long request, a cross-account dispatch) can no longer store data for it. Two guards do this; both matter when you back up, restore or clean up a core.
+From the release after 2.0.0-rc.88, work still running for an account while it is erased (a long request, a cross-account dispatch) can no longer store data for it. Two guards do this; both matter when you back up, restore or clean up a core.
 
 ### SQLite: the `erased.json` marker
 
@@ -198,7 +198,7 @@ Starting this release again installs it again.
 
 ## Proof of erasure: the erasure ledger
 
-From the release after 2.0.0-rc.87, every account erasure leaves one durable record, kept after the account is gone, so that you can show later that an account was erased and when, and so that a restore does not bring an erased account back unnoticed. It is on by default.
+From the release after 2.0.0-rc.88, every account erasure leaves one durable record, kept after the account is gone, so that you can show later that an account was erased and when, and so that a restore does not bring an erased account back unnoticed. It is on by default.
 
 ### What a record holds, and what it does not
 

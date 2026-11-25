@@ -187,7 +187,7 @@ Redirects are not followed: a `3xx` answer is a failed call. A call without an a
 
 ### Number of webhooks and scopes
 
-From the release after open-pryv.io 2.0.0-rc.87, an access holds at most 10 webhooks and an account at most 100 (all its accesses together): past either, [webhooks.create](/reference/#create-webhook) answers `400 invalid-operation`, naming the limit. A webhook carries at most 20 scopes: more on create or [webhooks.update](/reference/#methods-webhooks-webhooks-update) answers `400 invalid-parameters-format`. Webhooks already stored keep working. The platform administrator sets these with `webhooks.maxPerAccess`, `webhooks.maxPerUser` and `webhooks.maxScopes` (`0` turns each off).
+From the release after open-pryv.io 2.0.0-rc.88, an access holds at most 10 webhooks and an account at most 100 (all its accesses together): past either, [webhooks.create](/reference/#create-webhook) answers `400 invalid-operation`, naming the limit. A webhook carries at most 20 scopes: more on create or [webhooks.update](/reference/#methods-webhooks-webhooks-update) answers `400 invalid-parameters-format`. Webhooks already stored keep working. The platform administrator sets these with `webhooks.maxPerAccess`, `webhooks.maxPerUser` and `webhooks.maxScopes` (`0` turns each off).
 
 ### Frequency limit
 

@@ -4,6 +4,13 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## 2.0.0-rc.88
+
+A consent offer can require a verified email address, and the Docker image moves to Node.js 24.22.3 (security release). No storage migration, no new configuration key. Released from 2.0.0-rc.87: the changes listed elsewhere as "from the release after 2.0.0-rc.88" come later.
+
+- **Consent offers can require a verified email address.** `request.requireVerifiedEmail: true` on a `consent/request-cmc` offer (optional, default `false`): the accept is refused while the accepting account's primary email address is not proved. The accept trigger ends `failed` with the reason `cmc-verified-email-required` (not retried); nothing is granted, nothing is sent to the requester, and the link stays usable, so a new accept works once the address is proved. The offer must ask `:system:email` at `read` (`mandatory` when the person may choose); a membership offer cannot carry it. A core that enforces it advertises `features.cmcRequireVerifiedEmail: true` in its [service info](/reference/#service-info); an earlier core ignores the field. OAuth: the first authorization on such an offer answers `400 invalid_grant` while the address is not proved. It is not a guarantee to the requester: read `verification/email` through the grant each time the address is used. See [Requiring a verified email](/guides/cross-account-messaging/#requiring-a-verified-email) and [Email verification](/guides/email-verification/).
+- **Security: Node.js 24.22.3.** The Docker image moves from Node.js 24.22.1 to 24.22.3 (the Node.js security release of 2026-11-10; a core terminating TLS itself is directly exposed to the fixed issues) and takes Debian's fixed glibc. `engines.node` is `>=24.22.3 <25.0.0`: the server warns at boot and `bin/check-config.js` reports a problem on an older Node. Native installs: upgrade Node to 24.22.3 or later, then `npm rebuild`.
+
 ## 2.0.0-rc.87
 
 Time limits on the database work of API requests, a bounded number of password checks at a time, and OAuth sessions of registry clients cut to the request. No storage migration. Four new configuration keys; **operators running PostgreSQL behind a connection pooler, check the note below before upgrading.**

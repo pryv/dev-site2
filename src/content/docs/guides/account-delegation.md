@@ -257,7 +257,7 @@ A delegate can give the consent a [cross-account messaging](/guides/cross-accoun
 
 Only the delegate token itself may do this. An app or shared access the delegate granted stays refused by the CMC personal-token rule (`cmc-accept-requires-personal-token`), as for any app. Publishing an offer (`consent/request-cmc`) and widening a grant (`consent/scope-update-cmc`) stay reserved to the account owner (see [Grants a delegate cannot make](#grants-a-delegate-cannot-make)).
 
-**A request that [requires a verified email](/guides/cross-account-messaging/#requiring-a-verified-email)** (from the release after open-pryv.io 2.0.0-rc.87) looks at the controlled account's own primary address, not the delegate's. The delegate may add an address to the controlled account and ask for its verification mail; without a proved address of its own, the account cannot give that consent.
+**A request that [requires a verified email](/guides/cross-account-messaging/#requiring-a-verified-email)** (from open-pryv.io 2.0.0-rc.88) looks at the controlled account's own primary address, not the delegate's. The delegate may add an address to the controlled account and ask for its verification mail; without a proved address of its own, the account cannot give that consent.
 
 **The data grant carries the delegation lineage.** The access minted for the accept carries `clientData.delegation = { kind: 'delegated-child', relId, delegate, viaAccessId }`, taken by the server from the authenticated delegate token (never from the request), like an access a delegate creates with `accesses.create`. [`access-info`](/reference/#access-info) called with the grant's token reports it, so the requester can tell the consent was given by a delegate:
 
