@@ -134,7 +134,7 @@ Once the patient has accepted, the member asks the group's core for an access by
 | Field | Meaning |
 |---|---|
 | `counterparty` | The patient. Required. |
-| `scopeStreamId` | Optional. The scope of the patient's relationship: the stream the event is written on (the default) or a stream under it. |
+| `scopeStreamId` | Optional. The scope of the patient's relationship: the stream the event is written on or a stream under it. Without it, the relationship on the event's own stream is taken first, and the newest one under it only when there is none (from the release after open-pryv.io 2.0.0-rc.88). |
 | `permissions` | Optional. Stream permissions only, each on exactly a stream id the group's invite offered the patient outside `:_cmc:` (a stream under an offered one is refused), at a level no higher than the offered one. Never `*`, never a `:_cmc:` stream. Default: the offered streams at `read`. |
 | `expireAfter` | Optional, in seconds. Default 24 hours, at least 60 seconds, at most 7 days (per-core settings), and never beyond the grant's own expiry or the membership's (see below). |
 
@@ -167,7 +167,7 @@ When the request fails after it was written (the patient's core refused or could
 
 - it reaches only that patient, within the grant's permissions, and expires as asked;
 - it cannot call `accesses.*`, so it cannot create or reveal any other access;
-- its name names the member: `cmc-member--<member>--<hash>`, derived by the server;
+- its name names the member: `cmc-member--<member>--<hash>`, derived by the server (`cmc-member--<member>--<hash>-<8 hex characters>` when the patient accepted the group's invite again and an access made through the earlier grant still holds the first name);
 - its `clientData.cmc` records, stamped by the two cores from authenticated accesses and never from the request:
 
 ```json
@@ -181,7 +181,7 @@ When the request fails after it was written (the patient's core refused or could
 
 The member's username and host come from the group's core, which reads them from the membership; the group's identity and the grant (`viaAccessId`) come from the patient's core, which reads them from the grant that called it. The group's core sends only `{ role: 'member-child', member: { username, host } }`, two strings of 1 to 200 characters without whitespace, control, bidirectional or zero-width characters; the patient's core refuses anything else from a grant with `cmc-member-stamp-invalid`. No one can write, change or remove `clientData.cmc` on an access through the API.
 
-**Asking again** for the same patient with exactly the same permissions returns the same access while it has more than five minutes left; other permissions (more or fewer), or an access about to expire, are replaced, and one the patient deleted is created again while the grant lasts. An access is never created over one the patient's core did not confirm gone: if that core cannot be reached while the previous access is being replaced, the request fails with `cmc-member-access-peer-unreachable` and the previous access stays recorded for the sweep. A member has one request in flight at a time per patient (`cmc-member-access-in-flight`). Each membership has two budgets, shared by every server process of the group's core: **new accesses** (5,000 at once, then 1,000 per minute with the default settings) and **requests of any kind** (10,000 at once, then 3,000 per minute). Asking again for an access that is still live counts against the request budget only. Past either budget the request is refused with HTTP 429, `cmc-member-access-rate-limited` in `error.data.id`, and a `Retry-After` header (also `error.data.retryAfterSeconds`): ask again after that many seconds. One case is answered on the event instead: a request for a patient whose access was still recorded as live is accepted without spending the new-access budget, and if that access turns out to need replacing while the budget is spent, the event is stored with `content.failure.reason` `cmc-member-access-rate-limited` and `retryAfterMs` (milliseconds, as for `cmc-member-access-peer-unreachable`) in `content.failure.detail`. In-flight and an unreachable patient core (`cmc-member-access-peer-unreachable`) are worth retrying shortly; `isMemberAccessRetryable` in `@pryv/cmc` says which.
+**Asking again** for the same patient with exactly the same permissions returns the same access while it has more than five minutes left; other permissions (more or fewer), or an access about to expire, are replaced, and one the patient deleted is created again while the grant lasts. After the patient accepted the group's invite again on the same scope, asking again gives an access through the current grant (from the release after open-pryv.io 2.0.0-rc.88). An access is never created over one the patient's core did not confirm gone: if that core cannot be reached while the previous access is being replaced, the request fails with `cmc-member-access-peer-unreachable` and the previous access stays recorded for the sweep. A member has one request in flight at a time per patient (`cmc-member-access-in-flight`). Each membership has two budgets, shared by every server process of the group's core: **new accesses** (5,000 at once, then 1,000 per minute with the default settings) and **requests of any kind** (10,000 at once, then 3,000 per minute). Asking again for an access that is still live counts against the request budget only. Past either budget the request is refused with HTTP 429, `cmc-member-access-rate-limited` in `error.data.id`, and a `Retry-After` header (also `error.data.retryAfterSeconds`): ask again after that many seconds. One case is answered on the event instead: a request for a patient whose access was still recorded as live is accepted without spending the new-access budget, and if that access turns out to need replacing while the budget is spent, the event is stored with `content.failure.reason` `cmc-member-access-rate-limited` and `retryAfterMs` (milliseconds, as for `cmc-member-access-peer-unreachable`) in `content.failure.detail`. In-flight and an unreachable patient core (`cmc-member-access-peer-unreachable`) are worth retrying shortly; `isMemberAccessRetryable` in `@pryv/cmc` says which.
 
 **Reading many patients** (a full pass for analytics): ask an `expireAfter` that covers the whole analysis, so that a second pass reuses the accesses instead of replacing them (an access with five minutes or less left is replaced); keep a few requests in parallel rather than hundreds; honour `Retry-After`. The budgets pace a membership, they do not protect the patients' data: a membership that may read a patient may read all of them. What ends the exposure of a stolen or misused membership is its expiry and its revocation, and the patient's audit log names the member on every read.
 
@@ -201,6 +201,10 @@ On the group's account, each `consent/member-access-cmc` event is created by the
 **The patient withdraws.** The patient revokes the group's grant from their consent pages (`consent/revoke-cmc`), or deletes it with [`accesses.delete`](/reference/#methods-accesses-accesses-delete). Every member access created from that grant is deleted with it, on the patient's own core, whether or not the group's core is reachable. The group receives the revoke as for any CMC relationship. This requires open-pryv.io 2.0.0-rc.52 or later on the patient's core; on an older one, see [Several cores and older releases](#several-cores-and-older-releases).
 
 The patient can also delete one member's access, but while the grant lasts that member can ask for a new one. To stop the group, the patient withdraws the grant; to stop one member, the group offboards them.
+
+**The patient accepts again on the same scope** (from the release after open-pryv.io 2.0.0-rc.88). The group keeps one relationship per patient and scope stream: the latest accept replaces the first. The patient's core deletes the earlier grant, with every member access created from it, once the group's core has taken the new one, and marks the earlier `consent/accept-cmc` with `withdrawal.by: 'replaced'`. On the group's account the earlier invite reads `revoked` with `content.replacedBy = { inviteEventId }`, and the member accesses created through the earlier grant are deleted through it. No revoke notice is exchanged. Members asking again get an access through the current grant. See [Revoking](/guides/cross-account-messaging/#revoking) in the CMC guide.
+
+**A member joins the same team twice** (from the same release). The same rule applies to memberships: when the newer membership is completed, the earlier membership access is deleted and the member accesses created for it are swept.
 
 **The group ends a patient relationship.** The group's core first deletes, through the grant, the member accesses it created on that patient, then delivers the revoke, then removes its own side. This pass writes no sweep record: a member access the patient's core did not confirm deleted is logged and lasts until it expires.
 
@@ -230,13 +234,24 @@ The sweep deletes each member access the group's core created for that member, t
 | `uncovered` | Present when a team stream was deleted: the stream ids gone. |
 | `records` | The member accesses to delete: `{ relationshipAccessId, counterparty, childAccessId, expires }` each. |
 | `status` | `pending`, `delivered`, `completed` or `failed`. |
-| `outcome` | Per access, `{ childAccessId, result }`, `result` being `deleted`, `absent` (already gone, or expired) or `residual` (still there). |
+| `outcome` | Per access, `{ childAccessId, result, reason? }`, `result` being `deleted`, `absent` (the patient's core confirmed it gone, or it expired) or `residual` (still there, or not confirmed gone; see below). |
 | `residuals` | The accesses left in place, `{ counterparty, childAccessId, expires, reason }` each. |
 | `failure` | `{ reason: 'cmc-member-revoke-residual', detail }` when accesses were left in place. |
 
 The record is server-owned: an app or shared access, a membership included, cannot update or delete it (`cmc-protected-event-write`).
 
 **Residuals.** A patient core that cannot be reached or refuses the deletion, or a relationship that cannot be read, leaves a residual, and the sweep record fails with `cmc-member-revoke-residual`. The sweep is retried through the retry queue (6 attempts over about 30 minutes); after that, the periodic ledger pass of the group's core sweeps residuals again, up to 50 per pass, every minute by default. The same pass sweeps memberships that expired or vanished. Both run with the CMC retry loop, `cmc:retryLoop:enabled`, which is on by default from open-pryv.io 2.0.0-rc.53. With it off, nothing is queued, the core logs a warning at boot, and a residual lasts until the access expires.
+
+**An access is `absent` only when the patient's core confirmed it gone** (from the release after open-pryv.io 2.0.0-rc.88). Each residual names why in `reason`, among them:
+
+| `reason` | Meaning |
+|---|---|
+| `peer-rejected` | The patient's core refused the deletion. The access missing from the grant's list no longer overturns a refusal. |
+| `grant-gone` | The grant no longer authenticates. A patient core of a recent release deleted the member accesses with the grant, an older one keeps them until their expiry, and the group's core cannot tell which: not counted as gone. |
+| `grant-replaced` | The access was made through an earlier grant of the patient, who accepted the group's invite again since. Only the grant that made an access can delete it, and the group no longer holds that one; a patient core of this release ends it with the earlier grant. |
+| `grant-unknown` | An access recorded before the group's core knew which grant made it, whose relationship the patient ended: it may be another grant's, so it is not counted as gone. |
+
+Each of these is bounded by the access's own expiry. An access the sweep record lists but the group's records no longer hold is, unless it has expired, deleted and checked on the patient's core like the others before it is reported. On earlier releases such cases could be reported `absent`.
 
 Expiry bounds every residual: at most 7 days with the default settings, 24 hours for an access asked with the default expiry, and never beyond the membership's own expiry. Keep `expireAfter` short to keep that window short. Residuals are listed on the sweep event (`residuals`) with their expiry.
 
