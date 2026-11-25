@@ -63,6 +63,29 @@ A group that shares one account (a practice, a research team, a bridge) can let
 its core create these sub-accesses for each of its members, named after them,
 without running a backend: see [Group accounts](/guides/group-accounts/).
 
+### Requiring a verified email
+
+A requester that must be able to reach the person can make a proved email address a condition of the consent, by setting `request.requireVerifiedEmail: true` on the offer (default `false`; from the release after open-pryv.io 2.0.0-rc.87):
+
+```jsonc
+{ "type": "consent/request-cmc",
+  "content": {
+    "request": {
+      "title": {"en": "…"}, "description": {"en": "…"}, "consent": {"en": "…"},
+      "permissions": [ { "streamId": ":system:email", "level": "read" } ],
+      "requireVerifiedEmail": true
+    } } }
+```
+
+- **The offer must ask to read the address**: `:system:email` at `read`, flagged `mandatory` when `allowUserChoice` is set. An offer that does not is refused when written (`error.data.id: 'cmc-invalid-event-content'`). A membership offer cannot carry the requirement. Set it when you create the invite: the link carries the offer as it was then.
+- **The core of the accepting account enforces it** when the grant is made. While the account's primary address is not [proved](/guides/email-verification/#reading-the-status-back), the accept ends `failed` with `content.failure.reason: 'cmc-verified-email-required'`: nothing is granted, the core sends nothing to the requester, and the link stays usable, so a new accept works once the address is proved.
+- **The address is that of the account the accept is written on**, also when a [delegate](/guides/account-delegation/#consent-given-by-a-delegate) accepts for an account it manages: the delegate's own address does not count.
+- **Detecting support.** A platform that enforces it has `features.cmcRequireVerifiedEmail: true` in its [service information](/reference/#service-info). An earlier core stores the field and ignores it.
+- **It is not a guarantee to the requester, even with the flag.** The condition is enforced on the accepter's side: it stops ordinary clients and guides the person, but a person determined to can answer a link with a grant made by hand. What to act on is what the grant reads, each time you use the address: the address and its [`verification/email` event](/guides/account-fields/), which the accepting core derives when it is read. The accept says nothing about the proof.
+- **It is a condition of the accept, not of the relationship.** A later change of address, a scope update and a consent already given are not checked. Read `verification/email` when you use the address.
+
+The reference authentication page, [app-web-user-account](https://github.com/pryv/app-web-user-account), helps the person prove the address on the consent screen: see [email verification](/guides/email-verification/#when-a-consent-requires-a-verified-address). With the `@pryv/cmc` helper, pass `requireVerifiedEmail` to `createInvite`.
+
 ## Streams reserved by the plugin
 
 The plugin auto-provisions a small reserved namespace on every account on first CMC use:
@@ -460,7 +483,7 @@ The list holds 1 to 8 entries, and an entry carries no other key. A malformed li
 The platform's reference authentication page, [app-web-user-account](https://github.com/pryv/app-web-user-account) 0.11.0 or later, handles the invites as follows.
 
 1. **It shows the app access first, then each invite as its own block**: who asks, the consent text and the requested permissions, with the block's own Approve and Decline. Approving the app access never approves an invite. Approve and Decline only record the choice, which the user can still change; the page's Continue acts, and it is available once every invite has a decision.
-2. **Some invites can only be declined.** The page accepts an invite on the requester's offer scope: the offer's origin stream, else `:_cmc:apps:<appId>` from the requester's metadata. An invite whose offer cannot be read, or whose scope cannot be determined, offers Decline only.
+2. **Some invites can only be declined.** The page accepts an invite on the requester's offer scope: the offer's origin stream, else `:_cmc:apps:<appId>` from the requester's metadata. An invite whose offer cannot be read, or whose scope cannot be determined, offers Decline only. An invite whose offer [requires a verified email](#requiring-a-verified-email) cannot be approved until the address of the account that answers it is proved, which the person can do on the same page; it can always be declined.
 3. **On Continue, it decides, then accepts, then grants.**
    - A declined **mandatory** invite ends the request before anything is written: the page posts `REFUSED` with `reasonId: 'REFUSED_MANDATORY_CONSENT'`, and neither the app access nor any consent is created. Your poll receives that `REFUSED`.
    - A declined invite whose offer is readable gets a `consent/refuse-cmc` sent to the requester. This is best-effort: a refusal that cannot be sent never blocks, and the outcome stays `{ declined: true }`.

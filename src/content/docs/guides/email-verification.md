@@ -188,6 +188,18 @@ Accounts that never used the feature report their single primary address as one 
 
 An account holds at most `account.maxEmails` addresses (an operator setting, with a hard ceiling of 20), and exactly one is primary. The singular `email` field always mirrors the primary one.
 
+## When a consent requires a verified address
+
+A [cross-account consent offer](/guides/cross-account-messaging/#requiring-a-verified-email) can require a proved primary address (from the release after open-pryv.io 2.0.0-rc.87). The core of the accepting account refuses the accept until the address is proved, so a consent page should help the person get there. The reference page, [app-web-user-account](/apps/app-web-user-account/), does it on both of its consent screens (the sign-in screen with consent invites, and the accept hand-off):
+
+- Approve is not available until the primary address is proved; Decline always is.
+- An address already on the account gets a "send the verification email" action (`emails.resend`). An account without one gets a field to add it (`emails.add`); the page makes it primary once proved (`emails.setPrimary`).
+- The link may be opened on another device: the page reads the account again every few seconds and updates by itself.
+- The proof belongs to the account, not to the request. If the sign-in request expires meanwhile (one hour), the next one finds the address proved.
+- With `onAccount: false` the platform sends no verification mail, so an account whose address is not proved cannot give such a consent there.
+
+The proof is a condition at the time of the accept. If the person later moves to an address that is not proved, the consent stays: the requester reads the [`verification/email` event](/guides/account-fields/) when it uses the address.
+
 ## Where to look next
 
 - [Email configuration](/customer-resources/emails-setup/#email-verification): the operator view, including what the mails contain and how to change them.
