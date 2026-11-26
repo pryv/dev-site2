@@ -111,6 +111,8 @@ Into an install that already has conflicting users, pick one:
 - `--overwrite` — clear the target user's data first and reimport.
 - `--skip-conflicts` — leave conflicting users alone; only import the rest.
 
+With `audit.onUserDelete: keep`, from the release after 2.0.0-rc.90, `--overwrite` does not clear the account's audit trail: see [The audit trail of a restored account](#the-audit-trail-of-a-restored-account).
+
 Restore auto-detects an encrypted backup (from its `encryption.json`) and asks for the matching secret:
 
 - `--private-key recipient.key.pem` (plus `--private-key-passphrase` if the key file is itself passphrase-protected) for a backup made with `--recipient-pubkey`.
@@ -133,6 +135,14 @@ Useful restore flags:
 - `--verify-integrity` — after restore, verify event/access integrity hashes and roll back any user whose hashes don't match.
 - `--user <userId>` — restore just one user.
 - `--delete-on-success` / `--move-on-success <path>` — housekeep the backup directory after a successful restore.
+
+#### The audit trail of a restored account
+
+From the release after open-pryv.io 2.0.0-rc.90, with the audit active:
+
+- **Each account the restore brings back and keeps gets an `account.restored` record** in its own audit trail, after the records the backup held: the date of the backup's data for that account (`backupDate`, UTC), `target` (`new`, or `existing` with `--overwrite` of an account of the core) and, with `--restore-erased`, `afterErasure` (`completed`, or `unfinished` for a stopped erasure the restore withdrew). An account rolled back by `--verify-integrity`, or emptied by the cleanup of a failed restore, gets none; with `--user` and a remapped id, the record is under the id restored to. A restore stopped by a failure keeps the accounts restored before it, and writes their records. Accounts loaded from a v1 migration archive get the record too. A record that cannot be written does not fail the restore nor change its exit code. See the [audit logs guide](/guides/audit-logs/#the-restore-of-the-account).
+- **With `audit.onUserDelete: keep`, the restore keeps the audit trail it finds.** `--overwrite`, the roll-back of `--verify-integrity` and the cleanup of a failed restore no longer remove the account's trail: the records written since the backup stay (for an erased account: its last calls, the auto-deletion sweep's record and `account.deleted`), and the backup's records the trail lacks are added. When the account had no trail on the core before the restore (a new core, a remapped id, an account erased under `erase`) and the roll-back or the cleanup removes the account, the trail the restore created is removed with it. A roll-back of an account that had a trail before the restore leaves in it the records the restore added from the backup. With `erase` (the default) nothing changes: an overwrite replaces the trail with the backup's.
+- **The import of audit records skips the records already there** on SQLite as on PostgreSQL. A restore onto an existing trail used to stop importing the backup's audit records, on SQLite, at the first one already there (a warning, the rest not imported).
 
 ### What's in the backup
 
@@ -207,7 +217,7 @@ The record is written in the platform database (replicated to every core) as the
 - `userIdHash` and `usernameHash`: keyed hashes (HMAC-SHA256) of the user id and of the username (lowercased), and `keyId`, which names the key they were made with;
 - `startedAt` and `deletedAt`: when the erasure started and ended (milliseconds since the epoch);
 - `trigger`: what decided it, `holder` (`DELETE /users/:username` with the account's personal token), `admin` (the same call with the admin key), `date`, `inactivity` or `transfer-fallback` ([account auto-deletion](/customer-resources/account-auto-deletion/); `transfer-fallback` from the release after 2.0.0-rc.89), `unfinished-registration` (`bin/reconcile-user-cores.js --registrations`, from 2.0.0-rc.90), `ledger-replay` (`bin/erasures.js --replay`, below), or `unknown` (an unfinished erasure started by an earlier version, completed by this one);
-- `coreId`, the core that erased the account, `stepsCompleted`, `auditMode` (the `audit.onUserDelete` mode applied), `attempts` and `serverVersion`;
+- `coreId`, the core that erased the account, `stepsCompleted` (from the release after 2.0.0-rc.90 it lists one more step, `recordAccountDeleted`, before `deleteUserFiles`, whether or not an [`account.deleted` audit record](/guides/audit-logs/#the-deletion-of-the-account) was written), `auditMode` (the `audit.onUserDelete` mode applied), `attempts` and `serverVersion`;
 - `restoredAt`, only when the account was restored since with `--restore-erased`;
 - `firstDeletedAt` and `firstTrigger`, only on a record replaced by `bin/erasures.js --replay`: the date and trigger of the first erasure.
 

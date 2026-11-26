@@ -23,6 +23,8 @@ The core also creates, changes and deletes accesses by itself, without an `acces
 
 From open-pryv.io 2.0.0-rc.90 the creation of an account (a registration, `system.createUser`, `delegations.createAccount`) leaves an `account.created` record of type `audit-log/account` as the first record of the new account's own trail, described in the [audit logs guide](/guides/audit-logs/#the-creation-of-the-account). **A filter that lists methods one by one does not include `account.created` until you add it; `account.all` and `all` do.** The breach-scope report lists the record without counting it as a call of the access; the audit summary counts it as a write.
 
+From the release after open-pryv.io 2.0.0-rc.90 the deletion and the restore of an account are recorded in its own trail too, as `account.deleted` (only where the trail is kept after the erasure) and `account.restored`, of the same type: see [Deleted and restored accounts](#deleted-and-restored-accounts). **A filter that lists methods one by one does not include `account.deleted` and `account.restored` until you add them; `account.all` and `all` do.**
+
 ### Records that could not be written
 
 From 2.0.0-rc.90 the core also counts them, so that you can alert without reading logs:
@@ -39,9 +41,20 @@ From 2.0.0-rc.90 the core also counts them, so that you can alert without readin
 
 Expect zero, and alert on anything above. The counts carry no account, method or message. The `error` log lines carry the failure itself; they do not name the record for every cause. A lost record is not written again later.
 
-Not counted: a process stopped between answering a call and writing its record; a write that never ends (a storage that hangs); a syslog delivery error reported after the call (logged as `audit syslog dropped`); what a command-line tool could not write. A restart sets the count of the status back to zero: after an audit storage outage, read the log as well.
+Not counted: a process stopped between answering a call and writing its record; a write that never ends (a storage that hangs), except the records an erasure writes (`account.deleted`, the sweep's `account.autoDeletion.erase`, from the release after 2.0.0-rc.90), which count as lost after 10 seconds without an answer; a syslog delivery error reported after the call (logged as `audit syslog dropped`); what a command-line tool could not write. A restart sets the count of the status back to zero: after an audit storage outage, read the log as well.
 
 With `audit.onUserDelete: erase` (the default), a record refused because its account was erased while the call was running is not a lost record: the erasure exists to remove it. It is logged at `warn` (`Audit record not written`). With the audit storage on PostgreSQL and the base storage on SQLite, a record written in the last moment before the account is marked erased may stay; the server warns about this pairing at boot.
+
+### Deleted and restored accounts
+
+`audit.onUserDelete` decides what happens to an account's trail when the account is erased: `erase` (the default) removes it with the account, `keep` keeps it, readable by user id, for a retention duty that outlives the account. From the release after open-pryv.io 2.0.0-rc.90:
+
+- **Under `keep`, the kept trail ends with a record of the deletion**, `account.deleted`, written before any of the account's data is removed, whatever erases the account (its holder, an administrator, the auto-deletion sweep, `bin/erasures.js --replay`, the repair of an unfinished registration, the roll-back of a failed creation). It names who (`source.name`) and the erasure ledger's `trigger`; for a deletion by the holder, the client address and the personal access that asked; never an administrator's address. Under `erase` nothing is written, to the storage or to syslog. A record that cannot be written within 10 seconds is counted as lost and the erasure goes on.
+- **A restored account has a record of its restore**, `account.restored`, written by `bin/backup.js --restore` for each account it restores and keeps, with the backup's date, whether it replaced an account of the core (`--overwrite`) and whether it brought back an erased account (`--restore-erased`). It is written whatever `audit.onUserDelete` says: the account is live again.
+- **Under `keep`, a restore keeps the trail it finds.** A restore with `--overwrite`, the roll-back of a restore by `--verify-integrity` and the cleanup of a restore that failed no longer remove the account's trail: the records written since the backup (an erasure's `account.deleted` among them) stay, and the backup's records the trail lacks are added. A restored kept trail therefore reads `account.deleted`, then `account.restored`. When the account had no trail on the core before the restore (a new core, a remapped id, an account erased under `erase`) and the roll-back or the cleanup removes the account, the trail the restore created goes with it. Under `erase`, an overwrite replaces the trail with the backup's, as before.
+- **The sweep's `account.autoDeletion.erase` record no longer holds the username.** It is written only under `keep`, where it outlives the account; the sweep's log lines still name the account.
+
+Both records, their fields and examples are in the [audit logs guide](/guides/audit-logs/#the-deletion-of-the-account). The breach-scope report lists them without counting them as calls (a holder's deletion under the personal access that asked); the audit summary counts `account.deleted` as a write and `account.restored` as other.
 
 
 ## Filtering
@@ -185,7 +198,7 @@ Audit event types emitted by the core:
 - `audit-log/pryv-api-error` — errored API call
 - `audit-log/oauth`, `audit-log/sso`, `audit-log/mfa`, `audit-log/external-id`, `audit-log/account-auto-deletion`: events of these parts of the server
 - `audit-log/access`: an access the server itself created, changed or deleted (from 2.0.0-rc.90)
-- `audit-log/account`: the creation of the account (`account.created`, from open-pryv.io 2.0.0-rc.90)
+- `audit-log/account`: the creation of the account (`account.created`, from open-pryv.io 2.0.0-rc.90), its deletion (`account.deleted`) and its restore (`account.restored`), from the release after 2.0.0-rc.90
 
 You can define a dedicated template for either (the map key matches the part after `audit-log/`, e.g. `pryv-api-error`).
 

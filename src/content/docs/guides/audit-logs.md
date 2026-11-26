@@ -14,9 +14,11 @@ It describes what Audit Logs are, why to use them and how they were designed on 
   1. [What are Audit Logs?](#what-are-audit-logs)
   2. [Accesses the server writes](#accesses-the-server-writes)
   3. [The creation of the account](#the-creation-of-the-account)
-  4. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
-  5. [How to filter audit queries?](#how-to-filter-audit-queries)
-  6. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
+  4. [The deletion of the account](#the-deletion-of-the-account)
+  5. [The restore of the account](#the-restore-of-the-account)
+  6. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
+  7. [How to filter audit queries?](#how-to-filter-audit-queries)
+  8. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
 3. [Why using Audit Logs on Pryv.io](#why-using-audit-logs-on-pryvio)
 
 ## Introduction
@@ -135,6 +137,60 @@ From open-pryv.io 2.0.0-rc.90, an account created on a core has a record of its 
 | `record.accessId`, `accessType` | the personal access made with the account; the record is also on that access's `access-` stream, so the history of the first personal access starts with its creation. Empty when no personal access was made (`delegations.createAccount`, `system.createUser` without `appId`) |
 
 The record holds ids and fixed words only: no username, address, password, token, app id, invitation or custom field. A registration forwarded to another core is recorded on the core that creates the account, with the client address the receiving core saw. A refused registration leaves no record. A record that cannot be written does not fail the creation; it is counted as a [lost audit record](/customer-resources/audit-setup/#records-that-could-not-be-written). Accounts created earlier have no such record. The type `audit-log/account` is listed in the event-type catalogue from data-types 1.4.0.
+
+### The deletion of the account
+
+From the release after open-pryv.io 2.0.0-rc.90, when the trail of an account is kept after its erasure (`audit.onUserDelete: keep`, see [Audit setup](/customer-resources/audit-setup/#deleted-and-restored-accounts)), the server writes an `account.deleted` record of type `audit-log/account` in that trail before it removes any of the account's data. It does so whatever erases the account: its holder or an administrator (`DELETE /users/:username`), the [auto-deletion](/customer-resources/account-auto-deletion/) sweep, the completion of an unfinished erasure, `bin/erasures.js --replay`, the repair of an unfinished registration (`bin/reconcile-user-cores.js --registrations`), or the roll-back of an account whose creation failed. With `audit.onUserDelete: erase` (the default) nothing is written: the trail goes with the account.
+
+A deletion by the holder:
+
+```json
+{
+  "streamIds": [":_audit:access-cmr7f2k1x0001pdrt5a8d3h9q", ":_audit:action-account.deleted"],
+  "type": "audit-log/account",
+  "content": {
+    "action": "account.deleted",
+    "source": { "name": "holder", "ip": "85.5.225.68" },
+    "record": { "trigger": "holder", "accessId": "cmr7f2k1x0001pdrt5a8d3h9q", "accessType": "personal" }
+  }
+}
+```
+
+A deletion by the auto-deletion sweep: `"source": { "name": "auto-deletion" }`, `"record": { "trigger": "date" }`, on the `action-account.deleted` stream only.
+
+| Field | Meaning |
+|---|---|
+| `source.name` | who erased the account: `holder`, `admin`, `auto-deletion`, `ledger-replay` or `system`; `unknown` for an erasure recorded without its cause |
+| `source.ip` | the client address, for a deletion by the holder only (the holder's own, as on the call records of the trail); left out when unknown. An administrator's address is never recorded |
+| `record.trigger` | the word the [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger) keeps for this erasure: `holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `ledger-replay`, `unfinished-registration`, `system` or `unknown` |
+| `record.accessId`, `accessType` | for a deletion by the holder, the personal access that asked; the record is also on that access's `access-` stream |
+
+The record holds ids and fixed words only: no username, address of the account, token or text. The sweep's own record of the erasure (`account.autoDeletion.erase`, type `audit-log/account-auto-deletion`) is still written, just before it; from the same release it no longer holds the username. An erasure is never stopped by its record: one that cannot be written, or whose write has no answer within 10 seconds, is counted as a [lost audit record](/customer-resources/audit-setup/#records-that-could-not-be-written) and the erasure goes on. It is the last record the server writes on purpose, not a seal: the trail of an erased account stays open under `keep`, so the record of a call that was in flight during the erasure can follow it. Under `keep`, the roll-back of an account whose creation failed (a delegated account) leaves a trail reading `account.created` then `account.deleted`, for an account that was never usable. Accounts erased earlier have no such record.
+
+### The restore of the account
+
+From the release after open-pryv.io 2.0.0-rc.90, `bin/backup.js --restore` writes an `account.restored` record of type `audit-log/account` in the trail of each account it restores and keeps, after the records the backup held. An account rolled back by `--verify-integrity` gets none. Accounts loaded from a v1 migration archive get the record too: they are restored from a backup.
+
+```json
+{
+  "streamIds": [":_audit:action-account.restored"],
+  "type": "audit-log/account",
+  "content": {
+    "action": "account.restored",
+    "source": { "name": "backup" },
+    "record": { "backupDate": "2026-04-14", "target": "new", "afterErasure": "completed" }
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `source.name` | `backup` |
+| `record.backupDate` | the date (UTC, `YYYY-MM-DD`) of the backup's data for that account (in a chain, the newest run that holds it); left out when the backup does not say |
+| `record.target` | `new`, or `existing` when the restore replaced an account of the core (`--overwrite`) |
+| `record.afterErasure` | `completed` when the account had been erased after the backup and was restored with `--restore-erased`, `unfinished` when the restore withdrew an erasure that had stopped; absent otherwise |
+
+Nothing else: no username, backup path, run id or operator. The record is written under the id the account is restored under. With `audit.onUserDelete: keep`, a restore keeps the trail it finds (see [Backup and restore](/customer-resources/backup/#restore)), so the kept trail of an erased account, once restored, reads `account.deleted`, then `account.restored`. A record that cannot be written does not fail the restore. A subject's own restore through the API ([Subject Account Backup](/customer-resources/subject-account-backup/)) is a series of calls, each audited as a call: it writes no `account.restored`.
 
 ### Who is allowed to audit what?
 
