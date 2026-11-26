@@ -93,6 +93,17 @@ node bin/reconcile-user-cores.js --emails             # claim the missing email 
 
 It checks the email row of each of the core's accounts: a missing row (an account restored with `--user` by an earlier release) is claimed for the account, never over another holder, and the accounts whose email another account holds are listed: no password reset or notice is mailed to them until their email is changed.
 
+From open-pryv.io 2.0.0-rc.90, `--cmc-retries` lists the cross-account messaging retry rows (`cmc-internal/retry-cmc` events) left under user ids the users index does not hold, the leftovers earlier releases could write after an account's erasure (each holds a counterparty's invite URL with its token):
+
+```bash
+node bin/reconcile-user-cores.js --cmc-retries           # report only (the default)
+node bin/reconcile-user-cores.js --cmc-retries --apply   # delete them
+```
+
+- `--apply` deletes the rows of an id that holds nothing else (no account field, password, other event, stream, access, profile or webhook) and has no erasure record, checking the index, the erasure record and the account store again in the delete itself.
+- PostgreSQL only: on SQLite those rows stay in the erased account's directory.
+- Not part of an upgrade. An empty users index facing such rows is refused (exit code 3) unless `--force-empty-local`, as above.
+
 ### 2. Every core: `bin/gather-former-series.js`
 
 Accounts renamed before the upgrade kept the high-frequency points written before their change under the former username, where reads no longer find them. The tool moves them under the current username, merged:

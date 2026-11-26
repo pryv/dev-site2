@@ -269,7 +269,7 @@ module.exports = exports =
       unique: true
       readOnly: "(except at creation)"
       description: """
-                   The token identifying the access. Automatically generated if not set when creating the access; **slugified if necessary**.
+                   The token identifying the access. Automatically generated if not set when creating the access (25 characters); **slugified if necessary**. A token chosen at creation must be at least 16 characters after slugification, otherwise the call fails with `invalid-parameters-format` (since 2.0.0-rc.90; existing accesses keep their tokens whatever their length). A token is a bearer credential: a short one can be guessed.
                    """
     ,
       key: "apiEndpoint"

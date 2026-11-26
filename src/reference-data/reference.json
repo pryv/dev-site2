@@ -3362,7 +3362,7 @@
               "title": "Get one access",
               "v2Tag": true,
               "http": "GET /accesses/{id}",
-              "description": "Returns the access identified by `{id}`. The id can be either:\n\n- **bare** `<base>`, returns the current head row.\n- **composite** `<base>:<serial>` matching the current head's serial, returns the current head row.\n- **composite** `<base>:<serial>` referring to an *older* serial, returns the historical snapshot from that version, alongside a `current` hint pointing at the live head's composite id. Mirrors GitHub's `GET /repos/X/Y/commits/<sha>` behaviour for ref-by-version.\n- any other id (unknown base, or a serial that never existed), `404 unknown-resource`.\n\nPass `?includeHistory=true` to also return the full chronological history of the access (oldest first) in a `history` array. Default `false`, the singular case covers the typical \"audit this access\" use case without the list-side overhead.\n\nApp callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.\n\nCalled with a personal access (the account owner's, or a delegate's personal access), the current head carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](#data-structure-access) structure). An older version (a composite id with an earlier serial) and the `history` snapshots carry none. `usage` is absent when access tracking is off on the platform, and app and shared callers never receive it. Available from 2.0.0-rc.84.",
+              "description": "Returns the access identified by `{id}`. The id can be either:\n\n- **bare** `<base>`, returns the current head row.\n- **composite** `<base>:<serial>` matching the current head's serial, returns the current head row.\n- **composite** `<base>:<serial>` referring to an *older* serial, returns the historical snapshot from that version, alongside a `current` hint pointing at the live head's composite id. Mirrors GitHub's `GET /repos/X/Y/commits/<sha>` behaviour for ref-by-version.\n- any other id (unknown base, or a serial that never existed), `404 unknown-resource`.\n\nPass `?includeHistory=true` to also return the full chronological history of the access (oldest first) in a `history` array. Default `false`, the singular case covers the typical \"audit this access\" use case without the list-side overhead.\n\nApp callers can only fetch their own access (self) or shared accesses they directly manage; other access ids return `404 unknown-resource` to avoid info leakage.\n\nA delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.\n\nA non-personal access fetching its own id gets its `clientData` with the user part (the token) of every URL in it removed, as in [access info](#access-info), since 2.0.0-rc.90.\n\nCalled with a personal access (the account owner's, or a delegate's personal access), the current head carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](#data-structure-access) structure). An older version (a composite id with an earlier serial) and the `history` snapshots carry none. `usage` is absent when access tracking is off on the platform, and app and shared callers never receive it. Available from 2.0.0-rc.84.",
               "params": {
                 "properties": [
                   {
@@ -3739,7 +3739,7 @@
           "description": "Retrieves information about the access in use.",
           "result": {
             "http": "200 OK",
-            "description": "The current [Access properties](#data-structure-access), as well as:",
+            "description": "The current [Access properties](#data-structure-access), as well as the properties below.\n\nSince 2.0.0-rc.90 the access's `clientData` comes back with the user part (the token) of every URL in it removed (scheme, host, path and query kept): it can hold endpoints written there by another account, such as a cross-account messaging counterparty's back-channel, whose tokens are not the holder's to read. The access's own `token` and `apiEndpoint` are still returned. Keep credentials out of `clientData`: an app reading back a URL it stored there gets it without them.",
             "properties": [
               {
                 "key": "calls",
@@ -7410,7 +7410,7 @@
               "type": "string",
               "unique": true,
               "readOnly": "(except at creation)",
-              "description": "The token identifying the access. Automatically generated if not set when creating the access; **slugified if necessary**."
+              "description": "The token identifying the access. Automatically generated if not set when creating the access (25 characters); **slugified if necessary**. A token chosen at creation must be at least 16 characters after slugification, otherwise the call fails with `invalid-parameters-format` (since 2.0.0-rc.90; existing accesses keep their tokens whatever their length). A token is a bearer credential: a short one can be guessed."
             },
             {
               "key": "apiEndpoint",
@@ -9797,6 +9797,12 @@
                       "type": "object",
                       "optional": true,
                       "description": "Optional metadata the requesting app wants to attach to the request."
+                    },
+                    {
+                      "key": "token",
+                      "type": "string",
+                      "optional": true,
+                      "description": "A token the app chooses for the access; the auth page applies it through [create access](/reference/#methods-accesses-accesses-create). Omit it to get a generated one (25 characters). Since 2.0.0-rc.90 a token shorter than 16 characters after slugification is refused up front with `400 invalid-parameters`, before the user signs in, rather than failing after consent."
                     },
                     {
                       "key": "credentialHandoff",

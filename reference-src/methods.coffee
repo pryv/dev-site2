@@ -2023,6 +2023,8 @@ module.exports = exports =
 
                    A delegated personal access ([account delegation](/guides/account-delegation/#credentials-of-the-accounts-other-accesses)) receives `token` and `apiEndpoint` (in `access` and in `history`) only for itself and for the accesses it created.
 
+                   A non-personal access fetching its own id gets its `clientData` with the user part (the token) of every URL in it removed, as in [access info](#access-info), since 2.0.0-rc.90.
+
                    Called with a personal access (the account owner's, or a delegate's personal access), the current head carries `usage`: approximate lifetime call counts of that access, per method and summed by class (see `usage` in the [access](##{dataStructure.getDocId("access")}) structure). An older version (a composite id with an earlier serial) and the `history` snapshots carry none. `usage` is absent when access tracking is off on the platform, and app and shared callers never receive it. Available from 2.0.0-rc.84.
                    """
       params:
@@ -2378,7 +2380,9 @@ module.exports = exports =
     result:
       http: "200 OK"
       description: """
-            The current [Access properties](##{dataStructure.getDocId("access")}), as well as:
+            The current [Access properties](##{dataStructure.getDocId("access")}), as well as the properties below.
+
+            Since 2.0.0-rc.90 the access's `clientData` comes back with the user part (the token) of every URL in it removed (scheme, host, path and query kept): it can hold endpoints written there by another account, such as a cross-account messaging counterparty's back-channel, whose tokens are not the holder's to read. The access's own `token` and `apiEndpoint` are still returned. Keep credentials out of `clientData`: an app reading back a URL it stored there gets it without them.
             """
       properties: [
         key: "calls"

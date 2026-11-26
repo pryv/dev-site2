@@ -1672,6 +1672,13 @@ module.exports = exports =
                         Optional metadata the requesting app wants to attach to the request.
                         """
           ,
+            key: "token"
+            type: "string"
+            optional: true
+            description: """
+                        A token the app chooses for the access; the auth page applies it through [create access](/reference/#methods-accesses-accesses-create). Omit it to get a generated one (25 characters). Since 2.0.0-rc.90 a token shorter than 16 characters after slugification is refused up front with `400 invalid-parameters`, before the user signs in, rather than failing after consent.
+                        """
+          ,
             key: "credentialHandoff"
             type: "string"
             optional: true
