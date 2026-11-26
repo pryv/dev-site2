@@ -52,7 +52,7 @@ The step-up is always required. The one-release opt-out `services.mfa.stepUp.req
 
 ### Change notices
 
-When mail is configured, the account's email address receives a notice when its MFA is enrolled, replaced, deactivated, removed with a recovery code or reset by the administrator (template `mfa-change`, switch `services.email.enabled.mfaChange`). See [MFA change notice](/customer-resources/emails-setup/#mfa-change-notice).
+When mail is configured, the account's email address receives a notice when its MFA is enrolled, replaced, deactivated, removed with a recovery code or reset by the administrator (template `mfa-change`, switch `services.email.sendMfaChange`, `services.email.enabled.mfaChange` up to 2.0.0-rc.90). See [MFA change notice](/customer-resources/emails-setup/#mfa-change-notice).
 
 ### Accounts whose method is not active
 

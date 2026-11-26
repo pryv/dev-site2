@@ -155,7 +155,7 @@ curl -X POST https://<core>/system/admin/ext-id/release \
 
 Reference entry: [Release an external id claimed by the wrong account](/reference-system/#release-an-external-id-claimed-by-the-wrong-account).
 
-A deployment whose mail templates were seeded before this release does not have `external-id-released` yet: add it with `bin/mail.js templates set` (the bundled default is in `components/mail/templates/external-id-released`). The notice can be switched off with `services.email.enabled.externalIdReleased: false`.
+A deployment whose mail templates were seeded before this release does not have `external-id-released` yet: add it with `bin/mail.js templates set` (the bundled default is in `components/mail/templates/external-id-released`). The notice can be switched off with `services.email.sendExternalIdReleased: false` (`services.email.enabled.externalIdReleased: false` up to 2.0.0-rc.90).
 
 ## Operators
 

@@ -80,9 +80,7 @@ service:
 
 services:
   email:
-    enabled:
-      welcome: false
-      resetPassword: false
+    enabled: false
 
 logs:
   file:

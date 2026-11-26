@@ -176,19 +176,19 @@ Instead of a deletion, a holder may choose `action: transfer`: at the date, or a
 
 | Mail | Sent when | Template | Switch |
 |---|---|---|---|
-| **Confirmation** | the holder changes the setting, clearing included, or the support resets it; it names the deadline, or says nothing is scheduled | `account-deletion-scheduled` | `services.email.enabled.accountDeletionScheduled` |
-| **Reminder** | at each `reminders.leadDays` before the deletion | `account-deletion-reminder` | `services.email.enabled.accountDeletionReminder` |
-| **Deletion held** | a check refused the deletion (sent once) | `account-deletion-blocked` | `services.email.enabled.accountDeletionBlocked` |
-| **Beneficiary named** | to the beneficiary, when named with `atSetup` (with a decline link) | `account-transfer-named` | `services.email.enabled.accountTransferNamed` |
-| **Claim link** | to the beneficiary, when the claim window opens, and again 30 and 60 days later | `account-transfer-claim` | `services.email.enabled.accountTransferClaim` |
-| **Transfer started** | to the holder, when the claim window opens | `account-transfer-started` | `services.email.enabled.accountTransferStarted` |
-| **Transfer cancelled** | to the holder and the beneficiary: the account was used, the holder changed it, or the beneficiary declined | `account-transfer-cancelled` | `services.email.enabled.accountTransferCancelled` |
-| **Transfer lapsed** | to the holder, when the window ends without a claim and the account is kept | `account-transfer-lapsed` | `services.email.enabled.accountTransferLapsed` |
-| **Transfer completed** | to the holder and the beneficiary | `account-transfer-completed` | `services.email.enabled.accountTransferCompleted` |
+| **Confirmation** | the holder changes the setting, clearing included, or the support resets it; it names the deadline, or says nothing is scheduled | `account-deletion-scheduled` | `services.email.sendAccountDeletionScheduled` |
+| **Reminder** | at each `reminders.leadDays` before the deletion | `account-deletion-reminder` | `services.email.sendAccountDeletionReminder` |
+| **Deletion held** | a check refused the deletion (sent once) | `account-deletion-blocked` | `services.email.sendAccountDeletionBlocked` |
+| **Beneficiary named** | to the beneficiary, when named with `atSetup` (with a decline link) | `account-transfer-named` | `services.email.sendAccountTransferNamed` |
+| **Claim link** | to the beneficiary, when the claim window opens, and again 30 and 60 days later | `account-transfer-claim` | `services.email.sendAccountTransferClaim` |
+| **Transfer started** | to the holder, when the claim window opens | `account-transfer-started` | `services.email.sendAccountTransferStarted` |
+| **Transfer cancelled** | to the holder and the beneficiary: the account was used, the holder changed it, or the beneficiary declined | `account-transfer-cancelled` | `services.email.sendAccountTransferCancelled` |
+| **Transfer lapsed** | to the holder, when the window ends without a claim and the account is kept | `account-transfer-lapsed` | `services.email.sendAccountTransferLapsed` |
+| **Transfer completed** | to the holder and the beneficiary | `account-transfer-completed` | `services.email.sendAccountTransferCompleted` |
 
 Keep the beneficiary named and claim link mails on wherever transfers are offered: without them a transfer cannot reach its beneficiary.
 
-All are on by default, go to the account's primary address in its language (else `services.email.defaultLang`), and are skipped when the account has no address or the core sends no mail. A failed confirmation never fails the holder's change; with the confirmation switched off, the first reminder is the first notice. The template names can be changed with `services.email.accountDeletionScheduledTemplate`, `accountDeletionReminderTemplate` and `accountDeletionBlockedTemplate`.
+All are on by default (up to 2.0.0-rc.90 the switches were sub-keys of `services.email.enabled`, e.g. `services.email.enabled.accountDeletionReminder`; see [Upgrading](/customer-resources/emails-setup/)), go to the account's primary address in its language (else `services.email.defaultLang`), and are skipped when the account has no address or the core sends no mail. A failed confirmation never fails the holder's change; with the confirmation switched off, the first reminder is the first notice. The template names can be changed with `services.email.accountDeletionScheduledTemplate`, `accountDeletionReminderTemplate` and `accountDeletionBlockedTemplate`.
 
 The templates get these variables:
 
