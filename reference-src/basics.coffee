@@ -205,7 +205,7 @@ module.exports = exports =
       description: """
                   Get notified of data changes in a web application using websockets.
 
-                  An open connection does not keep a personal session alive by itself (from the release after open-pryv.io 2.0.0-rc.88): the server re-checks each connection's access periodically without extending its session, and only calls made on the connection extend it, like HTTP requests. A client that only listens with a personal token makes a call from time to time, or is disconnected once the session expires (`auth.sessionMaxAge`, 14 days by default) and connects again after a new login. App and shared accesses have no session and are not affected.
+                  An open connection does not keep a personal session alive by itself (from the release after open-pryv.io 2.0.0-rc.89): the server re-checks each connection's access periodically without extending its session, and only calls made on the connection extend it, like HTTP requests. A client that only listens with a personal token makes a call from time to time, or is disconnected once the session expires (`auth.sessionMaxAge`, 14 days by default) and connects again after a new login. App and shared accesses have no session and are not affected.
 
                   Each server process accepts at most 20 connections per access and 100 per account, 16 calls in progress per connection and 100 scopes per connection; past a connection limit the handshake is refused with `too-many-requests` (see [rate limiting](/customer-resources/rate-limiting/#why-at-the-proxy)).
                   """

@@ -2125,7 +2125,7 @@ module.exports = exports =
         key: "invalid-parameters-format"
         http: "400"
         description: """
-                     Among other format errors: a feature permission whose `feature` is not one of the known names (see [access](##{dataStructure.getDocId("access")})). The message names the entry and the known names; `data.feature` and `data.knownFeatures` give them too. Since the release after 2.0.0-rc.88.
+                     Among other format errors: a feature permission whose `feature` is not one of the known names (see [access](##{dataStructure.getDocId("access")})). The message names the entry and the known names; `data.feature` and `data.knownFeatures` give them too. Since the release after 2.0.0-rc.89.
                      """
       ,
         key: "invalid-operation"
@@ -2135,7 +2135,7 @@ module.exports = exports =
 
                      Also answered for a permission on an [account stream](/customer-resources/system-streams/) that the access cannot hold (`data.param` names the stream id): an unknown account stream, a hidden account stream, a level other than `read` or `none` on an account field or on the account root stream.
 
-                     Also answered, to a personal access, for a permission whose `streamId` is the name of an account field without its prefix (e.g. `email`, or `:local:email`), with a `defaultName`, when no stream with that id exists (`account-field-name-collision` message, since the release after 2.0.0-rc.88): it would create an ordinary, empty stream instead of giving access to the field. `data.param` is the id sent and `data.accountStreamId` the field's id (e.g. `:system:email`). Nothing is created. Use the prefixed id, or create the stream first with [create stream](##{_getDocId("streams", "streams.create")}).
+                     Also answered, to a personal access, for a permission whose `streamId` is the name of an account field without its prefix (e.g. `email`, or `:local:email`), with a `defaultName`, when no stream with that id exists (`account-field-name-collision` message, since the release after 2.0.0-rc.89): it would create an ordinary, empty stream instead of giving access to the field. `data.param` is the id sent and `data.accountStreamId` the field's id (e.g. `:system:email`). Nothing is created. Use the prefixed id, or create the stream first with [create stream](##{_getDocId("streams", "streams.create")}).
                      """
       ]
       examples: [
@@ -2355,13 +2355,13 @@ module.exports = exports =
         key: "invalid-parameters-format"
         http: "400"
         description: """
-                     Among other format errors: a feature permission whose `feature` is not one of the known names, as for [create access](##{_getDocId("accesses", "accesses.create")}). Since the release after 2.0.0-rc.88.
+                     Among other format errors: a feature permission whose `feature` is not one of the known names, as for [create access](##{_getDocId("accesses", "accesses.create")}). Since the release after 2.0.0-rc.89.
                      """
       ,
         key: "invalid-operation"
         http: "400"
         description: """
-                     A requested `streamId` is the name of an account field without its prefix and no stream with that id exists (`account-field-name-collision`, `data.param` and `data.accountStreamId` as for [create access](##{_getDocId("accesses", "accesses.create")})). Reported here, before the consent screen, since the release after 2.0.0-rc.88.
+                     A requested `streamId` is the name of an account field without its prefix and no stream with that id exists (`account-field-name-collision`, `data.param` and `data.accountStreamId` as for [create access](##{_getDocId("accesses", "accesses.create")})). Reported here, before the consent screen, since the release after 2.0.0-rc.89.
                      """
       ]
       examples: []

@@ -224,7 +224,7 @@ The key is the \`auth.adminAccessKey\` config value, which is required at boot a
 			},
 			{
 				id: 'audit-status', type: 'method', title: 'Audit status', http: 'GET /system/audit-status',
-				description: `From the release after 2.0.0-rc.88. How many audit records the answering core could not write since it started: alert on \`lost.total\` above 0. Counts only, with no account, method or message; the core's \`error\` log lines carry the failures. Each core answers for itself, so poll every core. See [audit setup](/customer-resources/audit-setup/#records-that-could-not-be-written). ${authNote}`,
+				description: `From the release after 2.0.0-rc.89. How many audit records the answering core could not write since it started: alert on \`lost.total\` above 0. Counts only, with no account, method or message; the core's \`error\` log lines carry the failures. Each core answers for itself, so poll every core. See [audit setup](/customer-resources/audit-setup/#records-that-could-not-be-written). ${authNote}`,
 				result: { http: '200 OK', properties: [{ key: 'audit', type: 'object', description: '`active` (boolean, `audit.active`), `scope` (`core`: all the workers of the core; `process`: only the process that answered, when it runs without a master or the master did not answer in time: a partial answer on a core with several workers), `since` (when the counting process started, in seconds), `lost`: `total`, `byKind` (`valid`, `error`, `event`), `byReason` (`storage-write-failed`, `storage-unavailable`, `invalid-record`, `syslog-failed`), `lastAt` (time of the last one in seconds, or `null`).' }] },
 			},
 		],

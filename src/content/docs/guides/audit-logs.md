@@ -76,7 +76,7 @@ Audit logs are available through the [Events API](/reference/#get-events). Howev
 
 ### Accesses the server writes
 
-From the release after 2.0.0-rc.88, every creation, change of permissions or expiry, and deletion of an **app** or **shared** access leaves a record that names the access in the trail of its account:
+From the release after 2.0.0-rc.89, every creation, change of permissions or expiry, and deletion of an **app** or **shared** access leaves a record that names the access in the trail of its account:
 
 - the `accesses.create`, `accesses.update` or `accesses.delete` record when an API client did it. The last two carry `content.record.accessId`, and `related`, the accesses deleted with it;
 - an `oauth.*` event with `accessId` when it is the issuance of an OAuth session;

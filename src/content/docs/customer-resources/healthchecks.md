@@ -129,7 +129,7 @@ curl -i -X OPTIONS -H 'Authorization: ${ACCESS_TOKEN}' \
 
 ### 5. Audit records written
 
-From the release after 2.0.0-rc.88, with the admin key:
+From the release after 2.0.0-rc.89, with the admin key:
 
 ```bash
 curl -fsS -H "Authorization: ${ADMIN_KEY}" "${CORE_URL}/system/audit-status" | jq -e '.audit.scope == "core" and .audit.lost.total == 0'

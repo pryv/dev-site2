@@ -520,7 +520,7 @@ module.exports = exports =
         title: "Account auto-deletion"
         adminOnly: true
         description: """
-                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from the release after open-pryv.io 2.0.0-rc.88). Served under `/system/admin/` with the admin key, by the core that hosts the account.
+                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from the release after open-pryv.io 2.0.0-rc.89). Served under `/system/admin/` with the admin key, by the core that hosts the account.
                     """
         sections: [
           id: "autoDeletion.reset"
@@ -652,7 +652,7 @@ module.exports = exports =
         title: "Erasures"
         adminOnly: true
         description: """
-                    The [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger): one durable record per erased account, kept in the platform database after the account is gone (from the release after open-pryv.io 2.0.0-rc.88). A record names the account only by keyed hashes of its user id and username. Served by every core under `/system/admin/` with the admin key; any core answers for the whole platform. Both calls are reads, audited without a user. There is no delete call: records leave only after `accountErasure.ledger.retentionDays`.
+                    The [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger): one durable record per erased account, kept in the platform database after the account is gone (since open-pryv.io 2.0.0-rc.89). A record names the account only by keyed hashes of its user id and username. Served by every core under `/system/admin/` with the admin key; any core answers for the whole platform. Both calls are reads, audited without a user. There is no delete call: records leave only after `accountErasure.ledger.retentionDays`.
                     """
         sections: [
           id: "erasures.list"
@@ -701,7 +701,7 @@ module.exports = exports =
               key: "erasures"
               type: "array of objects"
               description: """
-                          One object per erased account: `userIdHash` and `usernameHash` (hex HMAC-SHA256 of the user id and of the lowercased username), `keyId` (the key they were made with), `startedAt` and `deletedAt` (milliseconds since the epoch), `trigger` (`holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `unfinished-registration`, `ledger-replay`, or `unknown` for an erasure started by an earlier version), `coreId`, `stepsCompleted`, `auditMode` (`erase` or `keep`), `attempts`, `serverVersion`, `v` (the record version); `restoredAt` when the account was restored since with `--restore-erased`; `firstDeletedAt` and `firstTrigger` when `bin/erasures.js --replay` erased again an account a storage restore brought back (the first erasure's date and trigger). Never a username, an email or account data.
+                          One object per erased account: `userIdHash` and `usernameHash` (hex HMAC-SHA256 of the user id and of the lowercased username), `keyId` (the key they were made with), `startedAt` and `deletedAt` (milliseconds since the epoch), `trigger` (`holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `unfinished-registration`, `ledger-replay`, or `unknown` for an erasure started by an earlier version; `transfer-fallback` and `unfinished-registration` from the release after open-pryv.io 2.0.0-rc.89), `coreId`, `stepsCompleted`, `auditMode` (`erase` or `keep`), `attempts`, `serverVersion`, `v` (the record version); `restoredAt` when the account was restored since with `--restore-erased`; `firstDeletedAt` and `firstTrigger` when `bin/erasures.js --replay` erased again an account a storage restore brought back (the first erasure's date and trigger). Never a username, an email or account data.
                           """
             ,
               key: "next"
@@ -833,7 +833,7 @@ module.exports = exports =
         httpOnly: true
         server: "core"
         description: """
-                    The configuration the answering core runs with (from the release after open-pryv.io 2.0.0-rc.88), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).
+                    The configuration the answering core runs with (from the release after open-pryv.io 2.0.0-rc.89), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).
 
                     **Entries.** `keys` maps each dotted path (`http.port`, `oauth.signingKeys.0.kid`; a `.` inside a name is written `\\.`) to `{ value, source, scope }`, sorted. `source` is the layer that set the value: `default-file`, `base-file` (the `--config` or `NODE_ENV` file), `override-file`, `bootstrap-file`, `env`, `argv`, `derived` (computed at boot), `service-info`, `shipped-plugin`, `built-in`, or `platform-db` for an observability value a platform setting decides. `scope` is `platform` when every core of the platform is expected to hold the same value, `core` when it differs by design (host, ports, paths, local credentials, local tuning). Only the sections of the shipped `default-config.yml` (plus `service`, `serviceInfoUrl`, `accessState`) are reported: other environment variables and command-line flags never are, and unknown top-level keys of the configuration files are listed by name in `configMeta.unknownTopLevelKeys`.
 
@@ -1303,7 +1303,7 @@ module.exports = exports =
         description: """
                     First step of the email verification at registration, on platforms where the operator requires a proved address before an account is created (`account.emailVerification.requireAtRegistration`, off by default). Mails a one-time code to the address; exchange it with [verify an email challenge](#verify-an-email-challenge) for the `emailProof` that [create user](#create-user) then requires. See the [email verification guide](/guides/email-verification/).
 
-                    The code has 10 characters (8 before the release after 2.0.0-rc.88), shown as `XXXXX-XXXXX`; it is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address. No authentication; the limits are kept per address. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge`.
+                    The code has 10 characters (8 before the release after 2.0.0-rc.89), shown as `XXXXX-XXXXX`; it is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address. No authentication; the limits are kept per address. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge`.
                     """
         params:
           properties: [
