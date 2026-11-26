@@ -76,7 +76,7 @@ Audit logs are available through the [Events API](/reference/#get-events). Howev
 
 ### Accesses the server writes
 
-From the release after 2.0.0-rc.89, every creation, change of permissions or expiry, and deletion of an **app** or **shared** access leaves a record that names the access in the trail of its account:
+From 2.0.0-rc.90, every creation, change of permissions or expiry, and deletion of an **app** or **shared** access leaves a record that names the access in the trail of its account:
 
 - the `accesses.create`, `accesses.update` or `accesses.delete` record when an API client did it. The last two carry `content.record.accessId`, and `related`, the accesses deleted with it;
 - an `oauth.*` event with `accessId` when it is the issuance of an OAuth session;
@@ -114,7 +114,7 @@ The `access-` stream of these records names the access that was written, not one
 
 ### The creation of the account
 
-From the release after open-pryv.io 2.0.0-rc.89, an account created on a core has a record of its creation as the first record of its own trail. The call that creates an account (a registration, `system.createUser`) is audited without a user, so before this release the trail of a new account started with its first later call. The server writes an `account.created` record of type `audit-log/account` once the account exists, for a registration (`POST /users`, `/reg/users`, the legacy `/reg/user`), `system.createUser` and `delegations.createAccount`:
+From open-pryv.io 2.0.0-rc.90, an account created on a core has a record of its creation as the first record of its own trail. The call that creates an account (a registration, `system.createUser`) is audited without a user, so before this release the trail of a new account started with its first later call. The server writes an `account.created` record of type `audit-log/account` once the account exists, for a registration (`POST /users`, `/reg/users`, the legacy `/reg/user`), `system.createUser` and `delegations.createAccount`:
 
 ```json
 {

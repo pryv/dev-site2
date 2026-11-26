@@ -520,7 +520,7 @@ module.exports = exports =
         title: "Account auto-deletion"
         adminOnly: true
         description: """
-                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from the release after open-pryv.io 2.0.0-rc.89). Served under `/system/admin/` with the admin key, by the core that hosts the account.
+                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from open-pryv.io 2.0.0-rc.90). Served under `/system/admin/` with the admin key, by the core that hosts the account.
                     """
         sections: [
           id: "autoDeletion.reset"
@@ -701,7 +701,7 @@ module.exports = exports =
               key: "erasures"
               type: "array of objects"
               description: """
-                          One object per erased account: `userIdHash` and `usernameHash` (hex HMAC-SHA256 of the user id and of the lowercased username), `keyId` (the key they were made with), `startedAt` and `deletedAt` (milliseconds since the epoch), `trigger` (`holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `unfinished-registration`, `ledger-replay`, or `unknown` for an erasure started by an earlier version; `transfer-fallback` and `unfinished-registration` from the release after open-pryv.io 2.0.0-rc.89), `coreId`, `stepsCompleted`, `auditMode` (`erase` or `keep`), `attempts`, `serverVersion`, `v` (the record version); `restoredAt` when the account was restored since with `--restore-erased`; `firstDeletedAt` and `firstTrigger` when `bin/erasures.js --replay` erased again an account a storage restore brought back (the first erasure's date and trigger). Never a username, an email or account data.
+                          One object per erased account: `userIdHash` and `usernameHash` (hex HMAC-SHA256 of the user id and of the lowercased username), `keyId` (the key they were made with), `startedAt` and `deletedAt` (milliseconds since the epoch), `trigger` (`holder`, `admin`, `date`, `inactivity`, `transfer-fallback`, `unfinished-registration`, `ledger-replay`, or `unknown` for an erasure started by an earlier version; `transfer-fallback` and `unfinished-registration` from open-pryv.io 2.0.0-rc.90), `coreId`, `stepsCompleted`, `auditMode` (`erase` or `keep`), `attempts`, `serverVersion`, `v` (the record version); `restoredAt` when the account was restored since with `--restore-erased`; `firstDeletedAt` and `firstTrigger` when `bin/erasures.js --replay` erased again an account a storage restore brought back (the first erasure's date and trigger). Never a username, an email or account data.
                           """
             ,
               key: "next"
@@ -833,7 +833,7 @@ module.exports = exports =
         httpOnly: true
         server: "core"
         description: """
-                    The configuration the answering core runs with (from the release after open-pryv.io 2.0.0-rc.89), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).
+                    The configuration the answering core runs with (from open-pryv.io 2.0.0-rc.90), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).
 
                     **Entries.** `keys` maps each dotted path (`http.port`, `oauth.signingKeys.0.kid`; a `.` inside a name is written `\\.`) to `{ value, source, scope }`, sorted. `source` is the layer that set the value: `default-file`, `base-file` (the `--config` or `NODE_ENV` file), `override-file`, `bootstrap-file`, `env`, `argv`, `derived` (computed at boot), `service-info`, `shipped-plugin`, `built-in`, or `platform-db` for an observability value a platform setting decides. `scope` is `platform` when every core of the platform is expected to hold the same value, `core` when it differs by design (host, ports, paths, local credentials, local tuning). Only the sections of the shipped `default-config.yml` (plus `service`, `serviceInfoUrl`, `accessState`) are reported: other environment variables and command-line flags never are, and unknown top-level keys of the configuration files are listed by name in `configMeta.unknownTopLevelKeys`.
 
@@ -940,7 +940,7 @@ module.exports = exports =
         description: """
                     Get the list of all available hostings for data storage locations.
 
-                    The keys of the `hostings` objects are the values the `hosting` parameter of [Create user](#create-user) accepts. On a multi-core platform, a core configured without a hosting (`core:hosting`) belongs to the hosting `default`; without a `hostings` configuration the only key listed is `default`, and it stands for any core. Cores of different hostings may fall under different rules (a jurisdiction, a regulation): from the release after open-pryv.io 2.0.0-rc.89 a registration for a hosting that no available core serves is refused rather than placed on another core.
+                    The keys of the `hostings` objects are the values the `hosting` parameter of [Create user](#create-user) accepts. On a multi-core platform, a core configured without a hosting (`core:hosting`) belongs to the hosting `default`; without a `hostings` configuration the only key listed is `default`, and it stands for any core. Cores of different hostings may fall under different rules (a jurisdiction, a regulation): from open-pryv.io 2.0.0-rc.90 a registration for a hosting that no available core serves is refused rather than placed on another core.
                     """
         params:
           properties: []
@@ -1101,7 +1101,7 @@ module.exports = exports =
             type: "string"
             optional: true
             description: """
-                          (Multi-core platform) The key of the hosting to create the account in, as [Get hostings](#get-hostings) lists them. The account is created on an available core of that hosting, whichever core received the request. Without it, the account is placed on any available core. From the release after open-pryv.io 2.0.0-rc.89, a hosting that no available core serves refuses the registration with `400 invalid-parameters-format` (see below) before anything is reserved; earlier releases created the account on the core that received the request, whatever its hosting.
+                          (Multi-core platform) The key of the hosting to create the account in, as [Get hostings](#get-hostings) lists them. The account is created on an available core of that hosting, whichever core received the request. Without it, the account is placed on any available core. From open-pryv.io 2.0.0-rc.90, a hosting that no available core serves refuses the registration with `400 invalid-parameters-format` (see below) before anything is reserved; earlier releases created the account on the core that received the request, whatever its hosting.
                           """
           ,
             key: "externalId"
@@ -1139,7 +1139,7 @@ module.exports = exports =
           description: """
                       A parameter is missing or malformed, the password does not match password complexity rules (if enabled), or the `externalId` is malformed or names an unknown namespace (`data.param` names the field, never the value). For the registration fields, each entry of the `data` array carries a `code` naming the field and the fault: `appid-invalid`, `username-required`, `username-invalid`, `password-required`, `password-invalid`, `email-required`, `email-invalid`, `invitationToken-invalid`, `referer-invalid` or `language-invalid` (with `message` and `param`).
 
-                      (Multi-core platform, from the release after open-pryv.io 2.0.0-rc.89) No available core serves the requested `hosting`: `data: { param: 'hosting', reason }`, where `reason` is `hosting-unknown` (no core of the platform has this hosting) or `hosting-unavailable` (its cores take no new account). Nothing is reserved. Choose a hosting [Get hostings](#get-hostings) lists as available, or leave `hosting` out.
+                      (Multi-core platform, from open-pryv.io 2.0.0-rc.90) No available core serves the requested `hosting`: `data: { param: 'hosting', reason }`, where `reason` is `hosting-unknown` (no core of the platform has this hosting) or `hosting-unavailable` (its cores take no new account). Nothing is reserved. Choose a hosting [Get hostings](#get-hostings) lists as available, or leave `hosting` out.
                       """
         ,
           key: "forbidden"
@@ -1169,7 +1169,7 @@ module.exports = exports =
           key: "api-unavailable"
           http: "503"
           description: """
-                      (Multi-core platform, from the release after open-pryv.io 2.0.0-rc.89) The platform database did not answer within the wait (a leader change, or the core cannot reach it), so the core could not check the username, the invitation or the hosting. Retry after the `Retry-After` header (2 seconds). See [api-unavailable](/reference/#basics-errors-usual-errors).
+                      (Multi-core platform, from open-pryv.io 2.0.0-rc.90) The platform database did not answer within the wait (a leader change, or the core cannot reach it), so the core could not check the username, the invitation or the hosting. Retry after the `Retry-After` header (2 seconds). See [api-unavailable](/reference/#basics-errors-usual-errors).
                       """
         ]
         examples: [
@@ -1303,7 +1303,7 @@ module.exports = exports =
         description: """
                     First step of the email verification at registration, on platforms where the operator requires a proved address before an account is created (`account.emailVerification.requireAtRegistration`, off by default). Mails a one-time code to the address; exchange it with [verify an email challenge](#verify-an-email-challenge) for the `emailProof` that [create user](#create-user) then requires. See the [email verification guide](/guides/email-verification/).
 
-                    The code has 10 characters (8 before the release after 2.0.0-rc.89), shown as `XXXXX-XXXXX`; it is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address. No authentication; the limits are kept per address. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge`.
+                    The code has 10 characters (8 before 2.0.0-rc.90), shown as `XXXXX-XXXXX`; it is single-use and short-lived (10 minutes by default). Requesting a new code invalidates the previous one for that address. No authentication; the limits are kept per address. On a DNS-less setup the route is `https://{hostname}/reg/email-challenge`.
                     """
         params:
           properties: [

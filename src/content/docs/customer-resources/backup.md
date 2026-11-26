@@ -160,7 +160,7 @@ It does **not** export: sessions and password-reset tokens (add `--include-ephem
 
 ## Erased accounts on disk and in the database
 
-From the release after 2.0.0-rc.89, work still running for an account while it is erased (a long request, a cross-account dispatch) can no longer store data for it. Two guards do this; both matter when you back up, restore or clean up a core.
+From 2.0.0-rc.90, work still running for an account while it is erased (a long request, a cross-account dispatch) can no longer store data for it. Two guards do this; both matter when you back up, restore or clean up a core.
 
 ### SQLite: the `erased.json` marker
 
@@ -206,7 +206,7 @@ The record is written in the platform database (replicated to every core) as the
 
 - `userIdHash` and `usernameHash`: keyed hashes (HMAC-SHA256) of the user id and of the username (lowercased), and `keyId`, which names the key they were made with;
 - `startedAt` and `deletedAt`: when the erasure started and ended (milliseconds since the epoch);
-- `trigger`: what decided it, `holder` (`DELETE /users/:username` with the account's personal token), `admin` (the same call with the admin key), `date`, `inactivity` or `transfer-fallback` ([account auto-deletion](/customer-resources/account-auto-deletion/); `transfer-fallback` from the release after 2.0.0-rc.89), `unfinished-registration` (`bin/reconcile-user-cores.js --registrations`, from the release after 2.0.0-rc.89), `ledger-replay` (`bin/erasures.js --replay`, below), or `unknown` (an unfinished erasure started by an earlier version, completed by this one);
+- `trigger`: what decided it, `holder` (`DELETE /users/:username` with the account's personal token), `admin` (the same call with the admin key), `date`, `inactivity` or `transfer-fallback` ([account auto-deletion](/customer-resources/account-auto-deletion/); `transfer-fallback` from the release after 2.0.0-rc.89), `unfinished-registration` (`bin/reconcile-user-cores.js --registrations`, from 2.0.0-rc.90), `ledger-replay` (`bin/erasures.js --replay`, below), or `unknown` (an unfinished erasure started by an earlier version, completed by this one);
 - `coreId`, the core that erased the account, `stepsCompleted`, `auditMode` (the `audit.onUserDelete` mode applied), `attempts` and `serverVersion`;
 - `restoredAt`, only when the account was restored since with `--restore-erased`;
 - `firstDeletedAt` and `firstTrigger`, only on a record replaced by `bin/erasures.js --replay`: the date and trigger of the first erasure.

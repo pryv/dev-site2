@@ -238,7 +238,7 @@ The step-by-step procedure, including the checks and the rollback, is in [INSTAL
 
 ### What do clients see while the platform DB changes leader?
 
-On a multi-core platform, the platform DB (rqlite) elects a new leader when the leader core restarts or is lost; this usually takes 1 to 2 seconds. From the release after open-pryv.io 2.0.0-rc.89, a platform read that gets no answer in that time (or when the core cannot reach its local `rqlited`) is sent again every 100 ms for up to `storages.engines.rqlite.readWaitMs` (default 3000 ms; `0` means one attempt). The wait bounds the new attempts, it does not cut short a read in progress. Still without an answer, the request fails instead of acting on a missing row:
+On a multi-core platform, the platform DB (rqlite) elects a new leader when the leader core restarts or is lost; this usually takes 1 to 2 seconds. From open-pryv.io 2.0.0-rc.90, a platform read that gets no answer in that time (or when the core cannot reach its local `rqlited`) is sent again every 100 ms for up to `storages.engines.rqlite.readWaitMs` (default 3000 ms; `0` means one attempt). The wait bounds the new attempts, it does not cut short a read in progress. Still without an answer, the request fails instead of acting on a missing row:
 
 - the API methods, the routing of `/{username}/*` requests, the `/reg/*` routes and the adapter ingress answer `503 api-unavailable` with `Retry-After: 2`; a platform write the cluster did not carry out answers the same;
 - the OAuth endpoints answer `503 { "error": "temporarily_unavailable" }` with `Retry-After`;

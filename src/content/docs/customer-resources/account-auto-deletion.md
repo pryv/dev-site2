@@ -75,11 +75,11 @@ Safeguards:
 
 There is no grace period after the deadline: the 1-day last notice, the minimum notice, the per-pass cap and the dry run are the safeguards. A holder who comes back before the deadline only needs to sign in.
 
-From the release after 2.0.0-rc.89, a pass never acts on a schedule changed while it checks the account: it reads the holder's setting, the schedule and the transfer again right before it erases, opens or ends a claim window, and a last time once the erasure is recorded as in progress. A change made meanwhile (the holder moving their date, a support reset, a claim) leaves the account to the next pass.
+From 2.0.0-rc.90, a pass never acts on a schedule changed while it checks the account: it reads the holder's setting, the schedule and the transfer again right before it erases, opens or ends a claim window, and a last time once the erasure is recorded as in progress. A change made meanwhile (the holder moving their date, a support reset, a claim) leaves the account to the next pass.
 
 ### Stopping a pending deletion (support)
 
-For a holder who cannot sign in in time (in hospital, travelling), call [Stop a pending deletion](/reference-system/#stop-a-pending-deletion) (`POST /system/admin/auto-deletion/clear`, admin key, from the release after 2.0.0-rc.89) on the core that hosts the account, with the `username` and a `reason`:
+For a holder who cannot sign in in time (in hospital, travelling), call [Stop a pending deletion](/reference-system/#stop-a-pending-deletion) (`POST /system/admin/auto-deletion/clear`, admin key, from 2.0.0-rc.90) on the core that hosts the account, with the `username` and a `reason`:
 
 - **By default the schedule restarts**: its clock starts again from now, as a sign-in would, with its full period and reminders. Your preset or the holder's own period still applies. A holder's own **date** has no clock: it is refused.
 - **`removeSetting: true` removes the holder's own schedule** (a date or a period); your preset, if any, then applies from now. The holder's schedule is their own erasure request: remove it only on their verified request. A `never` setting is never removed.

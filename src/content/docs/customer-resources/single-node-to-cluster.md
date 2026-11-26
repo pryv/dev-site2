@@ -228,7 +228,7 @@ curl -s 'https://core-a.mc.example.com/reg/cores?username=newuser'
 
 Then run the [platform validation checklist](/customer-resources/platform-validation/) and the [healthchecks](/customer-resources/healthchecks/) — once against each core.
 
-A registration without `hosting` goes to the available core with the fewest accounts, whichever core received it (here core-b). When your cores belong to different hostings (`core:hosting`, for instance one per jurisdiction), a registration that names a `hosting` is created on a core of that hosting; from the release after open-pryv.io 2.0.0-rc.89, a hosting no available core serves is refused with `400 invalid-parameters-format` (`data.reason`: `hosting-unknown` or `hosting-unavailable`) instead of being created on the core that received it. A core without `core:hosting` is in the hosting `default`. See [Create user](/reference-system/#create-user) and [Get hostings](/reference-system/#get-hostings).
+A registration without `hosting` goes to the available core with the fewest accounts, whichever core received it (here core-b). When your cores belong to different hostings (`core:hosting`, for instance one per jurisdiction), a registration that names a `hosting` is created on a core of that hosting; from open-pryv.io 2.0.0-rc.90, a hosting no available core serves is refused with `400 invalid-parameters-format` (`data.reason`: `hosting-unknown` or `hosting-unavailable`) instead of being created on the core that received it. A core without `core:hosting` is in the hosting `default`. See [Create user](/reference-system/#create-user) and [Get hostings](/reference-system/#get-hostings).
 
 
 ## Cluster security at a glance
