@@ -4,6 +4,12 @@ description: Release notes for the Pryv.io API, tracking breaking changes, new w
 ---
 
 
+## Unreleased
+
+From the release after 2.0.0-rc.90, not released yet. No storage migration, no new configuration key.
+
+- **Audit: the deletion and the restore of an account are recorded in its own trail.** With `audit.onUserDelete: keep`, the trail kept after an erasure now ends with an `account.deleted` record (type `audit-log/account`), written before any of the account's data is removed, whatever erases it: who (`source.name`), the erasure ledger's `trigger`, and for a deletion by the holder the client address and the personal access that asked; nothing is written under `erase` (the default). `bin/backup.js --restore` writes `account.restored` in the trail of each account it restores and keeps, with the backup's date, `target` (`new` or `existing`) and `afterErasure` (`--restore-erased`). Under `keep`, a restore (`--overwrite`, a `--verify-integrity` roll-back, the cleanup of a failed restore) keeps the trail it finds; the SQLite audit import skips the records already there, as on PostgreSQL; the sweep's `account.autoDeletion.erase` record no longer holds the username. An audit filter that lists methods one by one adds `account.deleted` and `account.restored` (`account.all` and `all` include them); the erasure ledger's `stepsCompleted` lists one more step, `recordAccountDeleted`. See [Audit setup](/customer-resources/audit-setup/#deleted-and-restored-accounts) and [the audit logs guide](/guides/audit-logs/#the-deletion-of-the-account).
+
 ## 2.0.0-rc.90
 
 Limits on by default, platform reads and writes that survive a leader change, signed webhooks, the audit of what the server itself changes, erased accounts that stay erased, and new operator routes. Two PostgreSQL migrations (run at start), several new configuration keys, two BREAKING changes. The account transfer of an account at auto-deletion is not part of this release.
