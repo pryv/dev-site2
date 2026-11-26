@@ -939,6 +939,8 @@ module.exports = exports =
         server: "register"
         description: """
                     Get the list of all available hostings for data storage locations.
+
+                    The keys of the `hostings` objects are the values the `hosting` parameter of [Create user](#create-user) accepts. On a multi-core platform, a core configured without a hosting (`core:hosting`) belongs to the hosting `default`; without a `hostings` configuration the only key listed is `default`, and it stands for any core. Cores of different hostings may fall under different rules (a jurisdiction, a regulation): from the release after open-pryv.io 2.0.0-rc.89 a registration for a hosting that no available core serves is refused rather than placed on another core.
                     """
         params:
           properties: []
@@ -1095,6 +1097,13 @@ module.exports = exports =
                           The proof that the holder controls `email`, from [verify an email challenge](#verify-an-email-challenge). Required on platforms that require email verification at registration; ignored otherwise.
                           """
           ,
+            key: "hosting"
+            type: "string"
+            optional: true
+            description: """
+                          (Multi-core platform) The key of the hosting to create the account in, as [Get hostings](#get-hostings) lists them. The account is created on an available core of that hosting, whichever core received the request. Without it, the account is placed on any available core. From the release after open-pryv.io 2.0.0-rc.89, a hosting that no available core serves refuses the registration with `400 invalid-parameters-format` (see below) before anything is reserved; earlier releases created the account on the core that received the request, whatever its hosting.
+                          """
+          ,
             key: "externalId"
             type: "object"
             optional: true
@@ -1129,6 +1138,8 @@ module.exports = exports =
           http: "400"
           description: """
                       A parameter is missing or malformed, the password does not match password complexity rules (if enabled), or the `externalId` is malformed or names an unknown namespace (`data.param` names the field, never the value). For the registration fields, each entry of the `data` array carries a `code` naming the field and the fault: `appid-invalid`, `username-required`, `username-invalid`, `password-required`, `password-invalid`, `email-required`, `email-invalid`, `invitationToken-invalid`, `referer-invalid` or `language-invalid` (with `message` and `param`).
+
+                      (Multi-core platform, from the release after open-pryv.io 2.0.0-rc.89) No available core serves the requested `hosting`: `data: { param: 'hosting', reason }`, where `reason` is `hosting-unknown` (no core of the platform has this hosting) or `hosting-unavailable` (its cores take no new account). Nothing is reserved. Choose a hosting [Get hostings](#get-hostings) lists as available, or leave `hosting` out.
                       """
         ,
           key: "forbidden"
@@ -1153,6 +1164,12 @@ module.exports = exports =
           http: "429"
           description: """
                       The server is hashing too many passwords at once: nothing is created and the username stays free. Retry after the `Retry-After` header (5 seconds), also given as `error.data.retryAfterSeconds`. From open-pryv.io 2.0.0-rc.87.
+                      """
+        ,
+          key: "api-unavailable"
+          http: "503"
+          description: """
+                      (Multi-core platform, from the release after open-pryv.io 2.0.0-rc.89) The platform database did not answer within the wait (a leader change, or the core cannot reach it), so the core could not check the username, the invitation or the hosting. Retry after the `Retry-After` header (2 seconds). See [api-unavailable](/reference/#basics-errors-usual-errors).
                       """
         ]
         examples: [

@@ -21,6 +21,8 @@ Some calls are made by the core itself, for a flow: a delivery to an account of 
 
 The core also creates, changes and deletes accesses by itself, without an `accesses.*` call: a consent grant and its withdrawal, the collapse of an OAuth chain, sessions narrowed when their grant changes, a grant withdrawn with its address alias, an operator's `purge-grants`. From the release after 2.0.0-rc.88 each such write of an app or shared access leaves a record of type `audit-log/access`, action `accesses.created`, `accesses.changed` (permissions or expiry) or `accesses.deleted`, described in the [audit logs guide](/guides/audit-logs/#accesses-the-server-writes). **A filter that lists methods one by one does not include these actions until you add them; `accesses.all` does.** A filter entry that matches no method is reported at boot and by `bin/check-config.js`.
 
+From the release after open-pryv.io 2.0.0-rc.89 the creation of an account (a registration, `system.createUser`, `delegations.createAccount`) leaves an `account.created` record of type `audit-log/account` as the first record of the new account's own trail, described in the [audit logs guide](/guides/audit-logs/#the-creation-of-the-account). **A filter that lists methods one by one does not include `account.created` until you add it; `account.all` and `all` do.** The breach-scope report lists the record without counting it as a call of the access; the audit summary counts it as a write.
+
 ### Records that could not be written
 
 From the release after 2.0.0-rc.88 the core also counts them, so that you can alert without reading logs:
@@ -72,6 +74,8 @@ At least one of `include` / `exclude` must contain a valid value.
 
 The Pryv.io [API method ids](/reference/#method-ids) are built in the format `{resource}.{verb}`, for example: `events.get`.
 Audit filters accept aggregation of all methods for a particular resource using `all` for the verb, for example: `events.all`.
+
+The resource must be a whole name: `accesses.all`, `events.all`. From the release after open-pryv.io 2.0.0-rc.89 an entry whose resource is only the start of a name (`a.all`, `event.all`) or a method without a resource (`callBatch.all`) refuses the boot, as an entry naming no resource (`something.all`) already did; earlier releases accepted it with a boot warning, and it selected nothing.
 
 
 ## Examples
@@ -181,6 +185,7 @@ Audit event types emitted by the core:
 - `audit-log/pryv-api-error` — errored API call
 - `audit-log/oauth`, `audit-log/sso`, `audit-log/mfa`, `audit-log/external-id`, `audit-log/account-auto-deletion`: events of these parts of the server
 - `audit-log/access`: an access the server itself created, changed or deleted (from the release after 2.0.0-rc.88)
+- `audit-log/account`: the creation of the account (`account.created`, from the release after open-pryv.io 2.0.0-rc.89)
 
 You can define a dedicated template for either (the map key matches the part after `audit-log/`, e.g. `pryv-api-error`).
 

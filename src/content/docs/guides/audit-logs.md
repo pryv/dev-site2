@@ -13,9 +13,10 @@ It describes what Audit Logs are, why to use them and how they were designed on 
 2. [Audit Logs](#audit-logs)
   1. [What are Audit Logs?](#what-are-audit-logs)
   2. [Accesses the server writes](#accesses-the-server-writes)
-  3. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
-  4. [How to filter audit queries?](#how-to-filter-audit-queries)
-  5. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
+  3. [The creation of the account](#the-creation-of-the-account)
+  4. [Who is allowed to audit what?](#who-is-allowed-to-audit-what) 
+  5. [How to filter audit queries?](#how-to-filter-audit-queries)
+  6. [How to retrieve Audit Logs in Pryv.io](#how-to-retrieve-audit-logs-in-pryvio)
 3. [Why using Audit Logs on Pryv.io](#why-using-audit-logs-on-pryvio)
 
 ## Introduction
@@ -110,6 +111,30 @@ From the release after 2.0.0-rc.88, every creation, change of permissions or exp
 | `record.grantId` | the grant whose change caused it |
 
 The `access-` stream of these records names the access that was written, not one that made a call. For a write of the cross-account messaging or delegation plugin, the access that asked is the one on the record of the triggering call, at the same second. Not recorded this way: personal accesses (the sign-in is their record), an access that ends by its own expiry, a session removed because its authorization code was never exchanged, and one-off upgrade tools.
+
+### The creation of the account
+
+From the release after open-pryv.io 2.0.0-rc.89, an account created on a core has a record of its creation as the first record of its own trail. The call that creates an account (a registration, `system.createUser`) is audited without a user, so before this release the trail of a new account started with its first later call. The server writes an `account.created` record of type `audit-log/account` once the account exists, for a registration (`POST /users`, `/reg/users`, the legacy `/reg/user`), `system.createUser` and `delegations.createAccount`:
+
+```json
+{
+  "streamIds": [":_audit:access-cmr7f2k1x0001pdrt5a8d3h9q", ":_audit:action-account.created"],
+  "type": "audit-log/account",
+  "content": {
+    "action": "account.created",
+    "source": { "name": "registration", "ip": "85.5.225.68" },
+    "record": { "accessId": "cmr7f2k1x0001pdrt5a8d3h9q", "accessType": "personal" }
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `source.name` | how the account was created: `registration`, `system` or `delegation` |
+| `source.ip` | the client address, for a registration only (the account holder's own, as on the later call records of the trail); left out when unknown. An administrator's or a delegate's address is never recorded |
+| `record.accessId`, `accessType` | the personal access made with the account; the record is also on that access's `access-` stream, so the history of the first personal access starts with its creation. Empty when no personal access was made (`delegations.createAccount`, `system.createUser` without `appId`) |
+
+The record holds ids and fixed words only: no username, address, password, token, app id, invitation or custom field. A registration forwarded to another core is recorded on the core that creates the account, with the client address the receiving core saw. A refused registration leaves no record. A record that cannot be written does not fail the creation; it is counted as a [lost audit record](/customer-resources/audit-setup/#records-that-could-not-be-written). Accounts created earlier have no such record. The type `audit-log/account` is listed in the event-type catalogue from data-types 1.4.0.
 
 ### Who is allowed to audit what?
 

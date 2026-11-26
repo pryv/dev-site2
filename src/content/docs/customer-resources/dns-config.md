@@ -140,6 +140,10 @@ Token-authenticated routes on `reg/records` (auth via `auth.adminAccessKey`):
 
 These are the surfaces used by integrations that manage DNS programmatically (e.g. an external ACME client pushing TXT challenges).
 
+### When PlatformDB does not answer
+
+From the release after open-pryv.io 2.0.0-rc.89, a lookup that needs PlatformDB while it changes leader (or while the core cannot reach its local `rqlited`) waits up to `storages.engines.rqlite.readWaitMs` (3 s by default), then answers `SERVFAIL`, with no SOA, so that no resolver caches it as a negative answer. The periodic refresh keeps the records the server already holds when a refresh gets no answer. A DNS server that starts while PlatformDB does not answer retries every second and answers `SERVFAIL`, not `NXDOMAIN`, for a name it cannot place until it has read its records. Earlier releases could answer `NXDOMAIN` for a user's name in these moments. See [What do clients see while the platform DB changes leader?](/faq-infra/#what-do-clients-see-while-the-platform-db-changes-leader).
+
 
 ## Record type reference
 

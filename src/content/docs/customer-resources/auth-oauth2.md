@@ -118,6 +118,8 @@ Each refresh rotates the refresh token; the response carries a new access token,
 
 **A busy server** (from 2.0.0-rc.87): when the server is checking too many passwords and client secrets at once, `POST /oauth2/token`, `/introspect` and `/revoke` answer `503 { "error": "temporarily_unavailable" }` with `Retry-After`, without checking the client's credentials (never `invalid_client`). A refresh, client-credentials or token-exchange request can be sent again after the delay. An authorization code is single-use and spent by the refused exchange (its access is revoked): start a new authorization. See [access tokens](/concepts/#accesses) for how this relates to the general access model.
 
+**A platform DB without an answer** (multi-core platforms, from the release after open-pryv.io 2.0.0-rc.89): while the platform DB changes leader, an OAuth endpoint that cannot read a client, a code or the core list within the wait answers `503 { "error": "temporarily_unavailable" }` with `Retry-After`, instead of taking the missing row for an invalid code or an unknown client. `POST /oauth2/revoke` no longer answers `200` when it could not read the core list. Send the request again after the delay; see [What do clients see while the platform DB changes leader?](/faq-infra/#what-do-clients-see-while-the-platform-db-changes-leader).
+
 ## Token exchange for resource servers
 
 From open-pryv.io 2.0.0-rc.73, a **resource server** in front of a core (an API facade, an agent gateway) can trade the access token a user's client sent it for a session of its own on the user's core (OAuth 2.0 Token Exchange, RFC 8693), then call the data API with that derived token. The user's authorization named the resource server (`aud` / `resource`) when the client obtained its token.

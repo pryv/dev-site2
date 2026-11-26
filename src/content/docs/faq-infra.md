@@ -236,6 +236,16 @@ The step-by-step procedure, including the checks and the rollback, is in [INSTAL
 
 **Within 10.x** (10.5.1 to 10.6.0, from 2.0.0-rc.55) no data-directory step is needed: back up as above, then upgrade one core at a time, the followers first and the leader last; 10.5.1 and 10.6.0 nodes work together while the cluster is upgraded. The Docker image carries the new binary. A native install does not: the setup script never replaces an existing `bin-ext/rqlited`, so replace it yourself while the core is stopped (same INSTALL section).
 
+### What do clients see while the platform DB changes leader?
+
+On a multi-core platform, the platform DB (rqlite) elects a new leader when the leader core restarts or is lost; this usually takes 1 to 2 seconds. From the release after open-pryv.io 2.0.0-rc.89, a platform read that gets no answer in that time (or when the core cannot reach its local `rqlited`) is sent again every 100 ms for up to `storages.engines.rqlite.readWaitMs` (default 3000 ms; `0` means one attempt). The wait bounds the new attempts, it does not cut short a read in progress. Still without an answer, the request fails instead of acting on a missing row:
+
+- the API methods, the routing of `/{username}/*` requests, the `/reg/*` routes and the adapter ingress answer `503 api-unavailable` with `Retry-After: 2`; a platform write the cluster did not carry out answers the same;
+- the OAuth endpoints answer `503 { "error": "temporarily_unavailable" }` with `Retry-After`;
+- the embedded DNS answers `SERVFAIL` (with no SOA, so no resolver keeps it as a negative answer) and keeps the records it already holds; a DNS server that starts while the platform DB does not answer retries every second and answers `SERVFAIL`, not `NXDOMAIN`, for a name it cannot place yet.
+
+Once one read has waited the full time in vain, the next reads of that process fail at once until one is answered again, so a long outage does not hold every request for the full wait. Earlier releases took a read without an answer for an absent row: a valid invitation or OAuth code could read as invalid, a name just reserved as taken, a held certificate as missing, a core as unknown, and the DNS could answer `NXDOMAIN`. Raise `readWaitMs` only if your leader elections take longer; clients and proxies should honour `Retry-After` on a `503`.
+
 ### How do I reset data on my Pryv.io platform?
 
 This step will erase all data from your platform. Perform this at your own risk and make sure that you know what you are doing.

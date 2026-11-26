@@ -1283,6 +1283,14 @@ module.exports = exports =
         http: "503"
         description: """
                      The server cannot serve the request right now, e.g. a feature that is not set up on this platform, or (from open-pryv.io 2.0.0-rc.87, PostgreSQL engine) a database statement of the request ran past the platform's time limit and was stopped. Nothing of a stopped statement is kept, so the same request can be retried; for an expensive read, narrowing the request (time range, streams, `limit`) is the better answer. A response already streaming when this happens is cut short instead.
+
+                     **Multi-core platforms** (from the release after open-pryv.io 2.0.0-rc.89): while the platform database changes leader, or when the core cannot reach it, a request that needs a platform read waits up to 3 seconds for an answer, then answers `503 api-unavailable` with `Retry-After: 2` instead of acting on a missing row (an invitation or a name read as invalid, a user read as unknown). This applies to the API methods, the routing of `/{username}/*` requests, the `/reg/*` routes and the adapter ingress; a platform write the cluster did not carry out answers the same (it was `500`). Send the request again after the delay: a leader change usually takes 1 to 2 seconds.
+                     """
+      ,
+        key: "unsupported-operation"
+        http: "501"
+        description: """
+                     The data store holding the resource does not support this operation, e.g. creating a stream in a store without streams, or changing or deleting a read-only account event. Up to open-pryv.io 2.0.0-rc.89 this answer had the id `api-unavailable` (also with status 501); a client keying on that id with a 501 should accept `unsupported-operation` as well.
                      """
       ,
         key: "user-account-relocated"
