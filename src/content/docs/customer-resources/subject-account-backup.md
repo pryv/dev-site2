@@ -70,7 +70,13 @@ The bundle is the subject's whole account: **treat downloaded bundles as confide
 
 ## MFA-enabled subjects
 
-The webapp does **not** handle MFA challenges. If the subject has MFA enabled, point them at the CLI flavor — the CLI inherits MFA handling from lib-js's `Service.login` SMS-challenge flow.
+Support for subjects with multi-factor authentication (MFA) active arrives with the library's next release (CLI) and the webapp's next gh-pages release; releases up to now stop at the MFA challenge, and the current webapp sends such subjects to the CLI, which does not complete the challenge either.
+
+With those releases, both flavors complete the sign-in: after the password they ask for the code from the subject's authenticator app (TOTP) or the code sent by SMS. For SMS, the CLI sends a new code when the line is left empty, and the webapp has a **Send a new code** button. A wrong code can be typed again, up to 3 times.
+
+Recovery codes are not accepted by either tool: on the platform a recovery code turns MFA off on the account. A subject who lost their second factor uses the recovery in their account app, then runs the backup.
+
+Library consumers get the same flow from `signInWithMfa()`, or by passing `mfaCode` / `onMfaRequired` to `start()` / `signInToPryv()`; without them, the `MfaRequiredError` from lib-js's `Service.login` is passed on unchanged.
 
 ## Deploy the web app
 
