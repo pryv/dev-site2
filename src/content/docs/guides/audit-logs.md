@@ -140,7 +140,7 @@ The record holds ids and fixed words only: no username, address, password, token
 
 ### The deletion of the account
 
-From the release after open-pryv.io 2.0.0-rc.90, when the trail of an account is kept after its erasure (`audit.onUserDelete: keep`, see [Audit setup](/customer-resources/audit-setup/#deleted-and-restored-accounts)), the server writes an `account.deleted` record of type `audit-log/account` in that trail before it removes any of the account's data. It does so whatever erases the account: its holder or an administrator (`DELETE /users/:username`), the [auto-deletion](/customer-resources/account-auto-deletion/) sweep, the completion of an unfinished erasure, `bin/erasures.js --replay`, the repair of an unfinished registration (`bin/reconcile-user-cores.js --registrations`), or the roll-back of an account whose creation failed. With `audit.onUserDelete: erase` (the default) nothing is written: the trail goes with the account.
+From open-pryv.io 2.0.0-rc.91, when the trail of an account is kept after its erasure (`audit.onUserDelete: keep`, see [Audit setup](/customer-resources/audit-setup/#deleted-and-restored-accounts)), the server writes an `account.deleted` record of type `audit-log/account` in that trail before it removes any of the account's data. It does so whatever erases the account: its holder or an administrator (`DELETE /users/:username`), the [auto-deletion](/customer-resources/account-auto-deletion/) sweep, the completion of an unfinished erasure, `bin/erasures.js --replay`, the repair of an unfinished registration (`bin/reconcile-user-cores.js --registrations`), or the roll-back of an account whose creation failed. With `audit.onUserDelete: erase` (the default) nothing is written: the trail goes with the account.
 
 A deletion by the holder:
 
@@ -169,7 +169,7 @@ The record holds ids and fixed words only: no username, address of the account, 
 
 ### The restore of the account
 
-From the release after open-pryv.io 2.0.0-rc.90, `bin/backup.js --restore` writes an `account.restored` record of type `audit-log/account` in the trail of each account it restores and keeps, after the records the backup held. An account rolled back by `--verify-integrity` gets none. Accounts loaded from a v1 migration archive get the record too: they are restored from a backup.
+From open-pryv.io 2.0.0-rc.91, `bin/backup.js --restore` writes an `account.restored` record of type `audit-log/account` in the trail of each account it restores and keeps, after the records the backup held. An account rolled back by `--verify-integrity` gets none. Accounts loaded from a v1 migration archive get the record too: they are restored from a backup.
 
 ```json
 {
