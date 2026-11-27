@@ -217,13 +217,19 @@ log_format pryv '$remote_addr - [$time_local] "$request_method $uri $server_prot
 ```nginx
 # /etc/nginx/sites-enabled/pryv.conf
 
+# keepalive_timeout: nginx must close an idle connection to Pryv before Pryv
+# does. Node closes an idle keep-alive connection after 6 s (keepAliveTimeout
+# 5 s plus its 1 s buffer, not changed by Pryv); with nginx's default (60 s) a
+# request sent on a connection Pryv is closing gets a 502 now and then.
 upstream pryv_api {
     server 127.0.0.1:3000;
     keepalive 64;
+    keepalive_timeout 4s;
 }
 upstream pryv_hfs {
     server 127.0.0.1:4000;
     keepalive 64;
+    keepalive_timeout 4s;
 }
 
 server {
@@ -702,7 +708,13 @@ frontend pryv
     use_backend pryv_hfs if c_hfs
     default_backend pryv_api
 
+# http-server-close: one connection to Pryv per request, never an idle one
+# reused. Node closes an idle keep-alive connection after 6 s, and HAProxy has
+# no idle limit of its own below that: a reused connection Pryv is closing
+# would answer 502 now and then (seen with nginx; on loopback the extra
+# connection costs nothing). Not part of the verified setup.
 backend pryv_api
+    option http-server-close
     server api1 127.0.0.1:3000
 
 # High-frequency series (HFS worker). Host is the worker's own address. With
@@ -710,6 +722,7 @@ backend pryv_api
 # of Host as a username, which would break these path-style requests; in
 # DNSless mode it is harmless.
 backend pryv_hfs
+    option http-server-close
     http-request set-header Host 127.0.0.1:4000
     server hfs1 127.0.0.1:4000
 ```
@@ -798,13 +811,22 @@ log:
 # /etc/traefik/pryv.yml  (dynamic configuration, file provider)
 
 http:
+  # Close an idle connection to Pryv before Pryv does (Node: after 6 s), so a
+  # request is never sent on a connection Pryv is closing (a 502 now and then;
+  # seen with nginx, the setting itself not part of the verified setup).
+  serversTransports:
+    pryv-upstream:
+      forwardingTimeouts:
+        idleConnTimeout: 4s
   services:
     pryv-api:
       loadBalancer:
+        serversTransport: pryv-upstream
         servers:
           - url: http://127.0.0.1:3000
     pryv-hfs:
       loadBalancer:
+        serversTransport: pryv-upstream
         # Host is the worker's own address (see the HFS note for nginx).
         passHostHeader: false
         servers:
@@ -1194,6 +1216,9 @@ core.example.com {
 		# (see the HFS note for nginx).
 		reverse_proxy 127.0.0.1:4000 {
 			header_up Host 127.0.0.1:4000
+			transport http {
+				keepalive 4s
+			}
 		}
 	}
 	handle {
@@ -1203,8 +1228,13 @@ core.example.com {
 			# 2.0.0-rc.89 the core itself also closes a connection idle either
 			# way for http.responseIdleTimeoutMs (120 s): keep both above
 			# your slowest call.
+			# keepalive: close an idle connection to Pryv before Pryv does
+			# (Node: after 6 s), or a request sent on a connection Pryv is
+			# closing gets a 502 now and then (seen with nginx; this setting
+			# not part of the verified setup).
 			transport http {
 				read_timeout 120s
+				keepalive 4s
 			}
 		}
 	}
