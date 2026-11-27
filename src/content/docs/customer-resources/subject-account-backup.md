@@ -70,7 +70,7 @@ The bundle is the subject's whole account: **treat downloaded bundles as confide
 
 ## MFA-enabled subjects
 
-Support for subjects with multi-factor authentication (MFA) active arrives with the library's next release (CLI) and the webapp's next gh-pages release; releases up to now stop at the MFA challenge, and the current webapp sends such subjects to the CLI, which does not complete the challenge either.
+Subjects with multi-factor authentication (MFA) active are supported from library v0.10.0 (CLI) and webapp v0.3.0 (released 2026-11-27): after the password, the tool asks for the TOTP or SMS code. Earlier releases stop at the MFA challenge.
 
 With those releases, both flavors complete the sign-in: after the password they ask for the code from the subject's authenticator app (TOTP) or the code sent by SMS. For SMS, the CLI sends a new code when the line is left empty, and the webapp has a **Send a new code** button. A wrong code can be typed again, up to 3 times.
 
