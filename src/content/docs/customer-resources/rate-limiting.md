@@ -347,6 +347,9 @@ server {
     # ---------- Admin routes ----------
     location ~* ^/(?:system|reg/admin)(?:/|$) {
         limit_req zone=pryv_admin burst=20 nodelay;
+        # Some admin calls run long (a forced certificate renewal waits for the
+        # ACME order): above the 60 s default, nginx would answer 504.
+        proxy_read_timeout 300s;
         proxy_pass http://pryv_api;
     }
 
