@@ -25,6 +25,8 @@ From open-pryv.io 2.0.0-rc.90 the creation of an account (a registration, `syste
 
 From open-pryv.io 2.0.0-rc.91 the deletion and the restore of an account are recorded in its own trail too, as `account.deleted` (only where the trail is kept after the erasure) and `account.restored`, of the same type: see [Deleted and restored accounts](#deleted-and-restored-accounts). **A filter that lists methods one by one does not include `account.deleted` and `account.restored` until you add them; `account.all` and `all` do.**
 
+From the release after open-pryv.io 2.0.0-rc.91 each core also stores the records of the administration acts it serves (setup, administrator sessions, roles, configuration changes, account administration) in its own **platform trail**, in the same audit storage: see [Administration audit trail](/customer-resources/admin-audit/).
+
 ### Records that could not be written
 
 From 2.0.0-rc.90 the core also counts them, so that you can alert without reading logs:

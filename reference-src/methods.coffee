@@ -2367,6 +2367,80 @@ module.exports = exports =
                      """
       ]
       examples: []
+
+    ,
+
+      id: "oauth2.clientsValidation"
+      type: "method"
+      trustedOnly: true
+      title: "Current validation of granted OAuth apps"
+      http: "POST /oauth2/clients/validation"
+      httpOnly: true
+      description: """
+                   From the release after open-pryv.io 2.0.0-rc.91. For an account app's list of connected apps: for each OAuth app the account granted, the badge the consent screen would show now (see [OAuth control levels](/customer-resources/oauth-app-review/#validation-levels-and-badges)), and whether the app is still served. An app may have lost its review, or been suspended, since the consent stamped its level on the grant (`clientData.oauth.client.validation.level`).
+
+                   Called with the account's **personal** token, in the `Authorization` header or as `userToken` in the body; `username` is always in the body. An app or shared access, and a token obtained through [account delegation](/guides/account-delegation/), are refused. Served by the core that hosts the account. Same CORS as the rest of the OAuth endpoints. Not audited; answered with `Cache-Control: no-store`.
+
+                   Errors follow the OAuth form (`{ error, error_description }`), not the API's error object.
+
+                   An app counts as granted only through the stamps the server writes on the account's accesses (a consent grant's `grantOf`, or an `app` session `oauth:<id>` carrying its `dataGrantId`), never through an access name the account chose. Client ids the account did not grant, unknown ids and removed clients are all left out of the answer, with nothing telling them apart.
+                   """
+      params:
+        properties: [
+          key: "username"
+          type: "string"
+          description: """
+                       The account's username.
+                       """
+        ,
+          key: "clientIds"
+          type: "array of strings"
+          description: """
+                       The OAuth client ids to look up (at most 50), as stored on the accesses (`oauth-grant:<clientId>`, `oauth:<clientId>`).
+                       """
+        ,
+          key: "userToken"
+          type: "string"
+          optional: true
+          description: """
+                       The account's personal token, when it is not in the `Authorization` header.
+                       """
+        ]
+      result:
+        http: "200 OK"
+        properties: [
+          key: "clients"
+          type: "object"
+          description: """
+                       One entry per granted client id: the `validation` block of the consent offer, `{ level, publisher?, validatedAt? }` (`level`: `appValidated`, `publisherValidated` or `nonValidated`; `publisher`: `{ name?, validated }`), plus `served`: `false` when the client is refused now (suspended, under review, not served on this core, a developer's client while the platform's registration mode is `curated`, or its level's policy is `refuse`).
+                       """
+        ]
+      errors: [
+        key: "invalid_request"
+        http: "400"
+        description: """
+                     `clientIds` is not an array of 1 to 256-character ids, or lists more than 50.
+                     """
+      ,
+        key: "invalid_request"
+        http: "401"
+        description: """
+                     No `username` or no token, or they do not resolve to a valid session of the account (an expired personal token included).
+                     """
+      ,
+        key: "access_denied"
+        http: "403"
+        description: """
+                     The token is not a personal token of the account (an app or shared access, a delegated token).
+                     """
+      ,
+        key: "wrong_core"
+        http: "421"
+        description: """
+                     The account is hosted on another core: send the request to the URL given in `coreUrl`.
+                     """
+      ]
+      examples: []
     ]
   ,
 

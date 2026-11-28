@@ -7,8 +7,7 @@
 import Default from '@astrojs/starlight/components/Sidebar.astro';
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import ApiScopeSwitch from './ApiScopeSwitch.astro';
-import { userSections, systemSection } from '../reference-data';
-import { adminSections } from '../reference-data/admin';
+import { userSections, systemSection, adminSection } from '../reference-data';
 import { headingSlug } from '../reference-data/slug';
 import { isVisible } from '../reference-data/render';
 import type { ComponentProps } from 'astro/types';
@@ -27,7 +26,7 @@ const REF: Record<string, { sections: Section[]; flavor: ReferenceFlavor }> = {
 	'/reference-light': { sections: userSections, flavor: { source: 'default', showTrustedOnlyContent: false } },
 	'/reference-preview': { sections: userSections, flavor: { source: 'default', showTrustedOnlyContent: true, showPreviewOnlyContent: true } },
 	'/reference-system': { sections: systemSection.sections ?? [], flavor: { source: 'system', showTrustedOnlyContent: true } },
-	'/reference-admin': { sections: adminSections, flavor: { source: 'admin' } },
+	'/reference-admin': { sections: adminSection.sections ?? [], flavor: { source: 'admin' } },
 };
 const ref = REF[path];
 

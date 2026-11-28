@@ -72,8 +72,7 @@ module.exports = exports =
 
                   Admin api calls are tagged with <span class="admin-tag"><span title="Admin Only" class="label">A</span></span>
 
-                  They must carry the admin key in the HTTP `Authorization` header.
-                  This key is the platform setting `auth.adminAccessKey`. A call without it, or with another value, answers `404 unknown-resource`, as if the route did not exist.
+                  They must carry the admin key in the HTTP `Authorization` header (the platform setting `auth.adminAccessKey`), or, from open-pryv.io 2.0.0-rc.91, an administrator session (`Authorization: AdminSession <token>`) holding the method's permission, given below for the core methods. A call without a valid credential answers `404 unknown-resource`, as if the route did not exist. Credentials, break-glass scope and step-up are described in the [Admin API reference](/reference-admin/#authentication); roles and permissions in [Roles, scopes and local policy](/customer-resources/admin-roles/).
                   """
       sections: [
         id: "users.get"
@@ -83,10 +82,37 @@ module.exports = exports =
         httpOnly: true
         server: "core"
         description: """
-                    Get the list of all users registered on the platform.
+                    Get the list of all users registered on the platform. An administrator session needs `users:read`. From the release after 2.0.0-rc.91 the list can be read in pages, and the call is recorded in the core's [platform trail](/customer-resources/admin-audit/) (a `search` as its keyed hash).
                     """
         params:
-          properties: []
+          properties: [
+            key: "limit"
+            type: "number"
+            optional: true
+            http:
+              text: "query parameter"
+            description: """
+                        From the release after 2.0.0-rc.91: the page size, 1 to 1000. Without `limit`, `skip` and `search`, every user, as before.
+                        """
+          ,
+            key: "skip"
+            type: "number"
+            optional: true
+            http:
+              text: "query parameter"
+            description: """
+                        From the release after 2.0.0-rc.91: the users to skip.
+                        """
+          ,
+            key: "search"
+            type: "string"
+            optional: true
+            http:
+              text: "query parameter"
+            description: """
+                        From the release after 2.0.0-rc.91: a username prefix, at most 64 characters.
+                        """
+          ]
         result:
           http: "200 OK"
           properties: [
@@ -94,6 +120,13 @@ module.exports = exports =
             type: "array of objects"
             description: """
                         One object per user: `username`, `id`, `email` and `language`, plus `core`, the URL of the core that hosts the account, on a multi-core platform.
+                        """
+          ,
+            key: "total"
+            type: "number"
+            optional: true
+            description: """
+                        With `limit`, `skip` or `search`: the number of users matching `search` (all of them without it), before `skip` and `limit`.
                         """
           ]
         examples: [
@@ -244,7 +277,7 @@ module.exports = exports =
         title: "External ids"
         adminOnly: true
         description: """
-                    Namespaces of [external ids](/customer-resources/external-ids/) and the release of an id claimed by the wrong account. Served by every core under `/system/admin/` (not by the register server), with the admin key. The guide explains the model, the blinding and the procedures.
+                    Namespaces of [external ids](/customer-resources/external-ids/) and the release of an id claimed by the wrong account. Served by every core under `/system/admin/` (not by the register server), with the admin key or an administrator session holding `extId:read` (the reads), `extId:write` (namespace changes) or `extId:release` (a release). The guide explains the model, the blinding and the procedures.
                     """
         sections: [
           id: "extIdNamespaces.list"
@@ -520,7 +553,7 @@ module.exports = exports =
         title: "Account auto-deletion"
         adminOnly: true
         description: """
-                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from open-pryv.io 2.0.0-rc.90). Served under `/system/admin/` with the admin key, by the core that hosts the account.
+                    Support actions on an account's [auto-deletion](/customer-resources/account-auto-deletion/) schedule (from open-pryv.io 2.0.0-rc.90). Served under `/system/admin/` with the admin key or an administrator session holding `autoDeletion:clear`, by the core that hosts the account.
                     """
         sections: [
           id: "autoDeletion.reset"
@@ -652,7 +685,7 @@ module.exports = exports =
         title: "Erasures"
         adminOnly: true
         description: """
-                    The [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger): one durable record per erased account, kept in the platform database after the account is gone (since open-pryv.io 2.0.0-rc.89). A record names the account only by keyed hashes of its user id and username. Served by every core under `/system/admin/` with the admin key; any core answers for the whole platform. Both calls are reads, audited without a user. There is no delete call: records leave only after `accountErasure.ledger.retentionDays`.
+                    The [erasure ledger](/customer-resources/backup/#proof-of-erasure-the-erasure-ledger): one durable record per erased account, kept in the platform database after the account is gone (since open-pryv.io 2.0.0-rc.89). A record names the account only by keyed hashes of its user id and username. Served by every core under `/system/admin/` with the admin key or an administrator session holding `erasures:read`; any core answers for the whole platform. Both calls are reads, audited without a user. There is no delete call: records leave only after `accountErasure.ledger.retentionDays`.
                     """
         sections: [
           id: "erasures.list"
@@ -833,7 +866,7 @@ module.exports = exports =
         httpOnly: true
         server: "core"
         description: """
-                    The configuration the answering core runs with (from open-pryv.io 2.0.0-rc.90), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`).
+                    The configuration the answering core runs with (from open-pryv.io 2.0.0-rc.90), one entry per key with the layer that set it, secrets redacted. For a record of processing activities or an impact assessment (the technical measures in force), a configuration baseline, or comparing cores. It shows configured values, not that a control works. Per core and per API worker: call each core (see `GET /system/admin/cores`); values only the master process sets are not in it. Audited without a user, logged, never cached (`Cache-Control: no-store`). An administrator session needs `configEffective:read`. From the release after 2.0.0-rc.91, a value held in the [platform store](/customer-resources/platform-configuration/) is reported with source `platform-db`.
 
                     **Entries.** `keys` maps each dotted path (`http.port`, `oauth.signingKeys.0.kid`; a `.` inside a name is written `\\.`) to `{ value, source, scope }`, sorted. `source` is the layer that set the value: `default-file`, `base-file` (the `--config` or `NODE_ENV` file), `override-file`, `bootstrap-file`, `env`, `argv`, `derived` (computed at boot), `service-info`, `shipped-plugin`, `built-in`, or `platform-db` for an observability value a platform setting decides. `scope` is `platform` when every core of the platform is expected to hold the same value, `core` when it differs by design (host, ports, paths, local credentials, local tuning). Only the sections of the shipped `default-config.yml` (plus `service`, `serviceInfoUrl`, `accessState`) are reported: other environment variables and command-line flags never are, and unknown top-level keys of the configuration files are listed by name in `configMeta.unknownTopLevelKeys`.
 

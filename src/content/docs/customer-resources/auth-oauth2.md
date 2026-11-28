@@ -191,7 +191,9 @@ Operators: the configuration (`allowList` with `allowedHosts` is the cautious se
 
 App accounts are **curated**: an operator registers your application on the platform (dynamic client registration is not offered; on a platform that accepts them, a [client metadata document](#client-metadata-documents) can stand in for a registration). To get a `client_id`, redirect URIs and (for confidential clients) a `client_secret`, contact the operator of the platform you are integrating with. Redirect URIs are matched **exactly**, with one carve-out (RFC 8252 § 7.3): on plain `http`, the loopback hosts `127.0.0.1`, `[::1]` and `localhost` (the latter since 2.0.0-rc.71) may vary the port, so a native or CLI app listening on an ephemeral port registers `http://127.0.0.1/callback`, `http://[::1]/callback` or `http://localhost/callback`. The three host forms are not interchangeable: register each loopback form your client may send.
 
-Operators: registration and rotation are done with the `bin/oauth-client.js` CLI — see the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md).
+Operators: registration and rotation are done with the `bin/oauth-client.js` CLI: see the [OAuth2 operator guide](https://github.com/pryv/open-pryv.io/blob/master/docs/oauth2.md).
+
+**Validation level.** From open-pryv.io 2.0.0-rc.91 every registry client has a validation level the core decides (`appValidated` for a client the operator registered, `publisherValidated` or `nonValidated` otherwise), answered to the consent screen in `client.validation` of `POST /oauth2/authorize/offer` and shown as a badge; the operator can restrict what a client of each level may do. An account app lists the current level of the apps an account granted with [`POST /oauth2/clients/validation`](/reference/#methods-accesses-oauth2-clientsValidation) (from the release after 2.0.0-rc.91). Operators: [OAuth control levels and app review](/customer-resources/oauth-app-review/).
 
 ## Using lib-js
 

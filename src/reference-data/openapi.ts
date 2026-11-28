@@ -650,7 +650,7 @@ export function buildOpenApi (source: OpenApiSource, refData: ApiReference, opts
 				`Generated from the [API reference](${ctx.pageUrl}) at every documentation build: do not edit by hand. The reference is the authoritative description; report differences at ${ISSUES_URL}.`,
 				source === 'default'
 					? 'Authorization: send the access token in the `Authorization` header (preferred) or as the `auth` query parameter. A third form, the token as basic-auth user in the URL (`https://{token}@{username}.{domain}/`), cannot be expressed in OpenAPI.'
-					: 'Methods flagged admin-only take the platform admin key in the `Authorization` header.',
+					: 'Methods flagged admin-only take the platform admin key, or an administrator session (`AdminSession <token>`, from open-pryv.io 2.0.0-rc.91), in the `Authorization` header. See the Admin API reference: https://pryv.github.io/reference-admin/#authentication',
 			].join('\n\n'),
 			contact: { url: ISSUES_URL },
 			license: { name: 'MIT', url: 'https://opensource.org/licenses/MIT' },
@@ -675,7 +675,7 @@ export function buildOpenApi (source: OpenApiSource, refData: ApiReference, opts
 					tokenHeader: { type: 'apiKey', in: 'header', name: 'Authorization', description: 'Access token.' },
 					tokenQuery: { type: 'apiKey', in: 'query', name: 'auth', description: 'Access token as a query parameter.' },
 				}
-				: { adminKey: { type: 'apiKey', in: 'header', name: 'Authorization', description: 'Platform admin key.' } },
+				: { adminKey: { type: 'apiKey', in: 'header', name: 'Authorization', description: 'Platform admin key, or `AdminSession <token>` (an administrator session).' } },
 		},
 	};
 	pruneUnusedSchemas(doc);

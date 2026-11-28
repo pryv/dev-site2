@@ -8,7 +8,8 @@ exposes a typed surface (`apiReference`, `version`, `userSections`, `systemSecti
 ## Shape
 
 `{ sections, version, system, admin }`. `sections` is the user API (basics, methods,
-data structure); `system` and `admin` are the system and admin API surfaces. Every node
+data structure); `system` and `admin` are the system and admin API surfaces (`admin`
+renders `/reference-admin/`: the `/system` administration routes). Every node
 is a `Section`; a method is a `Section` with `type: "method"` carrying `http`, `server`,
 `params`, `result`, `errors` and `examples`. See `types.ts`.
 

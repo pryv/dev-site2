@@ -21,7 +21,7 @@ const checkDist = process.argv.includes('--dist');
 
 // Reference methods documented only as prose HTTP forms (the app authorization flow).
 const TEXT_HTTP_ALLOWED = new Set(['auth-request', 'poll-request']);
-// The admin reference is not published as OpenAPI (it describes the previous admin panel).
+// The admin reference (/reference-admin/) is not published as OpenAPI.
 const PUBLISHED_FILES = ['api.yaml', 'api_open.yaml', 'api_system.yaml'];
 
 const failures = [];

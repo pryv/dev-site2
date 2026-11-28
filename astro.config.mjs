@@ -204,6 +204,11 @@ export default defineConfig({
 					items: [
 						{ slug: 'customer-resources' },
 						{ slug: 'customer-resources/pryv.io-setup' },
+						{ slug: 'customer-resources/administrators' },
+						{ slug: 'customer-resources/admin-roles' },
+						{ slug: 'customer-resources/admin-audit' },
+						{ slug: 'customer-resources/platform-configuration' },
+						{ slug: 'customer-resources/oauth-app-review' },
 						{ slug: 'customer-resources/dns-config' },
 						{ slug: 'customer-resources/ssl-certificate' },
 						{ slug: 'customer-resources/emails-setup' },

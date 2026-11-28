@@ -1,5 +1,5 @@
 ---
 import ReferencePage from '../components/ReferencePage.astro';
-import { adminSections } from '../reference-data/admin';
+import { adminSection } from '../reference-data';
 ---
-<ReferencePage title="Admin API" description="Pryv.io Admin API reference: platform administration through the /system/admin endpoints." rootSections={adminSections} flavor={{ source: 'admin' }} />
+<ReferencePage title="Admin API" description="Pryv.io Admin API reference: platform administration through the /system endpoints: setup, administrator sessions, roles, audit, platform configuration, OAuth app review." rootSections={adminSection.sections ?? []} flavor={{ source: 'admin' }} />
