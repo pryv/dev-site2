@@ -1227,8 +1227,8 @@ core.example.com {
 	handle {
 		reverse_proxy 127.0.0.1:3000 {
 			# Idle time between two reads from Pryv; large event queries
-			# stream, which keeps the timer fed. From the release after
-			# 2.0.0-rc.89 the core itself also closes a connection idle either
+			# stream, which keeps the timer fed. From 2.0.0-rc.90 the core
+			# itself also closes a connection idle either
 			# way for http.responseIdleTimeoutMs (120 s): keep both above
 			# your slowest call.
 			# keepalive: close an idle connection to Pryv before Pryv does
@@ -1297,7 +1297,7 @@ On the reserved hosts of a username-in-host deployment (`reg.`, `access.`, `mfa.
 - Keep `letsEncrypt.enabled: true`. The renewer writes the certificate to `var-pryv/tls/<hostname>/fullchain.pem` and `privkey.pem` (under `letsEncrypt.tlsDir`); point `ssl_certificate` and `ssl_certificate_key` there, and set `letsEncrypt.onRotateScript` to a script running `nginx -t && nginx -s reload` (see [SSL certificate](/customer-resources/ssl-certificate/#strategy-a--built-in-auto-renewal-recommended)).
 - With HAProxy, `crt` names one file holding the chain followed by the key: have the `onRotateScript` write it (`cat fullchain.pem privkey.pem > /etc/haproxy/certs/core.example.com.pem`), then run `haproxy -c -f /etc/haproxy/haproxy.cfg && systemctl reload haproxy`.
 - Traefik and Caddy can obtain and renew certificates themselves instead (Traefik's ACME certificate resolvers; Caddy's automatic HTTPS, when the site block has no `tls` line), which needs ports 80 and 443 to reach the proxy for HTTP-01: then leave `letsEncrypt.enabled: false` in Pryv. Pointing them at the files of Pryv's renewer works as for nginx (Traefik's `tls.certificates`, Caddy's `tls` line, an `onRotateScript` that reloads the proxy), but was not part of the verified setup.
-- With **DNS-01** (wildcard, username-in-host deployments) nothing else changes, except who holds port 80: from the open-pryv.io release after 2.0.0-rc.91 on, Pryv leaves port 80 free with DNS-01 and the redirect server block works as shown. Up to 2.0.0-rc.91, Pryv binds port 80 whenever `letsEncrypt.enabled` is true, whatever the challenge: drop the redirect server block there (with HAProxy, the `bind :80` line), or the proxy fails to start whenever Pryv starts first.
+- With **DNS-01** (wildcard, username-in-host deployments) nothing else changes, except who holds port 80: from open-pryv.io 2.0.0-rc.92 on, Pryv leaves port 80 free with DNS-01 and the redirect server block works as shown. Up to 2.0.0-rc.91, Pryv binds port 80 whenever `letsEncrypt.enabled` is true, whatever the challenge: drop the redirect server block there (with HAProxy, the `bind :80` line), or the proxy fails to start whenever Pryv starts first.
 - With **HTTP-01** (single host name), Pryv answers the challenge on its own listener bound to port 80. nginx must then not listen on port 80: drop the redirect server block (with HAProxy, the `bind :80` line). Pryv's port-80 listener answers 404 to everything but the challenge, so plain-HTTP clients get no redirect to HTTPS. If you need that redirect, issue the certificate outside Pryv instead (certbot, or an ACME-capable proxy) and leave `letsEncrypt.enabled: false`.
 
 **Pryv terminates TLS itself** (`http.port: 443` with `http.ssl`, often with the built-in renewer). An HTTP-aware proxy cannot sit in front without taking over TLS, because it cannot read paths or headers inside a connection it does not decrypt. Your options:

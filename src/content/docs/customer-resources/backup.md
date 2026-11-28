@@ -113,7 +113,7 @@ Into an install that already has conflicting users, pick one:
 
 With `audit.onUserDelete: keep`, from 2.0.0-rc.91, `--overwrite` does not clear the account's audit trail: see [The audit trail of a restored account](#the-audit-trail-of-a-restored-account).
 
-On a running core, from the release after 2.0.0-rc.91, the restore tells the API workers to drop their cached streams and accesses of every account it wrote, so reads see the restored data at once (output line "Caches: the running core's workers were told ..."). When it cannot reach them it prints a warning: restart the API, or the workers may use the former streams and accesses for up to `caching:accessMaxAgeSeconds`. Earlier releases send nothing: restore an account while it is idle, or restart the API after the restore.
+On a running core, from 2.0.0-rc.92, the restore tells the API workers to drop their cached streams and accesses of every account it wrote, so reads see the restored data at once (output line "Caches: the running core's workers were told ..."). When it cannot reach them it prints a warning: restart the API, or the workers may use the former streams and accesses for up to `caching:accessMaxAgeSeconds`. Earlier releases send nothing: restore an account while it is idle, or restart the API after the restore.
 
 Restore auto-detects an encrypted backup (from its `encryption.json`) and asks for the matching secret:
 
