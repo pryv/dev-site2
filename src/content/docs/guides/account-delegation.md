@@ -110,12 +110,14 @@ Refusing is the delegate's unilateral decline of a pending invite; it is not a d
 ```js
 // The controlled account sees who controls it:
 await principalConn.api([{ method: 'delegations.listDelegates' }]);
-// { delegates: [ { relId, delegate: { username, hostSlug }, status, requestedAt, activatedAt, lastTokenIssuedAt } ] }
+// { delegates: [ { relId, delegate: { username, hostSlug }, status, requestedAt, activatedAt, lastTokenIssuedAt, origin } ] }
 
 // The delegate sees the accounts it manages:
 await caregiverConn.api([{ method: 'delegations.listControlled' }]);
-// { controlled: [ { relId, controlled: { username, hostSlug }, status, requestedAt, activatedAt } ] }
+// { controlled: [ { relId, controlled: { username, hostSlug }, status, requestedAt, activatedAt, origin } ] }
 ```
+
+`origin` (from the open-pryv.io release after 2.0.0-rc.92) tells how the relationship was made: `created` when the delegate created the account ([create a controlled account](#create-a-controlled-account)), `attached` when the account invited the delegate, whatever the `status`. It is read-only and set by the platform; a relationship made by an earlier release gets the value from its history.
 
 A pending invite can be withdrawn by the controlled account with `delegations.cancelInvite` (this is subject to the same genuine-login rule as detach, below).
 
@@ -507,8 +509,11 @@ Lists the accounts that control this account. Token values, control endpoints, a
 
 ```json
 { "delegates": [ { "relId": "…", "delegate": { "username": "carla-care", "hostSlug": "example-core" },
-  "status": "active", "requestedAt": 1789000000, "activatedAt": 1789000100, "lastTokenIssuedAt": 1789000500 } ] }
+  "status": "active", "requestedAt": 1789000000, "activatedAt": 1789000100, "lastTokenIssuedAt": 1789000500,
+  "origin": "attached" } ] }
 ```
+
+`origin` is `created` (the delegate created this account) or `attached` (this account invited the delegate), from the open-pryv.io release after 2.0.0-rc.92.
 
 ### List accounts I manage
 
@@ -525,8 +530,10 @@ Lists the accounts this account controls. A row's `status` may be `invite`, `act
 
 ```json
 { "controlled": [ { "relId": "…", "controlled": { "username": "kim-doe", "hostSlug": "example-core" },
-  "status": "active", "requestedAt": 1789000000, "activatedAt": 1789000100 } ] }
+  "status": "active", "requestedAt": 1789000000, "activatedAt": 1789000100, "origin": "created" } ] }
 ```
+
+`origin` is `created` (this account created the controlled account) or `attached` (the controlled account invited this account), from the open-pryv.io release after 2.0.0-rc.92.
 
 ### Get a delegate token
 

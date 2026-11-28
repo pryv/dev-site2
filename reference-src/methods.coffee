@@ -4765,7 +4765,8 @@ module.exports = exports =
           key: "delegates"
           type: "array of objects"
           description: """
-                       One entry per delegate: `relId`, `delegate` (`{ username, hostSlug }`), `status` (`"invite"` | `"active"` | `"stale"`), `requestedAt`, `activatedAt` and `lastTokenIssuedAt`.
+                       One entry per delegate: `relId`, `delegate` (`{ username, hostSlug }`), `status` (`"invite"` | `"active"` | `"stale"`), `requestedAt`, `activatedAt`, `lastTokenIssuedAt` and `origin`.
+                       `origin` (from the open-pryv.io release after 2.0.0-rc.92) tells how the relationship was made: `"created"` (the delegate created this account, see [create a controlled account](##{_getDocId("delegations", "delegations.createAccount")})) or `"attached"` (this account invited an existing delegate, whatever the relationship's `status`). It is read-only, set by the platform when the relationship is made; relationships made by an earlier release get the value from their history.
                        """
         ]
       examples: [
@@ -4780,6 +4781,7 @@ module.exports = exports =
             requestedAt: 1631000000
             activatedAt: 1631000500
             lastTokenIssuedAt: 1631004000
+            origin: "attached"
           ]
       ]
 
@@ -4799,7 +4801,8 @@ module.exports = exports =
           key: "controlled"
           type: "array of objects"
           description: """
-                       One entry per controlled account: `relId`, `controlled` (`{ username, hostSlug }`), `status` (`"invite"` | `"active"` | `"stale"`), `requestedAt` and `activatedAt`.
+                       One entry per controlled account: `relId`, `controlled` (`{ username, hostSlug }`), `status` (`"invite"` | `"active"` | `"stale"`), `requestedAt`, `activatedAt` and `origin`.
+                       `origin` (from the open-pryv.io release after 2.0.0-rc.92) tells how the relationship was made: `"created"` (this account created the controlled account, see [create a controlled account](##{_getDocId("delegations", "delegations.createAccount")})) or `"attached"` (the controlled account invited this account, whatever the relationship's `status`). It is read-only, set by the platform when the relationship is made; relationships made by an earlier release get the value from their history.
                        """
         ]
       examples: [
@@ -4813,6 +4816,7 @@ module.exports = exports =
             status: "active"
             requestedAt: 1631000000
             activatedAt: 1631000500
+            origin: "attached"
           ]
       ]
 

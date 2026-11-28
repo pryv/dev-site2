@@ -116,6 +116,8 @@ PUT /:username/account
 
 Adding an address another account already holds answers `409 item-already-exists`. The refusals above answer `400 invalid-operation`, with `data.email` and, for the cooldown, `data.retryAfterSeconds`.
 
+To show the wait before a resend, for example on a page reloaded after an `add`, read `verificationCooldownUntil` on the address's entry in [the account](#reading-the-status-back) (from the open-pryv.io release after 2.0.0-rc.92): the [timestamp](/reference/#data-structure-timestamp) until which a resend of that address is refused, or `null` when no cooldown runs (no mail sent yet, the cooldown is over, the address is verified, the last mail failed, or the operator switched the cooldown off). Compute the remaining time against the server's clock, for example `verificationCooldownUntil - meta.serverTime` of the same answer, rather than the device's clock, which may differ. The field reflects this per-address cooldown only, not the account's daily budget of addresses, the mail budgets of the platform, or every other reason a mail may be held back: a resend can still be refused while it reads `null`, so a refused resend's `data.retryAfterSeconds`, when present, stays the authoritative wait.
+
 ### The verification page
 
 The mailed link points at the page the operator configured in `auth.emailVerificationPageURL`, which is a page of **your** application. It arrives with two query parameters:
@@ -159,14 +161,16 @@ Notes for that page:
         "primary": true,
         "status": "verified",
         "verifiedAt": 1735682400,
-        "verificationMethod": "email-code"
+        "verificationMethod": "email-code",
+        "verificationCooldownUntil": null
       },
       {
         "value": "alice.work@example.com",
         "primary": false,
         "status": "pending",
         "verifiedAt": null,
-        "verificationMethod": null
+        "verificationMethod": null,
+        "verificationCooldownUntil": 1735686300
       }
     ]
   }
@@ -185,6 +189,8 @@ Notes for that page:
 | `null` | no | data predating this field |
 
 Accounts that never used the feature report their single primary address as one entry, so the array is always safe to read.
+
+`verificationCooldownUntil` (from the open-pryv.io release after 2.0.0-rc.92; `account.update` answers it too) is the time until which a resend of that address is refused, `null` when none is: see [resending](#verifying-addresses-on-an-existing-account).
 
 An account holds at most `account.maxEmails` addresses (an operator setting, with a hard ceiling of 20), and exactly one is primary. The singular `email` field always mirrors the primary one.
 
